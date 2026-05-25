@@ -29,6 +29,16 @@ class ReferenceController extends Controller
         ]);
     }
 
+    public function banks(): JsonResponse
+    {
+        return response()->json([
+            'data' => collect(config('banks.banks', []))->map(fn ($name, $code) => [
+                'code' => $code,
+                'name' => $name,
+            ])->values(),
+        ]);
+    }
+
     public function amphurs(): JsonResponse
     {
         return response()->json([
@@ -80,8 +90,33 @@ class ReferenceController extends Controller
             ],
             'by_channel' => DB::table('target_current_status as tcs')
                 ->leftJoin('channels', 'channels.id', '=', 'tcs.channel_id')
+                ->whereNotNull('channels.name')
                 ->groupBy('channels.name')
                 ->pluck(DB::raw('COUNT(*)'), 'channels.name'),
+            'by_bank'    => $this->byBankBreakdown(),
         ]);
+    }
+
+    private function byBankBreakdown(): array
+    {
+        $bankCh = \App\Models\Channel::where('code', 'bank')->first();
+        if (!$bankCh) return [];
+
+        $counts = DB::table('target_current_status')
+            ->where('channel_id', $bankCh->id)
+            ->whereNotNull('sub_channel')
+            ->groupBy('sub_channel')
+            ->pluck(DB::raw('COUNT(*)'), 'sub_channel');
+
+        $banks = config('banks.banks', []);
+        $result = [];
+        foreach ($banks as $code => $name) {
+            $result[] = [
+                'code'  => $code,
+                'name'  => $name,
+                'count' => (int) ($counts[$code] ?? 0),
+            ];
+        }
+        return $result;
     }
 }

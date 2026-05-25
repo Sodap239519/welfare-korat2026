@@ -12,7 +12,7 @@ class TargetCurrentStatus extends Model
     public $incrementing = false;
     public $timestamps = false;
 
-    protected $fillable = ['target_id', 'status_code', 'channel_id', 'note', 'updated_by', 'updated_at'];
+    protected $fillable = ['target_id', 'status_code', 'channel_id', 'sub_channel', 'note', 'updated_by', 'updated_at'];
     protected $casts = ['updated_at' => 'datetime'];
 
     public function target(): BelongsTo  { return $this->belongsTo(Target::class); }

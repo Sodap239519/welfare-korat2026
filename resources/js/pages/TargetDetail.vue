@@ -12,6 +12,7 @@ const id = Number(route.params.id);
 const target = ref(null);
 const statuses = ref([]);
 const channels = ref([]);
+const banks = ref([]);
 const saving = ref(false);
 const errors = ref({});
 const flashOk = ref('');
@@ -19,22 +20,28 @@ const flashOk = ref('');
 const form = reactive({
   status_code: '',
   channel_id: '',
+  sub_channel: '',
   note: '',
 });
 
 const currentStatusObj = () => statuses.value.find(s => s.code === form.status_code);
+const selectedChannel = () => channels.value.find(c => c.id === Number(form.channel_id));
+const needsBank = () => selectedChannel()?.code === 'bank';
 
 async function load() {
-  const [t, s, c] = await Promise.all([
+  const [t, s, c, b] = await Promise.all([
     axios.get(`/api/targets/${id}`),
     axios.get('/api/ref/statuses'),
     axios.get('/api/ref/channels'),
+    axios.get('/api/ref/banks'),
   ]);
   target.value = t.data;
   statuses.value = s.data.data;
   channels.value = c.data.data;
+  banks.value = b.data.data;
   form.status_code = t.data.current?.status_code || '';
   form.channel_id = t.data.current?.channel_id || '';
+  form.sub_channel = t.data.current?.sub_channel || '';
   form.note = t.data.current?.note || '';
 }
 
@@ -48,6 +55,7 @@ async function submit() {
     const payload = {
       status_code: form.status_code,
       channel_id: form.channel_id || null,
+      sub_channel: needsBank() ? (form.sub_channel || null) : null,
       note: form.note || null,
     };
     const { data } = await axios.patch(`/api/targets/${id}/status`, payload);
@@ -127,9 +135,12 @@ function initials(name) {
                 <div v-if="target.current.updated_by">โดย {{ target.current.updated_by }}</div>
               </div>
             </div>
-            <div v-if="target.current?.note" class="card-tint-blue text-xs p-3">
-              <i class="fi-rr-info"></i> {{ target.current.note }}
-              <span v-if="target.current.channel"> · ช่องทาง: <strong>{{ target.current.channel }}</strong></span>
+            <div v-if="target.current?.note || target.current?.channel" class="card-tint-blue text-xs p-3">
+              <span v-if="target.current.note"><i class="fi-rr-info"></i> {{ target.current.note }}</span>
+              <div v-if="target.current.channel" class="mt-1">
+                <i class="fi-rr-route"></i> ช่องทาง: <strong>{{ target.current.channel }}</strong>
+                <span v-if="target.current.sub_channel_label"> ({{ target.current.sub_channel_label }})</span>
+              </div>
             </div>
           </div>
 
@@ -168,6 +179,22 @@ function initials(name) {
                   </label>
                 </div>
                 <div v-if="errors.channel_id" class="text-[11px] text-red-600 mt-1">{{ errors.channel_id[0] }}</div>
+              </div>
+
+              <!-- Sub-channel: เลือกธนาคาร เมื่อช่องทาง = ธนาคาร -->
+              <div v-if="needsBank()" class="card-tint-blue p-3 rounded-xl">
+                <label class="block text-xs font-medium mb-2">
+                  <i class="fi-rr-bank"></i> เลือกธนาคารที่ใช้ลงทะเบียน <span class="text-red-600">*</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label v-for="b in banks" :key="b.code"
+                         :class="['flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer hover:bg-white/60 dark:hover:bg-slate-800/50',
+                                  form.sub_channel === b.code ? 'border-2 border-blue-600 bg-white dark:bg-slate-800' : 'border-blue-200 dark:border-slate-700 bg-white/40']">
+                    <input type="radio" v-model="form.sub_channel" :value="b.code" class="text-blue-600">
+                    <span class="text-sm font-medium">{{ b.name }}</span>
+                  </label>
+                </div>
+                <div v-if="errors.sub_channel" class="text-[11px] text-red-600 mt-2">{{ errors.sub_channel[0] }}</div>
               </div>
 
               <div>
@@ -226,7 +253,7 @@ function initials(name) {
                   </div>
                   <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     <span v-if="l.user">โดย {{ l.user }}</span>
-                    <span v-if="l.channel"> · ช่องทาง {{ l.channel }}</span>
+                    <span v-if="l.channel"> · {{ l.channel }}<span v-if="l.sub_channel_label"> ({{ l.sub_channel_label }})</span></span>
                   </div>
                   <div v-if="l.note" class="text-xs text-slate-600 dark:text-slate-300 mt-1">{{ l.note }}</div>
                 </div>

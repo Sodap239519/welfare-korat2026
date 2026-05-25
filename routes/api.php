@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Lookups
     Route::get('ref/statuses',         [ReferenceController::class, 'statuses']);
     Route::get('ref/channels',         [ReferenceController::class, 'channels']);
+    Route::get('ref/banks',            [ReferenceController::class, 'banks']);
     Route::get('ref/amphurs',          [ReferenceController::class, 'amphurs']);
     Route::get('ref/tambons',          [ReferenceController::class, 'tambons']);
     Route::get('ref/villages',         [ReferenceController::class, 'villages']);

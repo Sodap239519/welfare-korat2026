@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TargetStatusLog extends Model
 {
-    protected $fillable = ['target_id', 'status_code', 'channel_id', 'note', 'user_id', 'changed_at'];
+    protected $fillable = ['target_id', 'status_code', 'channel_id', 'sub_channel', 'note', 'user_id', 'changed_at'];
 
     protected $casts = ['changed_at' => 'datetime'];
 

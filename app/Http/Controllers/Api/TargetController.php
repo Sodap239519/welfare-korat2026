@@ -54,8 +54,12 @@ class TargetController extends Controller
         $ids = collect($page->items())->pluck('id');
         $statuses = TargetCurrentStatus::whereIn('target_id', $ids)->get()->keyBy('target_id');
 
-        $page->getCollection()->transform(function ($t) use ($statuses) {
+        $banks = config('banks.banks', []);
+        $channelNames = Channel::pluck('name', 'id');
+
+        $page->getCollection()->transform(function ($t) use ($statuses, $banks, $channelNames) {
             $cs = $statuses->get($t->id);
+            $sub = $cs?->sub_channel;
             return [
                 'id'         => $t->id,
                 'name'       => trim(($t->prefix ?? '').' '.$t->first_name.' '.($t->last_name ?? '')),
@@ -69,10 +73,13 @@ class TargetController extends Controller
                 'moo'        => $t->village?->moo,
                 'tambon'     => $t->village?->tambon?->name,
                 'amphur'     => $t->village?->tambon?->amphur?->name,
-                'status_code'=> $cs?->status_code,
-                'channel_id' => $cs?->channel_id,
-                'note'       => $cs?->note,
-                'updated_at' => $cs?->updated_at,
+                'status_code'  => $cs?->status_code,
+                'channel_id'   => $cs?->channel_id,
+                'channel'      => $cs?->channel_id ? ($channelNames[$cs->channel_id] ?? null) : null,
+                'sub_channel'  => $sub,
+                'sub_channel_label' => $sub ? ($banks[$sub] ?? $sub) : null,
+                'note'         => $cs?->note,
+                'updated_at'   => $cs?->updated_at,
             ];
         });
 
@@ -93,18 +100,22 @@ class TargetController extends Controller
             ])
             ->findOrFail($id);
 
+        $banks = config('banks.banks', []);
+
         $logs = TargetStatusLog::with(['channel:id,name', 'user:id,name'])
             ->where('target_id', $id)
             ->orderByDesc('changed_at')
             ->limit(50)
             ->get()
             ->map(fn ($l) => [
-                'id'          => $l->id,
-                'status_code' => $l->status_code,
-                'channel'     => $l->channel?->name,
-                'note'        => $l->note,
-                'user'        => $l->user?->name,
-                'changed_at'  => $l->changed_at?->toIso8601String(),
+                'id'                => $l->id,
+                'status_code'       => $l->status_code,
+                'channel'           => $l->channel?->name,
+                'sub_channel'       => $l->sub_channel,
+                'sub_channel_label' => $l->sub_channel ? ($banks[$l->sub_channel] ?? $l->sub_channel) : null,
+                'note'              => $l->note,
+                'user'              => $l->user?->name,
+                'changed_at'        => $l->changed_at?->toIso8601String(),
             ]);
 
         // Tracker of this target's village (first active)
@@ -130,12 +141,14 @@ class TargetController extends Controller
             'tambon'     => $t->village?->tambon?->name,
             'amphur'     => $t->village?->tambon?->amphur?->name,
             'current'    => $t->currentStatus ? [
-                'status_code' => $t->currentStatus->status_code,
-                'channel_id'  => $t->currentStatus->channel_id,
-                'channel'     => $t->currentStatus->channel?->name,
-                'note'        => $t->currentStatus->note,
-                'updated_by'  => $t->currentStatus->updater?->name,
-                'updated_at'  => $t->currentStatus->updated_at?->toIso8601String(),
+                'status_code'       => $t->currentStatus->status_code,
+                'channel_id'        => $t->currentStatus->channel_id,
+                'channel'           => $t->currentStatus->channel?->name,
+                'sub_channel'       => $t->currentStatus->sub_channel,
+                'sub_channel_label' => $t->currentStatus->sub_channel ? ($banks[$t->currentStatus->sub_channel] ?? $t->currentStatus->sub_channel) : null,
+                'note'              => $t->currentStatus->note,
+                'updated_by'        => $t->currentStatus->updater?->name,
+                'updated_at'        => $t->currentStatus->updated_at?->toIso8601String(),
             ] : null,
             'logs' => $logs,
             'tracker' => $tracker ? [
@@ -151,10 +164,12 @@ class TargetController extends Controller
     {
         $statusCodes = RegistrationStatus::pluck('code')->all();
         $channelIds  = Channel::pluck('id')->all();
+        $bankCodes   = array_keys(config('banks.banks', []));
 
         $data = $request->validate([
             'status_code' => ['required', 'string', 'in:'.implode(',', $statusCodes)],
             'channel_id'  => ['nullable', 'integer', 'in:'.implode(',', $channelIds)],
+            'sub_channel' => ['nullable', 'string', 'max:20'],
             'note'        => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -172,6 +187,28 @@ class TargetController extends Controller
             ], 422);
         }
 
+        // ถ้าช่องทาง = ธนาคารรับลงทะเบียน (code='bank') → ต้องเลือกธนาคารย่อย
+        $selectedChannel = $data['channel_id'] ? Channel::find($data['channel_id']) : null;
+        $isBankChannel = $selectedChannel && $selectedChannel->code === 'bank';
+
+        if ($isBankChannel) {
+            if (empty($data['sub_channel'])) {
+                return response()->json([
+                    'message' => 'ช่องทางธนาคาร ต้องเลือกธนาคารที่ใช้ลงทะเบียน',
+                    'errors'  => ['sub_channel' => ['กรุณาเลือกธนาคารที่ใช้ลงทะเบียน']],
+                ], 422);
+            }
+            if (!in_array($data['sub_channel'], $bankCodes, true)) {
+                return response()->json([
+                    'message' => 'รหัสธนาคารไม่ถูกต้อง',
+                    'errors'  => ['sub_channel' => ['รหัสธนาคารต้องเป็น: '.implode(', ', $bankCodes)]],
+                ], 422);
+            }
+        } else {
+            // ถ้าไม่ใช่ช่องทางธนาคาร — ล้าง sub_channel ออก
+            $data['sub_channel'] = null;
+        }
+
         $target = Target::findOrFail($id);
         $userId = $request->user()->id;
 
@@ -180,6 +217,7 @@ class TargetController extends Controller
                 'target_id'   => $target->id,
                 'status_code' => $data['status_code'],
                 'channel_id'  => $data['channel_id'] ?? null,
+                'sub_channel' => $data['sub_channel'] ?? null,
                 'note'        => $data['note'] ?? null,
                 'user_id'     => $userId,
                 'changed_at'  => now(),
@@ -190,6 +228,7 @@ class TargetController extends Controller
                 [
                     'status_code' => $data['status_code'],
                     'channel_id'  => $data['channel_id'] ?? null,
+                    'sub_channel' => $data['sub_channel'] ?? null,
                     'note'        => $data['note'] ?? null,
                     'updated_by'  => $userId,
                     'updated_at'  => now(),

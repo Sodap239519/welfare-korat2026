@@ -18,7 +18,10 @@ class DemoStatusSeeder extends Seeder
         $userId = User::whereHas('roles', fn ($q) => $q->where('name', 'tracker'))->value('id')
                  ?? User::value('id');
 
-        $channels = Channel::pluck('id')->all();
+        $channels = Channel::pluck('id', 'code')->all();
+        $bankChannelId = $channels['bank'] ?? null;
+        $bankCodes = array_keys(config('banks.banks', []));
+        $allChannelIds = array_values($channels);
         $targets = Target::where('active', true)->pluck('id')->shuffle();
 
         // Approximate distribution (sums to 100)
@@ -43,13 +46,17 @@ class DemoStatusSeeder extends Seeder
             $count = (int) round($total * $d['pct'] / 100);
             for ($i = 0; $i < $count && $idx < $total; $i++, $idx++) {
                 $targetId = $targets[$idx];
-                $channelId = !empty($d['requires_channel']) ? $channels[array_rand($channels)] : null;
+                $channelId = !empty($d['requires_channel']) ? $allChannelIds[array_rand($allChannelIds)] : null;
+                $subChannel = ($bankChannelId && $channelId === $bankChannelId && $bankCodes)
+                    ? $bankCodes[array_rand($bankCodes)]
+                    : null;
                 $when = $now->copy()->subDays(random_int(0, 13))->subHours(random_int(0, 23));
 
                 $logsBatch[] = [
                     'target_id'   => $targetId,
                     'status_code' => $d['code'],
                     'channel_id'  => $channelId,
+                    'sub_channel' => $subChannel,
                     'note'        => $d['note'] ?? null,
                     'user_id'     => $userId,
                     'changed_at'  => $when,
@@ -60,6 +67,7 @@ class DemoStatusSeeder extends Seeder
                     'target_id'   => $targetId,
                     'status_code' => $d['code'],
                     'channel_id'  => $channelId,
+                    'sub_channel' => $subChannel,
                     'note'        => $d['note'] ?? null,
                     'updated_by'  => $userId,
                     'updated_at'  => $when,

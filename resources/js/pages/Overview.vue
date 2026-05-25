@@ -138,6 +138,23 @@ const phaseIconMap = { 1:'fi-rr-megaphone', 2:'fi-rr-edit', 3:'fi-rr-folder', 4:
         </div>
       </div>
 
+      <!-- ธนาคารรับลงทะเบียน 5 แห่ง (เจาะลึกช่องทางธนาคาร) -->
+      <div v-if="metrics?.by_bank?.length" class="card p-5">
+        <div class="font-semibold flex items-center gap-2">
+          <i class="fi-rr-bank text-green-700"></i> เจาะลึกช่องทางธนาคาร · 5 แห่ง
+        </div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">รวม {{ formatNumber(metrics.by_bank.reduce((a,b) => a + b.count, 0)) }} รายการที่เลือกธนาคาร</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div v-for="b in metrics.by_bank" :key="b.code" class="border border-slate-100 dark:border-slate-800 rounded-2xl p-3 text-center">
+            <div class="w-10 h-10 mx-auto rounded-xl card-tint-green flex items-center justify-center text-green-700 mb-2">
+              <i class="fi-rr-bank"></i>
+            </div>
+            <div class="text-xs font-medium leading-tight">{{ b.name }}</div>
+            <div class="text-lg font-bold mt-1">{{ formatNumber(b.count) }}</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </AppLayout>
 </template>

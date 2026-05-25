@@ -165,7 +165,13 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
                 <span v-if="t.status_code" :class="['inline-block px-2 py-1 rounded-md text-xs', statusColorClass(t.status_code)]">{{ t.status_code }}</span>
                 <span v-else class="text-xs text-slate-400">ยังไม่อัปเดต</span>
               </td>
-              <td class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px] truncate">{{ t.note || '—' }}</td>
+              <td class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
+                <div v-if="t.channel" class="truncate">
+                  {{ t.channel }}<span v-if="t.sub_channel_label" class="text-slate-700 dark:text-slate-300"> ({{ t.sub_channel_label }})</span>
+                </div>
+                <div v-if="t.note" class="truncate text-[11px] mt-0.5">{{ t.note }}</div>
+                <span v-if="!t.channel && !t.note">—</span>
+              </td>
               <td class="text-xs text-slate-500">{{ shortDate(t.updated_at) }}</td>
               <td class="text-right pr-3"><i class="fi-rr-angle-right text-slate-400"></i></td>
             </tr>
