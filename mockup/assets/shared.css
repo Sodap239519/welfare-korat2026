@@ -1,0 +1,144 @@
+/* welfare-korat2026 mockup - shared styles
+ * Palette: Blue / Sky / White / Green / Red / Orange only
+ * Style: minimal cards, white background, blue/sky hero cards
+ * Mobile-first */
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+@import url('https://cdn-uicons.flaticon.com/2.6.0/uicons-regular-rounded/css/uicons-regular-rounded.css');
+@import url('https://cdn-uicons.flaticon.com/2.6.0/uicons-solid-rounded/css/uicons-solid-rounded.css');
+
+:root {
+  --fz: 1rem;
+  /* Allowed palette */
+  --c-blue: #1d4ed8;       /* blue-700  - primary */
+  --c-blue-2: #2563eb;     /* blue-600 */
+  --c-sky: #0ea5e9;        /* sky-500  - secondary */
+  --c-sky-2: #38bdf8;      /* sky-400 */
+  --c-green: #16a34a;      /* green-600 */
+  --c-red: #dc2626;        /* red-600 */
+  --c-orange: #f97316;     /* orange-500 */
+  --c-white: #ffffff;
+  /* Neutrals (not "colors" — just gray scale) */
+  --c-text: #0f172a;
+  --c-text-soft: #64748b;
+  --c-border: #eef2f7;
+  --c-bg: #f8fafc;         /* very light gray for body */
+}
+
+html { font-size: var(--fz); }
+body, button, input, select, textarea {
+  font-family: 'Prompt', system-ui, sans-serif;
+  font-weight: 400;
+  color: var(--c-text);
+}
+body { background: var(--c-white); }
+
+/* ---------- Cards (minimal) ---------- */
+.card {
+  background: var(--c-white);
+  border: 1px solid var(--c-border);
+  border-radius: 18px;
+}
+.card-flat { background: var(--c-white); border: 1px solid var(--c-border); border-radius: 14px; }
+
+/* Hero card (น้ำเงินเข้ม gradient) */
+.card-hero {
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #0ea5e9 100%);
+  color: white;
+  border-radius: 22px;
+  border: none;
+  box-shadow: 0 12px 24px -12px rgba(37, 99, 235, 0.45);
+}
+.card-hero h1, .card-hero h2, .card-hero .text-soft { color: rgba(255,255,255,0.85); }
+
+/* Sky card (ฟ้าอ่อน) */
+.card-sky {
+  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+  color: white;
+  border-radius: 18px;
+  border: none;
+}
+
+/* Tinted card (ฟ้าอ่อนใส ใช้สำหรับ KPI หรือ accent) */
+.card-tint-blue { background: #eff6ff; border: 1px solid #dbeafe; border-radius: 18px; }
+.card-tint-sky  { background: #f0f9ff; border: 1px solid #e0f2fe; border-radius: 18px; }
+.card-tint-green{ background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 18px; }
+.card-tint-red  { background: #fef2f2; border: 1px solid #fee2e2; border-radius: 18px; }
+.card-tint-orange{background:#fff7ed; border: 1px solid #ffedd5; border-radius: 18px; }
+
+/* ---------- Status pills (4.1-4.7) — limited to allowed colors ---------- */
+.st-4-1 { background: #f1f5f9; color: #475569; }            /* neutral gray */
+.st-4-2 { background: #eff6ff; color: #1d4ed8; }            /* blue */
+.st-4-3 { background: #fff7ed; color: #c2410c; }            /* orange */
+.st-4-4 { background: #ffedd5; color: #9a3412; }            /* orange darker */
+.st-4-5 { background: #fef2f2; color: #b91c1c; }            /* red */
+.st-4-6 { background: #f0f9ff; color: #0369a1; }            /* sky */
+.st-4-7 { background: #f0fdf4; color: #15803d; }            /* green */
+
+/* ---------- Buttons ---------- */
+.btn-primary { background: var(--c-blue); color: white; border-radius: 12px; }
+.btn-primary:hover { background: var(--c-blue-2); }
+.btn-sky { background: var(--c-sky); color: white; border-radius: 12px; }
+.btn-green { background: var(--c-green); color: white; border-radius: 12px; }
+.btn-outline { background: white; color: var(--c-text); border: 1px solid var(--c-border); border-radius: 12px; }
+.btn-outline:hover { background: var(--c-bg); }
+
+/* ---------- Sidebar nav active ---------- */
+.nav-item.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+.bottom-nav-item.active {
+  color: var(--c-blue);
+}
+.bottom-nav-item.active .bn-icon-wrap {
+  background: #eff6ff;
+  color: var(--c-blue);
+}
+
+/* ---------- SOP stepper ---------- */
+.sop-step { flex: 1; position: relative; text-align: center; padding: 1rem 0.5rem; }
+.sop-step::after {
+  content: ''; position: absolute; top: 28px; right: -50%;
+  height: 3px; width: 100%; background: #e2e8f0; z-index: 0;
+}
+.sop-step:last-child::after { display: none; }
+.sop-step.done::after { background: var(--c-green); }
+.sop-circle {
+  position: relative; z-index: 1;
+  width: 56px; height: 56px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #e2e8f0; color: #64748b;
+  font-weight: 600; font-size: 1.25rem;
+}
+.sop-step.done .sop-circle { background: var(--c-green); color: white; }
+.sop-step.current .sop-circle {
+  background: var(--c-blue); color: white;
+  box-shadow: 0 0 0 6px #dbeafe;
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- Dark mode (subtle - keep palette) ---------- */
+.dark { color-scheme: dark; }
+.dark body { background: #0b1220; color: #e2e8f0; }
+.dark .card { background: #111827; border-color: #1f2937; }
+.dark .card-flat { background: #111827; border-color: #1f2937; }
+.dark .card-tint-blue { background: rgba(29,78,216,0.12); border-color: rgba(29,78,216,0.25); color: #bfdbfe; }
+.dark .card-tint-sky  { background: rgba(14,165,233,0.12); border-color: rgba(14,165,233,0.25); color: #bae6fd; }
+.dark .card-tint-green{ background: rgba(22,163,74,0.12); border-color: rgba(22,163,74,0.25); color: #bbf7d0; }
+.dark .card-tint-red  { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.25); color: #fecaca; }
+.dark .card-tint-orange{background: rgba(249,115,22,0.12); border-color: rgba(249,115,22,0.25); color: #fed7aa; }
+.dark .nav-item.active { background: rgba(29,78,216,0.2); color: #93c5fd; }
+.dark .bottom-nav-item.active .bn-icon-wrap { background: rgba(29,78,216,0.2); color: #93c5fd; }
+.dark .st-4-1 { background: #1f2937; color: #cbd5e1; }
+.dark .st-4-2 { background: rgba(29,78,216,0.2); color: #bfdbfe; }
+.dark .st-4-3 { background: rgba(194,65,12,0.2); color: #fed7aa; }
+.dark .st-4-4 { background: rgba(154,52,18,0.3); color: #fed7aa; }
+.dark .st-4-5 { background: rgba(185,28,28,0.2); color: #fecaca; }
+.dark .st-4-6 { background: rgba(2,132,199,0.2); color: #bae6fd; }
+.dark .st-4-7 { background: rgba(22,163,74,0.2); color: #bbf7d0; }
+.dark .btn-outline { background: transparent; color: #e2e8f0; border-color: #334155; }

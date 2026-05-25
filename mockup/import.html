@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>นำเข้าข้อมูล — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-5xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Drop zone -->
+      <div class="card p-5 lg:p-7">
+        <div class="border-2 border-dashed border-blue-200 dark:border-slate-700 rounded-2xl p-6 lg:p-8 text-center hover:border-blue-500 dark:hover:border-blue-500 transition cursor-pointer">
+          <div class="w-16 h-16 mx-auto rounded-2xl card-tint-blue flex items-center justify-center text-2xl mb-3 text-blue-700">
+            <i class="fi-rr-cloud-upload-alt"></i>
+          </div>
+          <div class="font-semibold text-base lg:text-lg">ลากไฟล์มาวางที่นี่</div>
+          <div class="text-sm text-slate-500 dark:text-slate-400 mt-1">รองรับ .xlsx · .csv · สูงสุด 50 MB</div>
+          <button class="btn-primary mt-4 px-4 py-2.5 text-sm flex items-center gap-1.5 mx-auto">
+            <i class="fi-rr-folder-open"></i> เลือกไฟล์จากเครื่อง
+          </button>
+        </div>
+
+        <div class="mt-4 grid sm:grid-cols-2 gap-3 text-sm">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">โหมดการนำเข้า</label>
+            <select class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <option>Upsert (อัปเดตของเดิม + เพิ่มใหม่)</option>
+              <option>Append (เพิ่มอย่างเดียว)</option>
+              <option>Replace (ลบทั้ง ต./อ. แล้วใส่ใหม่)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">Key สำหรับ Upsert</label>
+            <input type="text" value="รหัสบ้าน + ลำดับสมาชิก" readonly
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-500">
+          </div>
+        </div>
+
+        <div class="card-tint-blue text-xs p-3 mt-3">
+          <i class="fi-rr-info"></i> คอลัมน์ที่ต้องมี: <code>รหัสบ้าน, ลำดับสมาชิก, คำนำหน้า, ชื่อ, สกุล, บ้านเลขที่, หมู่ที่, บ้าน, ตำบล, อำเภอ, สถานะ, รายได้เฉลี่ย</code>
+        </div>
+      </div>
+
+      <!-- Auto-fix preview -->
+      <div class="card-tint-orange p-5">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl bg-orange-500 text-white flex items-center justify-center">
+            <i class="fi-rr-magic-wand"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm">ตรวจพบและแก้ไขอัตโนมัติ — 24 รายการ</div>
+            <div class="text-xs opacity-80 mt-0.5">
+              บ้านเลขที่บางรายการถูก Excel เข้าใจผิดเป็นวันที่ (เช่น <code class="bg-white/60 dark:bg-slate-800 px-1 rounded">27/1</code> → <code class="bg-white/60 dark:bg-slate-800 px-1 rounded">27-ม.ค.</code>) ระบบจะแปลงกลับให้ก่อนนำเข้า
+            </div>
+
+            <div class="mt-3 overflow-x-auto bg-white dark:bg-slate-900 rounded-xl">
+              <table class="w-full text-xs">
+                <thead class="text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                  <tr>
+                    <th class="text-left py-2 px-3">แถว</th>
+                    <th class="text-left pr-3">ชื่อ</th>
+                    <th class="text-left pr-3">หมู่บ้าน</th>
+                    <th class="text-left pr-3">ค่าในไฟล์</th>
+                    <th class="text-left pr-3 hidden sm:table-cell">รูปแบบที่ Excel เก็บ</th>
+                    <th class="text-left pr-3">แก้เป็น</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+                  <tr>
+                    <td class="py-2 px-3 text-slate-500">15</td>
+                    <td class="pr-3">นางสมศรี ดงไทร</td>
+                    <td class="pr-3">หมู่ 4</td>
+                    <td class="pr-3"><span class="card-tint-red px-2 py-0.5 rounded">19-ม.ค.</span></td>
+                    <td class="pr-3 text-slate-500 hidden sm:table-cell">date serial 46041 · d-mmm</td>
+                    <td><span class="card-tint-green px-2 py-0.5 rounded font-medium">19/1</span></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-500">16</td>
+                    <td class="pr-3">นายสมพร แก้วใส</td>
+                    <td class="pr-3">หมู่ 4</td>
+                    <td class="pr-3"><span class="card-tint-red px-2 py-0.5 rounded">19-ม.ค.</span></td>
+                    <td class="pr-3 text-slate-500 hidden sm:table-cell">date serial 46041 · d-mmm</td>
+                    <td><span class="card-tint-green px-2 py-0.5 rounded font-medium">19/1</span></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-500">23</td>
+                    <td class="pr-3">นางมาลี ใจงาม</td>
+                    <td class="pr-3">หมู่ 4</td>
+                    <td class="pr-3"><span class="card-tint-red px-2 py-0.5 rounded">27-ม.ค.</span></td>
+                    <td class="pr-3 text-slate-500 hidden sm:table-cell">date serial 46049 · d-mmm</td>
+                    <td><span class="card-tint-green px-2 py-0.5 rounded font-medium">27/1</span></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-500">24</td>
+                    <td class="pr-3">นายขจร พุ่มพวง</td>
+                    <td class="pr-3">หมู่ 4</td>
+                    <td class="pr-3"><span class="card-tint-red px-2 py-0.5 rounded">28-ม.ค.</span></td>
+                    <td class="pr-3 text-slate-500 hidden sm:table-cell">date serial 46050 · d-mmm</td>
+                    <td><span class="card-tint-green px-2 py-0.5 rounded font-medium">28/1</span></td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 text-slate-500">25-27</td>
+                    <td class="pr-3" colspan="2"><em class="text-slate-500">อีก 3 รายการในหมู่เดียวกัน</em></td>
+                    <td class="pr-3"><span class="card-tint-red px-2 py-0.5 rounded">28-ม.ค.</span></td>
+                    <td class="pr-3 text-slate-500 hidden sm:table-cell">date serial 46050 · d-mmm</td>
+                    <td><span class="card-tint-green px-2 py-0.5 rounded font-medium">28/1</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center gap-2 justify-between">
+              <div class="text-[11px] opacity-80">
+                <i class="fi-rr-bulb"></i> กฎ:
+                <code class="bg-white/60 dark:bg-slate-800 px-1 rounded">numeric + numFmt มี d+m</code>
+                → format <code class="bg-white/60 dark:bg-slate-800 px-1 rounded">d/m</code> (ทิ้งปี)
+              </div>
+              <div class="flex gap-2">
+                <button class="btn-outline text-xs px-3 py-2">ดูทั้งหมด (24)</button>
+                <button class="btn-green text-xs px-3 py-2">ยืนยัน &amp; เริ่มนำเข้า</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active job -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 shrink-0 rounded-xl card-tint-green flex items-center justify-center text-green-700">
+              <i class="fi-rr-file-excel"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="font-medium truncate">ต.ปากช่อง.xlsx</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">1,506 แถว · เริ่ม 14:25</div>
+            </div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-700 animate-pulse"></span> กำลังประมวลผล
+          </span>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-blue-700 to-sky-500 transition-all" style="width:62%"></div>
+        </div>
+        <div class="flex items-center justify-between text-xs mt-2">
+          <span class="text-slate-500 dark:text-slate-400">934 / 1,506 แถว</span>
+          <span class="font-medium">62%</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mt-4">
+          <div class="card-tint-green p-3 text-center">
+            <div class="text-lg lg:text-xl font-bold text-green-700 dark:text-green-300">901</div>
+            <div class="text-[11px] opacity-70">สำเร็จ</div>
+          </div>
+          <div class="card-tint-blue p-3 text-center">
+            <div class="text-lg lg:text-xl font-bold text-blue-700 dark:text-blue-300">28</div>
+            <div class="text-[11px] opacity-70">อัปเดต</div>
+          </div>
+          <div class="card-tint-red p-3 text-center">
+            <div class="text-lg lg:text-xl font-bold text-red-700 dark:text-red-300">5</div>
+            <div class="text-[11px] opacity-70">ผิดพลาด</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div class="card">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-800">
+          <div class="font-semibold">ประวัติการนำเข้า</div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-xs text-slate-500 dark:text-slate-400">
+              <tr><th class="text-left py-2 px-4">ไฟล์</th><th class="text-left">ผู้นำเข้า</th><th class="text-left">เวลา</th><th class="text-right">รวม</th><th class="text-right">สำเร็จ</th><th class="text-right">ผิดพลาด</th><th></th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+              <tr><td class="py-2 px-4 font-medium">ต.ปากช่อง.xlsx</td><td>สมชาย</td><td class="text-xs text-slate-500">25/05 14:25</td><td class="text-right">1,506</td><td class="text-right text-green-700">1,501</td><td class="text-right text-red-600">5</td><td class="text-right pr-3"><button class="text-blue-700 text-xs hover:underline">ดู log</button></td></tr>
+              <tr><td class="py-2 px-4 font-medium">ต.หมูสี.xlsx</td><td>มานพ</td><td class="text-xs text-slate-500">25/05 09:12</td><td class="text-right">2,210</td><td class="text-right text-green-700">2,210</td><td class="text-right">0</td><td class="text-right pr-3"><button class="text-blue-700 text-xs hover:underline">ดู log</button></td></tr>
+              <tr><td class="py-2 px-4 font-medium">อ.เมือง_initial.xlsx</td><td>Super Admin</td><td class="text-xs text-slate-500">24/05 08:00</td><td class="text-right">12,408</td><td class="text-right text-green-700">12,355</td><td class="text-right text-red-600">53</td><td class="text-right pr-3"><button class="text-blue-700 text-xs hover:underline">ดู log</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'import', title: 'นำเข้าข้อมูล', subtitle: 'xlsx / csv · Upsert by รหัสบ้าน + ลำดับ' });
+</script>
+</body>
+</html>

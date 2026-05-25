@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รายละเอียดบุคคล — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-5xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <a href="targets.html" class="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-700">
+        <i class="fi-rr-arrow-left"></i> รายชื่อเป้าหมาย
+      </a>
+
+      <!-- Person hero card (สีน้ำเงิน) -->
+      <div class="card-hero p-5 lg:p-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="flex gap-4 min-w-0">
+            <div class="w-16 h-16 shrink-0 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center text-xl font-semibold">
+              สม
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="text-xl font-semibold">นายสมชาย โรงรัมย์</h1>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-white/15 backdrop-blur">สมาชิกบ้านลำดับ 1</span>
+              </div>
+              <div class="text-sm opacity-90 mt-1.5 flex items-start gap-1.5">
+                <i class="fi-rr-marker mt-0.5"></i>
+                <span>43 ชุมชนหนองกะจะ1 ต.ปากช่อง อ.ปากช่อง จ.นครราชสีมา</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 mt-2 text-xs opacity-90">
+                <span><i class="fi-rr-calendar"></i> ปี 2566</span>
+                <span><i class="fi-rr-coins"></i> 48,000 บ./ปี</span>
+                <span><i class="fi-rr-home"></i> อยู่ลำบาก</span>
+                <span><i class="fi-rr-credit-card"></i> มีบัตรเดิม</span>
+              </div>
+            </div>
+          </div>
+          <button class="px-3 py-2 rounded-xl bg-white/15 backdrop-blur hover:bg-white/25 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-edit"></i> แก้ไขข้อมูล
+          </button>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-3 gap-4">
+
+        <!-- LEFT: Current status + Update form -->
+        <div class="lg:col-span-2 space-y-4">
+
+          <!-- Current status -->
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">สถานะปัจจุบัน</div>
+                <div class="flex items-center gap-2 mt-1.5">
+                  <span class="inline-block px-3 py-1.5 rounded-xl text-sm font-medium st-4-7">
+                    <i class="fi-sr-check-circle"></i> 4.7 ยืนยันตัวตนแล้ว รอใช้สิทธิ
+                  </span>
+                </div>
+              </div>
+              <div class="text-right text-xs text-slate-500 dark:text-slate-400">
+                อัปเดตล่าสุด<br>
+                <span class="text-slate-800 dark:text-slate-100 font-medium">24/05/2569 14:22</span>
+              </div>
+            </div>
+            <div class="card-tint-blue text-xs p-3">
+              <i class="fi-rr-info"></i> ลงทะเบียนผ่าน <strong>แอปเป๋าตัง</strong> เมื่อ 18/05/2569 — ยืนยันตัวตนผ่านธนาคารกรุงไทย สาขาปากช่อง
+            </div>
+          </div>
+
+          <!-- Update status form -->
+          <div class="card p-5">
+            <div class="font-semibold mb-3">อัปเดตสถานะ</div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">สถานะใหม่</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <input type="radio" name="st" class="text-blue-600">
+                    <span class="text-sm st-4-1 px-2 py-0.5 rounded">4.1 ไม่ประสงค์</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <input type="radio" name="st" class="text-blue-600">
+                    <span class="text-sm st-4-2 px-2 py-0.5 rounded">4.2 ระหว่างลงทะเบียน</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <input type="radio" name="st" class="text-blue-600">
+                    <span class="text-sm st-4-3 px-2 py-0.5 rounded">4.3 เตรียมเอกสาร</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <input type="radio" name="st" class="text-blue-600">
+                    <span class="text-sm st-4-4 px-2 py-0.5 rounded">4.4 ส่งเอกสารเพิ่ม</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <input type="radio" name="st" class="text-blue-600">
+                    <span class="text-sm st-4-5 px-2 py-0.5 rounded">4.5 รออุทธรณ์</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border-2 border-blue-500 card-tint-blue cursor-pointer">
+                    <input type="radio" name="st" class="text-blue-600" checked>
+                    <span class="text-sm st-4-6 px-2 py-0.5 rounded">4.6 รอยืนยันตัวตน</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50 sm:col-span-2">
+                    <input type="radio" name="st" class="text-blue-600">
+                    <span class="text-sm st-4-7 px-2 py-0.5 rounded">4.7 ยืนยันตัวตนแล้ว รอใช้สิทธิ</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ช่องทางการลงทะเบียน <span class="text-slate-400">(สำหรับ 4.2)</span></label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <label class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <i class="fi-rr-browser text-lg text-blue-700"></i>
+                    <span class="text-xs">เว็บไซต์</span>
+                  </label>
+                  <label class="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-sky-500 card-tint-sky cursor-pointer">
+                    <i class="fi-rr-mobile-button text-lg text-sky-700"></i>
+                    <span class="text-xs">เป๋าตัง</span>
+                  </label>
+                  <label class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <i class="fi-rr-money-check text-lg text-orange-600"></i>
+                    <span class="text-xs">ATM กรุงไทย</span>
+                  </label>
+                  <label class="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50">
+                    <i class="fi-rr-bank text-lg text-green-700"></i>
+                    <span class="text-xs">ธนาคาร</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">หมายเหตุ <span class="text-slate-400">(บังคับเมื่อเลือก 4.1, 4.4, 4.5)</span></label>
+                <textarea rows="3" placeholder="ระบุรายละเอียดเพิ่มเติม..." class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              </div>
+
+              <div class="flex gap-2 justify-end pt-1">
+                <button class="btn-outline px-4 py-2.5 text-sm">ยกเลิก</button>
+                <button class="btn-primary px-4 py-2.5 text-sm flex items-center gap-1.5">
+                  <i class="fi-rr-disk"></i> บันทึก
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Tracker + Timeline -->
+        <div class="space-y-4">
+
+          <!-- Tracker -->
+          <div class="card-tint-sky p-5">
+            <div class="text-xs opacity-80 mb-2">ผู้กำกับติดตามหมู่บ้าน</div>
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-full bg-sky-600 text-white flex items-center justify-center font-semibold">สช</div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">นายสมชาย ผู้ดูแล</div>
+                <div class="text-xs opacity-80">ผู้ใหญ่บ้าน · หนองกะจะ1</div>
+                <a href="tel:0812345678" class="text-xs text-sky-800 dark:text-sky-300 font-medium hover:underline mt-1 inline-flex items-center gap-1">
+                  <i class="fi-rr-phone-call"></i> 081-234-5678
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Timeline -->
+          <div class="card p-5">
+            <div class="font-semibold mb-3 text-sm">ประวัติการเปลี่ยนสถานะ</div>
+            <div class="space-y-3 text-sm">
+              <div class="flex gap-3">
+                <div class="shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-green-600 ring-4 ring-green-100 dark:ring-green-900/30"></div>
+                <div class="flex-1 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <span class="font-medium">เปลี่ยนเป็น <span class="st-4-7 px-1.5 rounded text-xs">4.7</span></span>
+                    <span class="text-xs text-slate-500">24/05 14:22</span>
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">โดย นายสมชาย ผู้ดูแล</div>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-sky-500 ring-4 ring-sky-100 dark:ring-sky-900/30"></div>
+                <div class="flex-1 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <span class="font-medium">เปลี่ยนเป็น <span class="st-4-6 px-1.5 rounded text-xs">4.6</span></span>
+                    <span class="text-xs text-slate-500">22/05 09:14</span>
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">โดย Admin ตำบลปากช่อง</div>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-orange-500 ring-4 ring-orange-100 dark:ring-orange-900/30"></div>
+                <div class="flex-1 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <span class="font-medium">เปลี่ยนเป็น <span class="st-4-3 px-1.5 rounded text-xs">4.3</span></span>
+                    <span class="text-xs text-slate-500">19/05 11:00</span>
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">โดย นายสมชาย ผู้ดูแล</div>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <div class="shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/30"></div>
+                <div class="flex-1">
+                  <div class="flex items-baseline justify-between gap-2">
+                    <span class="font-medium">เริ่มลงทะเบียน <span class="st-4-2 px-1.5 rounded text-xs">4.2</span></span>
+                    <span class="text-xs text-slate-500">18/05 16:30</span>
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ช่องทาง: แอปเป๋าตัง</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'targets', title: 'นายสมชาย โรงรัมย์', subtitle: 'รายละเอียด + อัปเดตสถานะ' });
+</script>
+</body>
+</html>

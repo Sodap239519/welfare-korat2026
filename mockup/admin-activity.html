@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ประวัติการใช้งาน — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-6xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card-tint-blue p-4">
+          <div class="text-xs opacity-80">เหตุการณ์วันนี้</div>
+          <div class="text-2xl font-bold mt-1">4,128</div>
+        </div>
+        <div class="card-tint-green p-4">
+          <div class="text-xs opacity-80">ผู้ใช้ออนไลน์</div>
+          <div class="text-2xl font-bold mt-1 text-green-700 dark:text-green-300 flex items-center gap-2">
+            189 <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+          </div>
+        </div>
+        <div class="card-tint-sky p-4">
+          <div class="text-xs opacity-80">การแก้ไขสถานะ</div>
+          <div class="text-2xl font-bold mt-1 text-sky-800 dark:text-sky-200">2,847</div>
+        </div>
+        <div class="card-tint-red p-4">
+          <div class="text-xs opacity-80">Login ไม่สำเร็จ</div>
+          <div class="text-2xl font-bold mt-1 text-red-700 dark:text-red-300">12</div>
+        </div>
+      </div>
+
+      <!-- Filter -->
+      <div class="card p-3 flex flex-wrap gap-2 items-center">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" placeholder="ค้นหาผู้ใช้ / IP / รายการ"
+            class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <select class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุกประเภท</option>
+          <option>เข้าสู่ระบบ</option><option>แก้ไขสถานะ</option><option>เพิ่มข้อมูล</option>
+          <option>ลบข้อมูล</option><option>นำเข้าไฟล์</option><option>Export</option>
+        </select>
+        <input type="date" value="2026-05-25" class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+        <button class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5">
+          <i class="fi-rr-download"></i> <span class="hidden sm:inline">Export CSV</span>
+        </button>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="card divide-y divide-slate-50 dark:divide-slate-800/60">
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-blue flex items-center justify-center text-blue-700"><i class="fi-rr-edit"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm"><strong>นายสมชาย ผู้ดูแล</strong> เปลี่ยนสถานะ <a href="target-detail.html" class="text-blue-700 dark:text-blue-400 hover:underline">นายสมชาย โรงรัมย์</a> เป็น <span class="st-4-7 px-1.5 py-0.5 rounded text-xs">4.7</span></div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 14:22</div>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tracker · IP 110.171.x.x · Mobile Chrome</div>
+          </div>
+        </div>
+
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-green flex items-center justify-center text-green-700"><i class="fi-rr-cloud-upload-alt"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm"><strong>นายอำเภอ ปากช่อง</strong> นำเข้าไฟล์ <code class="text-xs card-tint-sky px-1.5 py-0.5 rounded">ต.ปากช่อง.xlsx</code> · 1,506 รายการ</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 14:25</div>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Admin · IP 203.146.x.x · Desktop</div>
+          </div>
+        </div>
+
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-sky flex items-center justify-center text-sky-700"><i class="fi-rr-sign-in-alt"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm"><strong>นายมานพ ใจดี</strong> เข้าสู่ระบบ</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 14:15</div>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tracker · IP 110.169.x.x · Mobile Safari</div>
+          </div>
+        </div>
+
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-blue flex items-center justify-center text-blue-700"><i class="fi-rr-user-add"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm"><strong>ผู้ว่าราชการ จ.นครราชสีมา</strong> อนุมัติบัญชี <strong>นางสายฝน รักงาน</strong></div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 13:40</div>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Super Admin · IP 203.146.x.x · Desktop</div>
+          </div>
+        </div>
+
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-orange flex items-center justify-center text-orange-700"><i class="fi-rr-document"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm"><strong>Admin ตำบลปากช่อง</strong> Export รายงาน <code class="text-xs card-tint-sky px-1.5 py-0.5 rounded">รายงานรายวัน 24-05-2569.pdf</code></div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 16:30</div>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Admin · IP 203.150.x.x · ส่ง CRM อัตโนมัติ</div>
+          </div>
+        </div>
+
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-red flex items-center justify-center text-red-700"><i class="fi-rr-cross-circle"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm">เข้าสู่ระบบไม่สำเร็จ · อีเมล <code class="text-xs">unknown@test.com</code></div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 12:08</div>
+            </div>
+            <div class="text-xs text-red-600 dark:text-red-400 mt-0.5">IP 45.121.x.x · พยายาม 3 ครั้ง · บล็อก 15 นาที</div>
+          </div>
+        </div>
+
+        <div class="p-4 flex gap-3">
+          <div class="w-10 h-10 shrink-0 rounded-xl card-tint-blue flex items-center justify-center text-blue-700"><i class="fi-rr-edit"></i></div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <div class="text-sm"><strong>นางขันทอง ทองรัตน์</strong> เปลี่ยนสถานะ <a href="#" class="text-blue-700 dark:text-blue-400 hover:underline">นางมาลี ใจงาม</a> เป็น <span class="st-4-6 px-1.5 py-0.5 rounded text-xs">4.6</span></div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 shrink-0">25/05 11:42</div>
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tracker · IP 110.164.x.x · Mobile Chrome</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-between text-sm">
+        <div class="text-xs text-slate-500 dark:text-slate-400">แสดง 1 - 50 จาก 4,128</div>
+        <div class="flex items-center gap-1">
+          <button class="btn-outline px-3 py-1.5 text-sm">ก่อนหน้า</button>
+          <button class="px-3 py-1.5 rounded-lg bg-blue-700 text-white text-sm">1</button>
+          <button class="px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-sm">2</button>
+          <button class="px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-sm hidden sm:inline-block">3</button>
+          <button class="btn-outline px-3 py-1.5 text-sm">ถัดไป</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'admin-activity', title: 'ประวัติการใช้งานระบบ', subtitle: 'Audit Log · Super Admin only' });
+</script>
+</body>
+</html>

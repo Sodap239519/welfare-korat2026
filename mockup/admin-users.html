@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>จัดการผู้ใช้ — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card-tint-blue p-4"><div class="text-xs opacity-80">ผู้ใช้ทั้งหมด</div><div class="text-2xl font-bold mt-1">1,342</div></div>
+        <div class="card-tint-sky p-4"><div class="text-xs opacity-80">Super Admin</div><div class="text-2xl font-bold mt-1 text-sky-800 dark:text-sky-200">4</div></div>
+        <div class="card-tint-green p-4"><div class="text-xs opacity-80">Admin</div><div class="text-2xl font-bold mt-1 text-green-700 dark:text-green-300">51</div></div>
+        <div class="card-tint-orange p-4"><div class="text-xs opacity-80">รออนุมัติ</div><div class="text-2xl font-bold mt-1 text-orange-700 dark:text-orange-300">28</div></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="card p-3 flex flex-wrap gap-2 items-center">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" placeholder="ค้นหาผู้ใช้ / อีเมล / หมู่บ้าน"
+            class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <select class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุก Role</option><option>Super Admin</option><option>Admin</option><option>Tracker</option>
+        </select>
+        <select class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุกสถานะ</option><option>ใช้งาน</option><option>รออนุมัติ</option><option>ระงับ</option>
+        </select>
+        <button class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5">
+          <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มผู้ใช้</span>
+        </button>
+      </div>
+
+      <!-- Desktop table -->
+      <div class="card hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+            <tr>
+              <th class="text-left py-3 px-4">ผู้ใช้</th>
+              <th class="text-left">Role</th>
+              <th class="text-left">ขอบเขตพื้นที่</th>
+              <th class="text-left">เข้าใช้งานล่าสุด</th>
+              <th class="text-left">สถานะ</th>
+              <th class="text-right pr-4">การกระทำ</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-blue-700 text-white flex items-center justify-center text-sm font-semibold">PV</div>
+                  <div>
+                    <div class="font-medium">ผู้ว่าราชการ จ.นครราชสีมา</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">governor@korat.go.th</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="text-xs px-2 py-1 rounded-md card-tint-blue font-medium">Super Admin</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-400">ทั้งจังหวัด</td>
+              <td class="text-xs text-slate-500">25/05 13:40</td>
+              <td><span class="text-xs px-2 py-1 rounded-full card-tint-green font-medium">● ใช้งาน</span></td>
+              <td class="text-right pr-4 space-x-1">
+                <button class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700"><i class="fi-rr-edit"></i></button>
+                <button class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-slate-800 text-red-600"><i class="fi-rr-trash"></i></button>
+              </td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-sky-600 text-white flex items-center justify-center text-sm font-semibold">นย</div>
+                  <div>
+                    <div class="font-medium">นายอำเภอ ปากช่อง</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">amphur.pakchong@korat.go.th</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="text-xs px-2 py-1 rounded-md card-tint-sky font-medium">Admin</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-400">อ.ปากช่อง</td>
+              <td class="text-xs text-slate-500">25/05 11:22</td>
+              <td><span class="text-xs px-2 py-1 rounded-full card-tint-green font-medium">● ใช้งาน</span></td>
+              <td class="text-right pr-4 space-x-1">
+                <button class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700"><i class="fi-rr-edit"></i></button>
+                <button class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-slate-800 text-red-600"><i class="fi-rr-trash"></i></button>
+              </td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-semibold">สช</div>
+                  <div>
+                    <div class="font-medium">นายสมชาย ผู้ดูแล</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">somchai.t@gmail.com</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="text-xs px-2 py-1 rounded-md card-tint-green font-medium">Tracker</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-400">ชุมชนหนองกะจะ1 · ต.ปากช่อง</td>
+              <td class="text-xs text-slate-500">25/05 14:22</td>
+              <td><span class="text-xs px-2 py-1 rounded-full card-tint-green font-medium">● ใช้งาน</span></td>
+              <td class="text-right pr-4 space-x-1">
+                <button class="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700"><i class="fi-rr-edit"></i></button>
+                <button class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-slate-800 text-red-600"><i class="fi-rr-trash"></i></button>
+              </td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30 card-tint-orange">
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-semibold">สฝ</div>
+                  <div>
+                    <div class="font-medium">นางสายฝน รักงาน</div>
+                    <div class="text-xs opacity-80">saifon@gmail.com</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="text-xs px-2 py-1 rounded-md bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium">Tracker</span></td>
+              <td class="text-xs">หมู่ 4 ไทยเจริญ · ต.ปากช่อง</td>
+              <td class="text-xs">—</td>
+              <td><span class="text-xs px-2 py-1 rounded-full bg-orange-500 text-white font-medium">⏳ รออนุมัติ</span></td>
+              <td class="text-right pr-4 space-x-1">
+                <button class="px-2 py-1 rounded-lg bg-green-600 text-white text-xs hover:bg-green-700">อนุมัติ</button>
+                <button class="px-2 py-1 rounded-lg bg-white dark:bg-slate-800 text-xs hover:bg-slate-50">ปฏิเสธ</button>
+              </td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-slate-400 text-white flex items-center justify-center text-sm font-semibold">มน</div>
+                  <div>
+                    <div class="font-medium text-slate-500">นายมานพ ใจดี</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">manop@gmail.com</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="text-xs px-2 py-1 rounded-md card-tint-green font-medium">Tracker</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-400">ชุมชนสะพานดำ · ต.ปากช่อง</td>
+              <td class="text-xs text-slate-500">15/05 09:00</td>
+              <td><span class="text-xs px-2 py-1 rounded-full card-tint-red font-medium">● ระงับ</span></td>
+              <td class="text-right pr-4 space-x-1">
+                <button class="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-slate-800 text-green-700" title="เปิดใช้งาน"><i class="fi-rr-power"></i></button>
+                <button class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-slate-800 text-red-600"><i class="fi-rr-trash"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="md:hidden space-y-2">
+        <div class="card p-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-blue-700 text-white flex items-center justify-center text-sm font-semibold">PV</div>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-sm truncate">ผู้ว่าราชการ จ.นครราชสีมา</div>
+              <div class="text-[11px] text-slate-500 truncate">governor@korat.go.th</div>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded card-tint-blue font-medium shrink-0">Super</span>
+          </div>
+        </div>
+        <div class="card p-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-sky-600 text-white flex items-center justify-center text-sm font-semibold">นย</div>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-sm truncate">นายอำเภอ ปากช่อง</div>
+              <div class="text-[11px] text-slate-500 truncate">อ.ปากช่อง</div>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded card-tint-sky font-medium shrink-0">Admin</span>
+          </div>
+        </div>
+        <div class="card p-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center text-sm font-semibold">สช</div>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-sm truncate">นายสมชาย ผู้ดูแล</div>
+              <div class="text-[11px] text-slate-500 truncate">หนองกะจะ1 · ปากช่อง</div>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded card-tint-green font-medium shrink-0">Tracker</span>
+          </div>
+        </div>
+        <div class="card-tint-orange p-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-semibold">สฝ</div>
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-sm truncate">นางสายฝน รักงาน</div>
+              <div class="text-[11px] opacity-80 truncate">หมู่ 4 ไทยเจริญ</div>
+            </div>
+            <div class="flex flex-col gap-1">
+              <button class="text-[10px] px-2 py-1 rounded bg-green-600 text-white font-medium">อนุมัติ</button>
+              <button class="text-[10px] px-2 py-1 rounded bg-white dark:bg-slate-800 font-medium">ปฏิเสธ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'admin-users', title: 'จัดการผู้ใช้', subtitle: 'Super Admin · CRUD + อนุมัติ' });
+</script>
+</body>
+</html>

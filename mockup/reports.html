@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รายงาน — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Hero -->
+      <div class="card-hero p-5 lg:p-6 text-center">
+        <div class="text-xs opacity-80">รายงานประจำวัน</div>
+        <h2 class="text-base lg:text-lg font-semibold mt-1">สรุปยอดการลงทะเบียนบัตรสวัสดิการแห่งรัฐ 2569 รายหมู่บ้าน</h2>
+        <div class="text-sm opacity-90 mt-0.5">วันที่ 25 พฤษภาคม 2569 · จ.นครราชสีมา</div>
+      </div>
+
+      <!-- Report selector -->
+      <div class="card p-3 flex flex-wrap gap-2 items-center">
+        <select class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm flex-1 min-w-[200px]">
+          <option>รายงานสรุปยอดรายหมู่บ้าน (รายวัน)</option>
+          <option>รายงานวิเคราะห์ Bottleneck (รายสัปดาห์)</option>
+          <option>รายงานสถานะรายตำบล / อำเภอ</option>
+          <option>รายงานสรุปผลโครงการ</option>
+        </select>
+        <input type="date" value="2026-05-25" class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+        <select class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุกอำเภอ</option><option>ปากช่อง</option>
+        </select>
+        <div class="ml-auto flex gap-1 flex-wrap">
+          <button class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-picture text-green-700"></i> <span class="hidden sm:inline">Chart PNG</span>
+          </button>
+          <button class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-file-excel text-green-700"></i> <span class="hidden sm:inline">Excel</span>
+          </button>
+          <button class="px-3 py-2.5 rounded-xl bg-red-600 text-white text-sm hover:bg-red-700 flex items-center gap-1.5">
+            <i class="fi-rr-file-pdf"></i> PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Summary KPIs -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card-tint-blue p-4"><div class="text-xs opacity-80">หมู่บ้านทั้งหมด</div><div class="text-2xl font-bold mt-1">1,924</div></div>
+        <div class="card-tint-green p-4"><div class="text-xs opacity-80">บรรลุ ≥ 80%</div><div class="text-2xl font-bold mt-1 text-green-700 dark:text-green-300">1,128</div></div>
+        <div class="card-tint-orange p-4"><div class="text-xs opacity-80">50-79%</div><div class="text-2xl font-bold mt-1 text-orange-700 dark:text-orange-300">624</div></div>
+        <div class="card-tint-red p-4"><div class="text-xs opacity-80">ต่ำกว่า 50%</div><div class="text-2xl font-bold mt-1 text-red-700 dark:text-red-300">172</div></div>
+      </div>
+
+      <!-- Comparative chart -->
+      <div class="card p-4 lg:p-5">
+        <div class="font-semibold text-sm">เปรียบเทียบยอดลงทะเบียน vs เป้าหมาย</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">10 อำเภอที่ก้าวหน้าสูงสุด</div>
+        <div id="chart-bar"></div>
+      </div>
+
+      <!-- Detail table -->
+      <div class="card">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-800 font-semibold">รายละเอียดรายหมู่บ้าน · ต.ปากช่อง</div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-xs text-slate-500 dark:text-slate-400">
+              <tr><th class="text-left py-2 px-4">หมู่บ้าน</th><th class="text-right">เป้า</th><th class="text-right">4.7</th><th class="text-right">4.6</th><th class="text-right">รวม</th><th class="text-right">%</th><th class="text-left pl-4">สถานะ</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+              <tr><td class="py-2 px-4 font-medium">ชุมชนหนองกะจะ1</td><td class="text-right">142</td><td class="text-right">98</td><td class="text-right">30</td><td class="text-right font-medium">128</td><td class="text-right text-green-700 font-semibold">90%</td><td class="pl-4"><span class="text-xs px-2 py-0.5 rounded-full card-tint-green font-medium">ดีเยี่ยม</span></td></tr>
+              <tr><td class="py-2 px-4 font-medium">ชุมชนสะพานดำ</td><td class="text-right">98</td><td class="text-right">62</td><td class="text-right">20</td><td class="text-right font-medium">82</td><td class="text-right text-green-700 font-semibold">84%</td><td class="pl-4"><span class="text-xs px-2 py-0.5 rounded-full card-tint-green font-medium">ดีเยี่ยม</span></td></tr>
+              <tr><td class="py-2 px-4 font-medium">หมู่ 20 ไทยเจริญ</td><td class="text-right">64</td><td class="text-right">42</td><td class="text-right">16</td><td class="text-right font-medium">58</td><td class="text-right text-green-700 font-semibold">91%</td><td class="pl-4"><span class="text-xs px-2 py-0.5 rounded-full card-tint-green font-medium">ดีเยี่ยม</span></td></tr>
+              <tr><td class="py-2 px-4 font-medium">หมู่ 4 ไทยเจริญ</td><td class="text-right">87</td><td class="text-right">28</td><td class="text-right">24</td><td class="text-right font-medium">52</td><td class="text-right text-orange-600 font-semibold">60%</td><td class="pl-4"><span class="text-xs px-2 py-0.5 rounded-full card-tint-orange font-medium">ปานกลาง</span></td></tr>
+              <tr><td class="py-2 px-4 font-medium">หมู่ 15 เหนือ</td><td class="text-right">76</td><td class="text-right">12</td><td class="text-right">19</td><td class="text-right font-medium">31</td><td class="text-right text-red-600 font-semibold">41%</td><td class="pl-4"><span class="text-xs px-2 py-0.5 rounded-full card-tint-red font-medium">ต้องเร่งรัด</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="p-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 text-center">
+          ส่งรายงานอัตโนมัติทุก 16:30 ผ่าน CRM · ผู้รับรายงาน 47 ราย
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'reports', title: 'รายงาน + Export', subtitle: 'Chart · Table · PDF · Excel' });
+
+const isDark = () => document.documentElement.classList.contains('dark');
+const txt = () => (isDark() ? '#cbd5e1' : '#64748b');
+const grid = () => (isDark() ? '#1f2937' : '#eef2f7');
+const FONT = 'Prompt, sans-serif';
+
+let bar;
+function renderBar() {
+  const opts = {
+    chart: { type: 'bar', height: 380, fontFamily: FONT, toolbar: { show: false }, foreColor: txt() },
+    colors: ['#94a3b8', '#2563eb'],
+    series: [
+      { name: 'เป้าหมาย', data: [6420, 5840, 4920, 4630, 4218, 3890, 3654, 3420, 3210, 2980] },
+      { name: 'ลงทะเบียนแล้ว', data: [5860, 5210, 4380, 3290, 3120, 3450, 3220, 2890, 2980, 2680] }
+    ],
+    plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '70%' } },
+    dataLabels: { enabled: false },
+    xaxis: { categories: ['ปากช่อง','สีคิ้ว','โชคชัย','พิมาย','ครบุรี','จักราช','โนนสูง','ห้วยแถลง','ปักธงชัย','เมือง'], axisBorder: { show: false }, axisTicks: { show: false } },
+    grid: { borderColor: grid(), strokeDashArray: 3, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+    legend: { position: 'top', horizontalAlign: 'right', markers: { width: 10, height: 10, radius: 5 } },
+    tooltip: { theme: isDark() ? 'dark' : 'light' }
+  };
+  bar = new ApexCharts(document.getElementById('chart-bar'), opts);
+  bar.render();
+}
+renderBar();
+window.addEventListener('wk-theme-changed', () => { bar?.destroy(); renderBar(); });
+</script>
+</body>
+</html>

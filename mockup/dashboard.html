@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- HERO CARD (สีน้ำเงิน gradient) -->
+      <div class="card-hero p-5 lg:p-6">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div class="min-w-0">
+            <div class="text-xs opacity-80">ภาพรวมโครงการ · จ.นครราชสีมา</div>
+            <h1 class="text-lg lg:text-xl font-semibold mt-1">บัตรสวัสดิการแห่งรัฐ 2569</h1>
+            <div class="text-xs opacity-80 mt-0.5 flex items-center gap-1.5">
+              <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse"></span>
+              อัปเดต 14:32 · ทุก 30 วินาที
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs opacity-80">ความคืบหน้ารวม</div>
+            <div class="text-3xl lg:text-4xl font-bold leading-none">66.9%</div>
+          </div>
+        </div>
+        <div class="flex items-end justify-between gap-3 mt-5">
+          <div class="text-sm opacity-90">41,289 / 61,743 คน</div>
+          <a href="overview.html" class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full flex items-center gap-1">ภาพรวม SOP <i class="fi-rr-arrow-small-right"></i></a>
+        </div>
+        <div class="mt-2 h-2 rounded-full bg-white/20 overflow-hidden">
+          <div class="h-full bg-white" style="width:66.9%"></div>
+        </div>
+      </div>
+
+      <!-- Quick filter -->
+      <div class="flex flex-wrap items-center gap-2">
+        <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm min-w-0">
+          <option>ทุกอำเภอ (32)</option>
+          <option>ปากช่อง</option><option>เมืองนครราชสีมา</option>
+        </select>
+        <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุกตำบล</option>
+        </select>
+        <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุกหมู่บ้าน</option>
+        </select>
+        <button class="ml-auto btn-primary px-3 py-2 text-xs flex items-center gap-1.5"><i class="fi-rr-refresh"></i> รีเฟรช</button>
+      </div>
+
+      <!-- KPI cards (minimal, สีฟ้าอ่อน accent) -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="card-tint-blue p-4">
+          <div class="flex items-center justify-between">
+            <div class="text-xs opacity-80">เป้าหมาย</div>
+            <i class="fi-rr-users-alt text-blue-700"></i>
+          </div>
+          <div class="text-2xl lg:text-3xl font-bold mt-3 text-blue-900 dark:text-blue-100">61,743</div>
+          <div class="text-[11px] mt-1 opacity-70">คน · 32 อำเภอ</div>
+        </div>
+        <div class="card-tint-green p-4">
+          <div class="flex items-center justify-between">
+            <div class="text-xs opacity-80">ลงทะเบียนแล้ว</div>
+            <i class="fi-rr-check text-green-700"></i>
+          </div>
+          <div class="text-2xl lg:text-3xl font-bold mt-3 text-green-900 dark:text-green-100">41,289</div>
+          <div class="text-[11px] mt-1 opacity-70"><i class="fi-rr-arrow-up"></i> 66.9% · +312 วันนี้</div>
+        </div>
+        <div class="card-tint-sky p-4">
+          <div class="flex items-center justify-between">
+            <div class="text-xs opacity-80">รอยืนยันตัวตน</div>
+            <i class="fi-rr-fingerprint text-sky-700"></i>
+          </div>
+          <div class="text-2xl lg:text-3xl font-bold mt-3 text-sky-900 dark:text-sky-100">8,432</div>
+          <div class="text-[11px] mt-1 opacity-70">13.6% ของเป้า</div>
+        </div>
+        <div class="card-tint-red p-4">
+          <div class="flex items-center justify-between">
+            <div class="text-xs opacity-80">ติดขัด · รอแก้</div>
+            <i class="fi-rr-triangle-warning text-red-700"></i>
+          </div>
+          <div class="text-2xl lg:text-3xl font-bold mt-3 text-red-700 dark:text-red-300">1,847</div>
+          <div class="text-[11px] mt-1 opacity-70">รออุทธรณ์ / เอกสารเพิ่ม</div>
+        </div>
+      </div>
+
+      <!-- Trend chart -->
+      <div class="card p-4 lg:p-5">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="font-semibold text-sm">แนวโน้มการลงทะเบียน 14 วันล่าสุด</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">ยอดสะสมรายวัน · เทียบเป้าหมาย</div>
+          </div>
+          <div class="hidden sm:flex gap-1 text-xs">
+            <button class="px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">7 วัน</button>
+            <button class="px-2.5 py-1 rounded-lg bg-blue-600 text-white">14 วัน</button>
+            <button class="px-2.5 py-1 rounded-lg text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">30 วัน</button>
+          </div>
+        </div>
+        <div id="chart-trend"></div>
+      </div>
+
+      <!-- Status pie + Channel bar -->
+      <div class="grid lg:grid-cols-2 gap-3">
+        <div class="card p-4 lg:p-5">
+          <div class="font-semibold text-sm">สัดส่วนสถานะ</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">ตามขั้นตอน 4.1 - 4.7</div>
+          <div id="chart-status"></div>
+        </div>
+        <div class="card p-4 lg:p-5">
+          <div class="font-semibold text-sm">ช่องทางการลงทะเบียน</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">4 ช่องทางหลัก</div>
+          <div id="chart-channel"></div>
+        </div>
+      </div>
+
+      <!-- Bottleneck -->
+      <div class="card p-4 lg:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="font-semibold text-sm flex items-center gap-2">
+              <i class="fi-sr-bell text-orange-500"></i> Bottleneck รายสัปดาห์
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">อัปเดต 16:30 ทุกวัน · สัปดาห์ที่ 21/2569</div>
+          </div>
+          <a href="reports.html" class="text-xs text-blue-700 dark:text-blue-400 hover:underline">ดูทั้งหมด →</a>
+        </div>
+        <div class="space-y-2">
+          <div class="card-tint-red p-3 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-medium text-sm text-red-700 dark:text-red-300 truncate">ค้างที่ขั้น 4.4 ส่งเอกสารเพิ่มเติม</div>
+              <div class="text-xs text-slate-600 dark:text-slate-400">เฉลี่ย 8.3 วัน · 1,247 ราย</div>
+            </div>
+            <span class="text-red-600 font-bold text-sm shrink-0">+24%</span>
+          </div>
+          <div class="card-tint-orange p-3 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-medium text-sm text-orange-700 dark:text-orange-300 truncate">อ.พิมาย ลงทะเบียนช้ากว่าเป้า</div>
+              <div class="text-xs text-slate-600 dark:text-slate-400">เป้า 1,800 · ทำได้ 1,210</div>
+            </div>
+            <span class="text-orange-600 font-bold text-sm shrink-0">67%</span>
+          </div>
+          <div class="card-tint-orange p-3 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="font-medium text-sm text-orange-700 dark:text-orange-300 truncate">ผู้ติดตาม อ.ครบุรี ขาดการอัปเดต > 3 วัน</div>
+              <div class="text-xs text-slate-600 dark:text-slate-400">12 หมู่บ้าน</div>
+            </div>
+            <span class="text-orange-600 font-bold text-sm shrink-0">12</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top villages -->
+      <div class="card p-4 lg:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold text-sm">สรุปยอดรายหมู่บ้าน · วันนี้</div>
+          <a href="targets.html" class="text-xs text-blue-700 dark:text-blue-400 hover:underline">ดูทั้งหมด →</a>
+        </div>
+
+        <!-- Desktop table -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+              <tr><th class="text-left py-2 pr-3">หมู่บ้าน</th><th class="text-left">ตำบล / อำเภอ</th>
+                <th class="text-right">เป้า</th><th class="text-right">ลงทะเบียน</th>
+                <th class="text-right">%</th><th class="text-left pl-3">ผู้ติดตาม</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+              <tr><td class="py-2.5 pr-3 font-medium">ชุมชนหนองกะจะ1</td><td class="text-slate-500 dark:text-slate-400">ปากช่อง · ปากช่อง</td><td class="text-right">142</td><td class="text-right">128</td><td class="text-right"><span class="text-green-600 font-semibold">90%</span></td><td class="pl-3">นายสมชาย <span class="text-xs text-slate-400">(ผญบ.)</span></td></tr>
+              <tr><td class="py-2.5 pr-3 font-medium">ชุมชนสะพานดำ</td><td class="text-slate-500 dark:text-slate-400">ปากช่อง · ปากช่อง</td><td class="text-right">98</td><td class="text-right">82</td><td class="text-right"><span class="text-green-600 font-semibold">84%</span></td><td class="pl-3">นายมานพ <span class="text-xs text-slate-400">(กำนัน)</span></td></tr>
+              <tr><td class="py-2.5 pr-3 font-medium">หมู่ 4 ไทยเจริญ</td><td class="text-slate-500 dark:text-slate-400">ปากช่อง · ปากช่อง</td><td class="text-right">87</td><td class="text-right">52</td><td class="text-right"><span class="text-orange-600 font-semibold">60%</span></td><td class="pl-3">นางสายฝน <span class="text-xs text-slate-400">(อสม.)</span></td></tr>
+              <tr><td class="py-2.5 pr-3 font-medium">หมู่ 15 เหนือ</td><td class="text-slate-500 dark:text-slate-400">ปากช่อง · ปากช่อง</td><td class="text-right">76</td><td class="text-right">31</td><td class="text-right"><span class="text-red-600 font-semibold">41%</span></td><td class="pl-3">นายอดิสรณ์ <span class="text-xs text-slate-400">(ผช.ผญบ.)</span></td></tr>
+              <tr><td class="py-2.5 pr-3 font-medium">หมู่ 20 ขันทอง</td><td class="text-slate-500 dark:text-slate-400">ปากช่อง · ปากช่อง</td><td class="text-right">64</td><td class="text-right">58</td><td class="text-right"><span class="text-green-600 font-semibold">91%</span></td><td class="pl-3">นางขันทอง <span class="text-xs text-slate-400">(ส.อบต.)</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile card list -->
+        <div class="md:hidden space-y-2">
+          <div class="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-medium text-sm truncate">ชุมชนหนองกะจะ1</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">ต.ปากช่อง · นายสมชาย (ผญบ.)</div>
+              </div>
+              <span class="text-green-600 font-semibold text-sm">90%</span>
+            </div>
+            <div class="mt-2 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-green-500" style="width:90%"></div>
+            </div>
+            <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">128 / 142</div>
+          </div>
+          <div class="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-medium text-sm truncate">ชุมชนสะพานดำ</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">ต.ปากช่อง · นายมานพ (กำนัน)</div>
+              </div>
+              <span class="text-green-600 font-semibold text-sm">84%</span>
+            </div>
+            <div class="mt-2 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-green-500" style="width:84%"></div>
+            </div>
+            <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">82 / 98</div>
+          </div>
+          <div class="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-medium text-sm truncate">หมู่ 4 ไทยเจริญ</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">ต.ปากช่อง · นางสายฝน (อสม.)</div>
+              </div>
+              <span class="text-orange-600 font-semibold text-sm">60%</span>
+            </div>
+            <div class="mt-2 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-orange-500" style="width:60%"></div>
+            </div>
+            <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">52 / 87</div>
+          </div>
+          <div class="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-medium text-sm truncate">หมู่ 15 เหนือ</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">ต.ปากช่อง · นายอดิสรณ์</div>
+              </div>
+              <span class="text-red-600 font-semibold text-sm">41%</span>
+            </div>
+            <div class="mt-2 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-red-500" style="width:41%"></div>
+            </div>
+            <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">31 / 76</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({
+  active: 'dashboard',
+  greeting: 'สวัสดี, สมชาย 👋',
+  title: 'Dashboard',
+  subtitle: ''
+});
+
+const isDark = () => document.documentElement.classList.contains('dark');
+const txtColor = () => (isDark() ? '#cbd5e1' : '#64748b');
+const gridColor = () => (isDark() ? '#1f2937' : '#eef2f7');
+const FONT = 'Prompt, sans-serif';
+
+let trendChart, statusChart, channelChart;
+
+function renderTrend() {
+  const opts = {
+    chart: { type: 'area', height: 280, fontFamily: FONT, toolbar: { show: false }, foreColor: txtColor(), zoom: { enabled: false } },
+    colors: ['#2563eb', '#94a3b8'],
+    series: [
+      { name: 'ยอดสะสม', data: [28100,29230,30540,31800,33020,34150,35290,36470,37650,38800,39620,40380,40900,41289] },
+      { name: 'เป้าหมาย', data: [28000,29500,31000,32500,34000,35500,37000,38500,40000,41500,43000,44500,46000,47500] }
+    ],
+    stroke: { curve: 'smooth', width: [3, 2], dashArray: [0, 5] },
+    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 90, 100] } },
+    dataLabels: { enabled: false },
+    grid: { borderColor: gridColor(), strokeDashArray: 3, padding: { left: 10, right: 10 } },
+    xaxis: { categories: ['12','13','14','15','16','17','18','19','20','21','22','23','24','25'], axisBorder: { show: false }, axisTicks: { show: false } },
+    yaxis: { labels: { formatter: v => (v/1000).toFixed(0)+'k' } },
+    legend: { position: 'top', horizontalAlign: 'right', markers: { width: 10, height: 10, radius: 5 } },
+    tooltip: { theme: isDark() ? 'dark' : 'light' },
+    responsive: [{ breakpoint: 640, options: { chart: { height: 220 } } }]
+  };
+  trendChart = new ApexCharts(document.getElementById('chart-trend'), opts);
+  trendChart.render();
+}
+
+function renderStatus() {
+  const opts = {
+    chart: { type: 'donut', height: 280, fontFamily: FONT, foreColor: txtColor() },
+    colors: ['#94a3b8', '#2563eb', '#fb923c', '#f97316', '#dc2626', '#0ea5e9', '#16a34a'],
+    series: [1842, 6420, 8230, 1247, 605, 8432, 5127],
+    labels: ['4.1 ไม่ประสงค์', '4.2 ระหว่างลงทะเบียน', '4.3 เตรียมเอกสาร', '4.4 ส่งเอกสารเพิ่ม', '4.5 รออุทธรณ์', '4.6 รอยืนยันตัวตน', '4.7 ใช้สิทธิแล้ว'],
+    dataLabels: { enabled: false },
+    legend: { position: 'bottom', fontSize: '11px', markers: { width: 8, height: 8, radius: 4 } },
+    stroke: { width: 2, colors: [isDark() ? '#111827' : '#ffffff'] },
+    plotOptions: { pie: { donut: { size: '68%', labels: {
+      show: true,
+      total: { show: true, label: 'รวม', color: txtColor(), formatter: () => '31,903' }
+    }}}},
+    tooltip: { theme: isDark() ? 'dark' : 'light', y: { formatter: v => v.toLocaleString() + ' ราย' } },
+  };
+  statusChart = new ApexCharts(document.getElementById('chart-status'), opts);
+  statusChart.render();
+}
+
+function renderChannel() {
+  const opts = {
+    chart: { type: 'bar', height: 280, fontFamily: FONT, toolbar: { show: false }, foreColor: txtColor() },
+    colors: ['#2563eb'],
+    series: [{ name: 'จำนวน', data: [12480, 18230, 4120, 6459] }],
+    plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '60%', distributed: false } },
+    dataLabels: { enabled: true, style: { fontSize: '11px', fontFamily: FONT, colors: ['#0f172a'] }, offsetX: 28, formatter: v => v.toLocaleString() },
+    xaxis: { categories: ['เว็บไซต์', 'แอปเป๋าตัง', 'ATM กรุงไทย', 'ธนาคาร 5 แห่ง'], axisBorder: { show: false }, axisTicks: { show: false } },
+    grid: { borderColor: gridColor(), strokeDashArray: 3, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
+    tooltip: { theme: isDark() ? 'dark' : 'light' },
+    fill: {
+      type: 'gradient',
+      gradient: { shade: 'light', type: 'horizontal', gradientToColors: ['#0ea5e9'], stops: [0, 100] }
+    }
+  };
+  channelChart = new ApexCharts(document.getElementById('chart-channel'), opts);
+  channelChart.render();
+}
+
+renderTrend();
+renderStatus();
+renderChannel();
+
+window.addEventListener('wk-theme-changed', () => {
+  trendChart?.destroy(); statusChart?.destroy(); channelChart?.destroy();
+  renderTrend(); renderStatus(); renderChannel();
+});
+</script>
+</body>
+</html>

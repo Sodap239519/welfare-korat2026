@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ผู้กำกับติดตาม — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Hero compact -->
+      <div class="card-hero p-4 flex items-center justify-between">
+        <div>
+          <div class="text-xs opacity-80">รวมผู้กำกับติดตามรายหมู่บ้าน</div>
+          <div class="text-2xl lg:text-3xl font-bold mt-0.5">1,287 <span class="text-sm font-normal opacity-80">คน</span></div>
+        </div>
+        <div class="text-right text-xs opacity-90">
+          <div>ครอบคลุม <strong class="text-base">1,924</strong> หมู่บ้าน</div>
+          <div>ใน <strong class="text-base">32</strong> อำเภอ</div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="card p-3 flex flex-wrap items-center gap-2">
+        <div class="relative flex-1 min-w-[200px]">
+          <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" placeholder="ค้นหาชื่อ / หมู่บ้าน / เบอร์โทร"
+            class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <select class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <option>ทุกตำแหน่ง</option>
+          <option>ผู้ใหญ่บ้าน</option><option>กำนัน</option><option>ผู้ช่วยผู้ใหญ่บ้าน</option><option>อสม.</option><option>ส.อบต.</option><option>อื่นๆ</option>
+        </select>
+        <button class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5">
+          <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มผู้ติดตาม</span>
+        </button>
+      </div>
+
+      <!-- Cards grid -->
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+        <div class="card p-4 hover:border-blue-300 transition">
+          <div class="flex items-start justify-between">
+            <div class="flex gap-3 min-w-0">
+              <div class="w-12 h-12 shrink-0 rounded-2xl bg-blue-700 text-white flex items-center justify-center font-semibold">สช</div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">นายสมชาย ผู้ดูแล</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">ผู้ใหญ่บ้าน</div>
+              </div>
+            </div>
+            <button class="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-menu-dots-vertical"></i></button>
+          </div>
+          <div class="mt-3 space-y-1 text-sm">
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 truncate"><i class="fi-rr-marker text-xs shrink-0"></i> <span class="truncate">ชุมชนหนองกะจะ1 · ต.ปากช่อง</span></div>
+            <a href="tel:0812345678" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"><i class="fi-rr-phone-call text-xs"></i> 081-234-5678</a>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs">
+            <div><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">142</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span class="font-semibold text-green-600">128 (90%)</span></div>
+          </div>
+        </div>
+
+        <div class="card p-4 hover:border-blue-300 transition">
+          <div class="flex items-start justify-between">
+            <div class="flex gap-3 min-w-0">
+              <div class="w-12 h-12 shrink-0 rounded-2xl bg-sky-600 text-white flex items-center justify-center font-semibold">มน</div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">นายมานพ ใจดี</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">กำนัน</div>
+              </div>
+            </div>
+            <button class="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-menu-dots-vertical"></i></button>
+          </div>
+          <div class="mt-3 space-y-1 text-sm">
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 truncate"><i class="fi-rr-marker text-xs shrink-0"></i> <span class="truncate">ชุมชนสะพานดำ · ต.ปากช่อง</span></div>
+            <a href="tel:0823456789" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"><i class="fi-rr-phone-call text-xs"></i> 082-345-6789</a>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs">
+            <div><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">98</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span class="font-semibold text-green-600">82 (84%)</span></div>
+          </div>
+        </div>
+
+        <div class="card p-4 hover:border-blue-300 transition">
+          <div class="flex items-start justify-between">
+            <div class="flex gap-3 min-w-0">
+              <div class="w-12 h-12 shrink-0 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-semibold">สฝ</div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">นางสายฝน รักงาน</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">อสม.</div>
+              </div>
+            </div>
+            <button class="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-menu-dots-vertical"></i></button>
+          </div>
+          <div class="mt-3 space-y-1 text-sm">
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 truncate"><i class="fi-rr-marker text-xs shrink-0"></i> <span class="truncate">หมู่ 4 ไทยเจริญ · ต.ปากช่อง</span></div>
+            <a href="tel:0834567890" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"><i class="fi-rr-phone-call text-xs"></i> 083-456-7890</a>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs">
+            <div><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">87</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span class="font-semibold text-orange-600">52 (60%)</span></div>
+          </div>
+        </div>
+
+        <div class="card p-4 hover:border-blue-300 transition">
+          <div class="flex items-start justify-between">
+            <div class="flex gap-3 min-w-0">
+              <div class="w-12 h-12 shrink-0 rounded-2xl bg-red-600 text-white flex items-center justify-center font-semibold">อด</div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">นายอดิสรณ์ สาคะรินทร์</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">ผู้ช่วยผู้ใหญ่บ้าน</div>
+              </div>
+            </div>
+            <button class="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-menu-dots-vertical"></i></button>
+          </div>
+          <div class="mt-3 space-y-1 text-sm">
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 truncate"><i class="fi-rr-marker text-xs shrink-0"></i> <span class="truncate">หมู่ 15 เหนือ · ต.ปากช่อง</span></div>
+            <a href="tel:0845678901" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"><i class="fi-rr-phone-call text-xs"></i> 084-567-8901</a>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs">
+            <div><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">76</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span class="font-semibold text-red-600">31 (41%)</span></div>
+          </div>
+        </div>
+
+        <div class="card p-4 hover:border-blue-300 transition">
+          <div class="flex items-start justify-between">
+            <div class="flex gap-3 min-w-0">
+              <div class="w-12 h-12 shrink-0 rounded-2xl bg-green-600 text-white flex items-center justify-center font-semibold">ขท</div>
+              <div class="min-w-0">
+                <div class="font-medium truncate">นางขันทอง ทองรัตน์</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">ส.อบต.</div>
+              </div>
+            </div>
+            <button class="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-menu-dots-vertical"></i></button>
+          </div>
+          <div class="mt-3 space-y-1 text-sm">
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 truncate"><i class="fi-rr-marker text-xs shrink-0"></i> <span class="truncate">หมู่ 20 ไทยเจริญ · ต.ปากช่อง</span></div>
+            <a href="tel:0856789012" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline"><i class="fi-rr-phone-call text-xs"></i> 085-678-9012</a>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs">
+            <div><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">64</span></div>
+            <div><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span class="font-semibold text-green-600">58 (91%)</span></div>
+          </div>
+        </div>
+
+        <button class="card p-4 border-dashed border-2 border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50/40 dark:hover:bg-slate-800/50 flex flex-col items-center justify-center gap-2 min-h-[180px]">
+          <i class="fi-rr-add text-2xl"></i>
+          <span class="text-sm">เพิ่มผู้กำกับติดตามใหม่</span>
+        </button>
+
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'trackers', title: 'ผู้กำกับติดตาม', subtitle: 'รายหมู่บ้าน · 1,287 คน' });
+</script>
+</body>
+</html>

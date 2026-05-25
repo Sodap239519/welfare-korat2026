@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>รายชื่อเป้าหมาย — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Summary hero (compact) -->
+      <div class="card-hero p-4 flex items-center justify-between">
+        <div>
+          <div class="text-xs opacity-80">เป้าหมายทั้งหมด (ปี 2569)</div>
+          <div class="text-2xl lg:text-3xl font-bold mt-0.5">61,743 <span class="text-sm font-normal opacity-80">คน</span></div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs opacity-80">อัปเดตล่าสุดวันนี้</div>
+          <div class="text-base font-semibold">+312 ราย</div>
+        </div>
+      </div>
+
+      <!-- Search + actions -->
+      <div class="card p-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative flex-1 min-w-[200px]">
+            <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" placeholder="ค้นหาด้วย ชื่อ-สกุล / หมู่บ้าน"
+              class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <button onclick="toggleFilter()" class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-filter"></i> <span class="hidden sm:inline">ตัวกรอง</span>
+            <span class="bg-blue-700 text-white text-[10px] rounded-full px-1.5 py-0.5 ml-1">3</span>
+          </button>
+          <button class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มรายชื่อ</span>
+          </button>
+          <button class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-document"></i> <span class="hidden sm:inline">Export</span>
+          </button>
+        </div>
+
+        <div id="filter-panel" class="hidden mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <option>ทุกอำเภอ</option><option>ปากช่อง</option>
+          </select>
+          <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <option>ทุกตำบล</option><option>ปากช่อง</option>
+          </select>
+          <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <option>ทุกหมู่บ้าน</option>
+          </select>
+          <select class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <option>ทุกสถานะ</option>
+            <option>4.1 ไม่ประสงค์</option><option>4.2 ระหว่างลงทะเบียน</option>
+            <option>4.3 เตรียมเอกสาร</option><option>4.4 ส่งเอกสารเพิ่ม</option>
+            <option>4.5 รออุทธรณ์</option><option>4.6 รอยืนยันตัวตน</option>
+            <option>4.7 ใช้สิทธิแล้ว</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Status pills counter (scroll) -->
+      <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+        <button class="shrink-0 px-3 py-1.5 rounded-full bg-blue-700 text-white text-xs">ทั้งหมด · 61,743</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-1 text-xs">4.1 ไม่ประสงค์ · 1,842</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-2 text-xs">4.2 ระหว่างลงทะเบียน · 6,420</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-3 text-xs">4.3 เตรียมเอกสาร · 8,230</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-4 text-xs">4.4 ส่งเอกสารเพิ่ม · 1,247</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-5 text-xs">4.5 รออุทธรณ์ · 605</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-6 text-xs">4.6 รอยืนยันตัวตน · 8,432</button>
+        <button class="shrink-0 px-3 py-1.5 rounded-full st-4-7 text-xs">4.7 ใช้สิทธิแล้ว · 5,127</button>
+      </div>
+
+      <!-- DESKTOP table -->
+      <div class="card hidden md:block overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+            <tr>
+              <th class="text-left py-3 px-3 w-10"><input type="checkbox" class="rounded"></th>
+              <th class="text-left">#</th>
+              <th class="text-left">ชื่อ - สกุล</th>
+              <th class="text-left">หมู่บ้าน / ตำบล</th>
+              <th class="text-left">สถานะการลงทะเบียน</th>
+              <th class="text-left">ช่องทาง</th>
+              <th class="text-left">อัปเดตล่าสุด</th>
+              <th class="text-right pr-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">1</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นายสมชาย โรงรัมย์</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 48,000 บ./ปี · อยู่ลำบาก</div></td>
+              <td>ชุมชนหนองกะจะ1<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-7">4.7 ใช้สิทธิแล้ว</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">แอปเป๋าตัง</td>
+              <td class="text-xs text-slate-500">24/05 14:22<div>โดย นายสมชาย</div></td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">2</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นายกฤษฏา ดงทอง</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 0 บ./ปี · อยู่ยาก</div></td>
+              <td>ชุมชนสะพานดำ<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-4">4.4 ส่งเอกสารเพิ่ม</span><div class="text-[11px] text-orange-600 mt-0.5">ค้าง 9 วัน</div></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">ธ.กรุงไทย</td>
+              <td class="text-xs text-slate-500">22/05 09:14</td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">3</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นางเสงี่ยม ดงทอง</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 120,000 บ./ปี · อยู่ยาก</div></td>
+              <td>ชุมชนสะพานดำ<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-6">4.6 รอยืนยันตัวตน</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">เว็บไซต์</td>
+              <td class="text-xs text-slate-500">24/05 11:08</td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">4</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นายอดิสรณ์ สาคะรินทร์</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 48,000 บ./ปี · อยู่ยาก</div></td>
+              <td>หมู่ 15 เหนือ<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-2">4.2 ระหว่างลงทะเบียน</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">-</td>
+              <td class="text-xs text-slate-500">20/05 16:30</td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">5</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นางขันทอง ทองรัตน์</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 18,000 บ./ปี · อยู่ยาก</div></td>
+              <td>หมู่ 20 ไทยเจริญ<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-7">4.7 ใช้สิทธิแล้ว</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">ATM กรุงไทย</td>
+              <td class="text-xs text-slate-500">23/05 10:45</td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">6</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นายมานพ ใจดี</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 36,000 บ./ปี · อยู่ลำบาก</div></td>
+              <td>ชุมชนหนองกะจะ1<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-1">4.1 ไม่ประสงค์</span></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">-</td>
+              <td class="text-xs text-slate-500">18/05 09:00</td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+            <tr class="hover:bg-blue-50/30 dark:hover:bg-slate-800/30">
+              <td class="py-3 px-3"><input type="checkbox" class="rounded"></td>
+              <td class="text-slate-500">7</td>
+              <td><a href="target-detail.html" class="font-medium hover:text-blue-700 dark:hover:text-blue-400">นางสายฝน รักงาน</a><div class="text-xs text-slate-500 dark:text-slate-400">รายได้ 24,000 บ./ปี · อยู่ยาก</div></td>
+              <td>หมู่ 4 ไทยเจริญ<div class="text-xs text-slate-500 dark:text-slate-400">ต.ปากช่อง · อ.ปากช่อง</div></td>
+              <td><span class="inline-block px-2 py-1 rounded-md text-xs st-4-5">4.5 รออุทธรณ์</span><div class="text-[11px] text-red-600 mt-0.5">เอกสารไม่ครบ</div></td>
+              <td class="text-xs text-slate-600 dark:text-slate-300">ธ.ออมสิน</td>
+              <td class="text-xs text-slate-500">19/05 13:22</td>
+              <td class="text-right pr-3"><a href="target-detail.html" class="text-blue-700 hover:text-blue-800"><i class="fi-rr-eye"></i></a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- MOBILE card list -->
+      <div class="md:hidden space-y-2">
+        <a href="target-detail.html" class="card p-3 block active:bg-blue-50 dark:active:bg-slate-800/50">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate">นายสมชาย โรงรัมย์</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 truncate">ชุมชนหนองกะจะ1 · ต.ปากช่อง</div>
+            </div>
+            <span class="shrink-0 inline-block px-2 py-1 rounded-md text-[11px] st-4-7 font-medium">4.7</span>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <span><i class="fi-rr-mobile-button"></i> เป๋าตัง</span>
+            <span>24/05 14:22</span>
+          </div>
+        </a>
+        <a href="target-detail.html" class="card p-3 block active:bg-blue-50 dark:active:bg-slate-800/50">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate">นายกฤษฏา ดงทอง</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 truncate">ชุมชนสะพานดำ · ต.ปากช่อง</div>
+            </div>
+            <span class="shrink-0 inline-block px-2 py-1 rounded-md text-[11px] st-4-4 font-medium">4.4</span>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px]">
+            <span class="text-slate-500"><i class="fi-rr-bank"></i> ธ.กรุงไทย</span>
+            <span class="text-orange-600 font-medium">ค้าง 9 วัน</span>
+          </div>
+        </a>
+        <a href="target-detail.html" class="card p-3 block active:bg-blue-50 dark:active:bg-slate-800/50">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate">นางเสงี่ยม ดงทอง</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 truncate">ชุมชนสะพานดำ · ต.ปากช่อง</div>
+            </div>
+            <span class="shrink-0 inline-block px-2 py-1 rounded-md text-[11px] st-4-6 font-medium">4.6</span>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <span><i class="fi-rr-browser"></i> เว็บไซต์</span>
+            <span>24/05 11:08</span>
+          </div>
+        </a>
+        <a href="target-detail.html" class="card p-3 block active:bg-blue-50 dark:active:bg-slate-800/50">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate">นายอดิสรณ์ สาคะรินทร์</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 truncate">หมู่ 15 เหนือ · ต.ปากช่อง</div>
+            </div>
+            <span class="shrink-0 inline-block px-2 py-1 rounded-md text-[11px] st-4-2 font-medium">4.2</span>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <span>—</span>
+            <span>20/05 16:30</span>
+          </div>
+        </a>
+        <a href="target-detail.html" class="card p-3 block active:bg-blue-50 dark:active:bg-slate-800/50">
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium truncate">นางสายฝน รักงาน</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 truncate">หมู่ 4 ไทยเจริญ · ต.ปากช่อง</div>
+            </div>
+            <span class="shrink-0 inline-block px-2 py-1 rounded-md text-[11px] st-4-5 font-medium">4.5</span>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px]">
+            <span class="text-slate-500"><i class="fi-rr-bank"></i> ธ.ออมสิน</span>
+            <span class="text-red-600 font-medium">เอกสารไม่ครบ</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between text-sm">
+        <div class="text-xs text-slate-500 dark:text-slate-400">แสดง 1 - 50 จาก 61,743</div>
+        <div class="flex items-center gap-1">
+          <button class="px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40" disabled><i class="fi-rr-angle-left"></i></button>
+          <button class="px-3 py-1.5 rounded-lg bg-blue-700 text-white">1</button>
+          <button class="px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800">2</button>
+          <button class="px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 hidden sm:inline-block">3</button>
+          <span class="px-2 text-slate-400">…</span>
+          <button class="px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800">1,235</button>
+          <button class="px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800"><i class="fi-rr-angle-right"></i></button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'targets', title: 'รายชื่อเป้าหมาย', subtitle: '61,743 ราย · ปี 2569' });
+function toggleFilter(){ document.getElementById('filter-panel').classList.toggle('hidden'); }
+</script>
+</body>
+</html>

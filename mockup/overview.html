@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ภาพรวมโครงการ — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body>
+
+<div class="lg:flex min-h-screen">
+  <div id="wk-sidebar-slot"></div>
+  <div class="flex-1 min-w-0">
+    <div id="wk-topbar-slot"></div>
+
+    <main class="p-4 lg:p-6 max-w-7xl mx-auto space-y-4 pb-24 lg:pb-6">
+
+      <!-- Hero -->
+      <div class="card-hero p-5 lg:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="text-xs opacity-80">แผนปฏิบัติการส่งต่อข้อมูลให้คนจนเข้าถึงสิทธิของรัฐ</div>
+            <h1 class="text-lg lg:text-xl font-semibold mt-1">โครงการลงทะเบียนบัตรสวัสดิการแห่งรัฐ 2569 รอบใหม่</h1>
+            <p class="text-sm opacity-90 mt-1">จ.นครราชสีมา · ปีงบประมาณ 2569 · เป้าหมาย Onboard 61,743 คน</p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs opacity-80">ความคืบหน้ารวม</div>
+            <div class="text-3xl lg:text-4xl font-bold leading-none">66.9%</div>
+            <div class="text-xs opacity-80 mt-1">41,289 / 61,743</div>
+          </div>
+        </div>
+        <div class="mt-4 h-2 rounded-full bg-white/20 overflow-hidden">
+          <div class="h-full bg-white" style="width:66.9%"></div>
+        </div>
+      </div>
+
+      <!-- SOP stepper -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="font-semibold">SOP 5 ชั้น</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">ขั้นปัจจุบัน: ชั้น 4 — ดำเนินการ 3 ฝ่าย</div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium">ดำเนินการอยู่</span>
+        </div>
+
+        <div class="hidden md:flex items-start mt-2">
+          <div class="sop-step done">
+            <div class="sop-circle"><i class="fi-rr-megaphone"></i></div>
+            <div class="mt-2 text-sm font-medium">ชั้น 1</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">วิเคราะห์ + สื่อสาร</div>
+          </div>
+          <div class="sop-step done">
+            <div class="sop-circle"><i class="fi-rr-edit"></i></div>
+            <div class="mt-2 text-sm font-medium">ชั้น 2</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">ลงทะเบียน 4 ช่องทาง</div>
+          </div>
+          <div class="sop-step done">
+            <div class="sop-circle"><i class="fi-rr-folder"></i></div>
+            <div class="mt-2 text-sm font-medium">ชั้น 3</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">เตรียมเอกสาร NOAH</div>
+          </div>
+          <div class="sop-step current">
+            <div class="sop-circle">4</div>
+            <div class="mt-2 text-sm font-medium text-blue-700 dark:text-blue-400">ชั้น 4</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">ดำเนินการ 3 ฝ่าย</div>
+          </div>
+          <div class="sop-step">
+            <div class="sop-circle">5</div>
+            <div class="mt-2 text-sm font-medium">ชั้น 5</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">ติดตามผล</div>
+          </div>
+        </div>
+
+        <!-- Mobile vertical stepper -->
+        <div class="md:hidden space-y-2 mt-1">
+          <div class="flex gap-3 items-start"><div class="w-9 h-9 shrink-0 rounded-full bg-green-600 text-white flex items-center justify-center"><i class="fi-rr-check"></i></div><div class="flex-1"><div class="font-medium text-sm">ชั้น 1 · วิเคราะห์ + สื่อสาร</div><div class="text-xs text-slate-500 dark:text-slate-400">เสร็จสิ้น · Briefing 1 ครั้ง</div></div></div>
+          <div class="flex gap-3 items-start"><div class="w-9 h-9 shrink-0 rounded-full bg-green-600 text-white flex items-center justify-center"><i class="fi-rr-check"></i></div><div class="flex-1"><div class="font-medium text-sm">ชั้น 2 · ลงทะเบียน 4 ช่องทาง</div><div class="text-xs text-slate-500 dark:text-slate-400">เสร็จสิ้น · DSS 13 แห่ง</div></div></div>
+          <div class="flex gap-3 items-start"><div class="w-9 h-9 shrink-0 rounded-full bg-green-600 text-white flex items-center justify-center"><i class="fi-rr-check"></i></div><div class="flex-1"><div class="font-medium text-sm">ชั้น 3 · เตรียมเอกสาร NOAH</div><div class="text-xs text-slate-500 dark:text-slate-400">เสร็จสิ้น · 10 วันหลังลงทะเบียน</div></div></div>
+          <div class="flex gap-3 items-start card-tint-blue p-3 rounded-2xl"><div class="w-9 h-9 shrink-0 rounded-full bg-blue-700 text-white flex items-center justify-center font-bold">4</div><div class="flex-1"><div class="font-medium text-sm text-blue-700 dark:text-blue-300">ชั้น 4 · ดำเนินการ 3 ฝ่าย ← ปัจจุบัน</div><div class="text-xs opacity-80 mt-0.5">ตรวจสิทธิ์ / ส่งเอกสารเพิ่ม / ยืนยันตัวตน</div></div></div>
+          <div class="flex gap-3 items-start"><div class="w-9 h-9 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center font-bold">5</div><div class="flex-1"><div class="font-medium text-sm text-slate-500">ชั้น 5 · ติดตามผล Dashboard</div><div class="text-xs text-slate-500 dark:text-slate-400">รอเข้าขั้นถัดไป</div></div></div>
+        </div>
+      </div>
+
+      <!-- 3 ฝ่ายในชั้น 4 -->
+      <div>
+        <div class="text-sm font-semibold mb-2">ชั้น 4 — ดำเนินการ 3 ฝ่าย</div>
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="card-tint-blue p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center"><i class="fi-rr-search"></i></div>
+              <div>
+                <div class="font-medium">ตรวจสอบสิทธิ์</div>
+                <div class="text-xs opacity-70">กรมบัญชีกลาง</div>
+              </div>
+            </div>
+            <div class="flex items-end justify-between">
+              <div class="text-2xl font-bold text-blue-900 dark:text-blue-100">9,684</div>
+              <div class="text-xs text-green-700">+148 วันนี้</div>
+            </div>
+            <div class="mt-3 h-1.5 rounded-full bg-white/60 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-blue-700" style="width:78%"></div>
+            </div>
+          </div>
+          <div class="card-tint-orange p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center"><i class="fi-rr-paper-plane"></i></div>
+              <div>
+                <div class="font-medium">ส่งเอกสารเพิ่มเติม</div>
+                <div class="text-xs opacity-70">ผ่าน 13 ธนาคาร</div>
+              </div>
+            </div>
+            <div class="flex items-end justify-between">
+              <div class="text-2xl font-bold text-orange-700 dark:text-orange-300">1,247</div>
+              <div class="text-xs text-red-700">ค้างเฉลี่ย 8.3 วัน</div>
+            </div>
+            <div class="mt-3 h-1.5 rounded-full bg-white/60 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-orange-500" style="width:42%"></div>
+            </div>
+          </div>
+          <div class="card-tint-sky p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center"><i class="fi-rr-fingerprint"></i></div>
+              <div>
+                <div class="font-medium">ยืนยันตัวตน</div>
+                <div class="text-xs opacity-70">e-KYC</div>
+              </div>
+            </div>
+            <div class="flex items-end justify-between">
+              <div class="text-2xl font-bold text-sky-900 dark:text-sky-100">8,432</div>
+              <div class="text-xs text-green-700">+72 วันนี้</div>
+            </div>
+            <div class="mt-3 h-1.5 rounded-full bg-white/60 dark:bg-slate-800 overflow-hidden">
+              <div class="h-full bg-sky-600" style="width:65%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 ช่องทาง -->
+      <div class="card p-5">
+        <div class="font-semibold">4 ช่องทางการลงทะเบียน</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">ผู้เข้าระบบเลือกได้ตามความสะดวก</div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl card-tint-blue flex items-center justify-center text-blue-700 text-xl mb-2"><i class="fi-rr-browser"></i></div>
+            <div class="font-medium text-sm">เว็บไซต์</div>
+            <div class="text-xl font-bold mt-1">12,480</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">30.2%</div>
+          </div>
+          <div class="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl card-tint-sky flex items-center justify-center text-sky-700 text-xl mb-2"><i class="fi-rr-mobile-button"></i></div>
+            <div class="font-medium text-sm">แอปเป๋าตัง</div>
+            <div class="text-xl font-bold mt-1">18,230</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">44.1%</div>
+          </div>
+          <div class="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl card-tint-orange flex items-center justify-center text-orange-700 text-xl mb-2"><i class="fi-rr-money-check"></i></div>
+            <div class="font-medium text-sm">ATM กรุงไทย</div>
+            <div class="text-xl font-bold mt-1">4,120</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">10.0%</div>
+          </div>
+          <div class="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl card-tint-green flex items-center justify-center text-green-700 text-xl mb-2"><i class="fi-rr-bank"></i></div>
+            <div class="font-medium text-sm">ธนาคารรับลงทะเบียน</div>
+            <div class="text-xl font-bold mt-1">6,459</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">15.6% · 5 ธนาคาร</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="wk-bottomnav-slot"></div>
+
+<script>
+wkLayout.render({ active: 'overview', title: 'ภาพรวมโครงการ', subtitle: 'SOP 5 ชั้น · อยู่ในชั้น 4' });
+</script>
+</body>
+</html>

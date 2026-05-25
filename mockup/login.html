@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>เข้าสู่ระบบ — Welfare Korat 2569</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config = { darkMode: 'class' }</script>
+<link rel="stylesheet" href="assets/shared.css">
+<script src="assets/shared.js"></script>
+</head>
+<body class="min-h-screen">
+
+<!-- Mobile: full-screen with hero top + form bottom -->
+<!-- Desktop: split-screen -->
+<div class="min-h-screen lg:flex">
+
+  <!-- LEFT / TOP - Brand hero (สีน้ำเงิน) -->
+  <div class="card-hero lg:w-1/2 lg:min-h-screen p-6 lg:p-10 rounded-none lg:rounded-r-[40px] flex flex-col">
+    <div class="absolute top-4 right-4 lg:hidden flex gap-1">
+      <button onclick="wkTheme.smaller()" class="px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-xs">A−</button>
+      <button onclick="wkTheme.bigger()" class="px-2 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-base font-semibold">A+</button>
+      <button onclick="wkTheme.toggle()" class="ml-1 p-2 rounded-lg bg-white/15 hover:bg-white/25">
+        <i class="fi-rr-brightness text-base dark:hidden"></i>
+        <i class="fi-sr-moon text-base hidden dark:inline-block text-orange-300"></i>
+      </button>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center">
+        <i class="fi-sr-shield-check text-xl"></i>
+      </div>
+      <div class="leading-tight">
+        <div class="font-semibold">Welfare Korat</div>
+        <div class="text-xs opacity-80">บัตรสวัสดิการแห่งรัฐ 2569</div>
+      </div>
+    </div>
+
+    <div class="flex-1 flex flex-col justify-center py-8 lg:py-0">
+      <h1 class="text-2xl lg:text-4xl font-semibold leading-tight">
+        ติดตามสถานะ<br>การลงทะเบียน<br><span class="opacity-90">แบบเรียลไทม์</span>
+      </h1>
+      <p class="text-sm lg:text-base opacity-90 mt-3 max-w-md">
+        ระบบติดตามรอบใหม่ปี 2569 สำหรับผู้กำกับติดตามรายหมู่บ้าน · ตำบล · อำเภอ
+        จังหวัดนครราชสีมา
+      </p>
+
+      <div class="grid grid-cols-3 gap-3 mt-6 max-w-md">
+        <div class="bg-white/10 backdrop-blur rounded-2xl p-3">
+          <div class="text-lg lg:text-2xl font-bold">61,743</div>
+          <div class="text-[10px] lg:text-xs opacity-80">เป้าหมาย</div>
+        </div>
+        <div class="bg-white/10 backdrop-blur rounded-2xl p-3">
+          <div class="text-lg lg:text-2xl font-bold">1,924</div>
+          <div class="text-[10px] lg:text-xs opacity-80">หมู่บ้าน</div>
+        </div>
+        <div class="bg-white/10 backdrop-blur rounded-2xl p-3">
+          <div class="text-lg lg:text-2xl font-bold">32</div>
+          <div class="text-[10px] lg:text-xs opacity-80">อำเภอ</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-xs opacity-70 hidden lg:block">© 2569 ผู้ว่าราชการจังหวัดนครราชสีมา</div>
+  </div>
+
+  <!-- RIGHT / BOTTOM - Form -->
+  <div class="lg:w-1/2 flex flex-col">
+    <div class="hidden lg:flex justify-end gap-1 p-4">
+      <button onclick="wkTheme.smaller()" class="px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-xs">A−</button>
+      <button onclick="wkTheme.bigger()" class="px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-base font-semibold">A+</button>
+      <button onclick="wkTheme.toggle()" class="ml-1 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">
+        <i class="fi-rr-brightness text-lg dark:hidden"></i>
+        <i class="fi-sr-moon text-lg hidden dark:inline-block text-orange-400"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 flex items-center justify-center p-5 lg:p-10">
+      <div class="w-full max-w-sm">
+        <h2 class="text-2xl font-semibold">ยินดีต้อนรับกลับ</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">เข้าสู่ระบบเพื่อเริ่มทำงาน</p>
+
+        <div class="flex gap-1 mt-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-1">
+          <button id="tab-login" onclick="switchTab('login')" class="flex-1 py-2 text-sm font-medium rounded-lg bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-slate-100">เข้าสู่ระบบ</button>
+          <button id="tab-register" onclick="switchTab('register')" class="flex-1 py-2 text-sm font-medium rounded-lg text-slate-500 dark:text-slate-400">ลงทะเบียน</button>
+        </div>
+
+        <!-- LOGIN -->
+        <form id="form-login" class="space-y-4 mt-5">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อีเมล</label>
+            <div class="relative">
+              <i class="fi-rr-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input type="email" placeholder="name@example.com"
+                class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">รหัสผ่าน</label>
+            <div class="relative">
+              <i class="fi-rr-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input type="password" placeholder="••••••••"
+                class="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm outline-none">
+              <button type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <i class="fi-rr-eye"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs">
+            <label class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+              <input type="checkbox" class="rounded text-blue-600"> จดจำการเข้าสู่ระบบ
+            </label>
+            <a href="#" class="text-blue-700 dark:text-blue-400 hover:underline">ลืมรหัสผ่าน?</a>
+          </div>
+          <a href="dashboard.html" class="btn-primary block w-full text-center py-3 font-medium hover:shadow-lg hover:shadow-blue-500/25 transition">
+            เข้าสู่ระบบ <i class="fi-rr-arrow-small-right"></i>
+          </a>
+        </form>
+
+        <!-- REGISTER -->
+        <form id="form-register" class="space-y-3 hidden mt-5">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ชื่อ-สกุล</label>
+              <input type="text" placeholder="นายสมชาย ใจดี"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทร</label>
+              <input type="tel" placeholder="08x-xxx-xxxx"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 text-sm outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ตำแหน่ง</label>
+            <select class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 text-sm outline-none">
+              <option>ผู้ใหญ่บ้าน</option><option>กำนัน</option><option>ผู้ช่วยผู้ใหญ่บ้าน</option>
+              <option>อสม.</option><option>ส.อบต.</option><option>อื่นๆ (ระบุ)</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อำเภอ</label>
+              <select class="w-full px-2 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none">
+                <option>ปากช่อง</option><option>เมือง</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ตำบล</label>
+              <select class="w-full px-2 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none">
+                <option>ปากช่อง</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">หมู่บ้าน</label>
+              <select class="w-full px-2 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none">
+                <option>ชุมชนหนองกะจะ1</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อีเมล</label>
+            <input type="email" placeholder="name@example.com"
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 text-sm outline-none">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">รหัสผ่าน</label>
+              <input type="password" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ยืนยันรหัสผ่าน</label>
+              <input type="password" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-blue-500 text-sm outline-none">
+            </div>
+          </div>
+          <div class="card-tint-blue text-xs p-3">
+            <i class="fi-rr-info"></i> บัญชีต้องได้รับการอนุมัติจาก Super Admin ก่อนใช้งาน
+          </div>
+          <button type="button" class="btn-primary w-full py-3 font-medium hover:shadow-lg hover:shadow-blue-500/25 transition">
+            ลงทะเบียน
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  const l = document.getElementById('form-login');
+  const r = document.getElementById('form-register');
+  const tl = document.getElementById('tab-login');
+  const tr = document.getElementById('tab-register');
+  const activeCls = ['bg-white','dark:bg-slate-700','shadow-sm','text-slate-800','dark:text-slate-100'];
+  const inactiveCls = ['text-slate-500','dark:text-slate-400'];
+  if (tab === 'login') {
+    l.classList.remove('hidden'); r.classList.add('hidden');
+    activeCls.forEach(c => tl.classList.add(c)); inactiveCls.forEach(c => tl.classList.remove(c));
+    activeCls.forEach(c => tr.classList.remove(c)); inactiveCls.forEach(c => tr.classList.add(c));
+  } else {
+    r.classList.remove('hidden'); l.classList.add('hidden');
+    activeCls.forEach(c => tr.classList.add(c)); inactiveCls.forEach(c => tr.classList.remove(c));
+    activeCls.forEach(c => tl.classList.remove(c)); inactiveCls.forEach(c => tl.classList.add(c));
+  }
+}
+</script>
+</body>
+</html>
