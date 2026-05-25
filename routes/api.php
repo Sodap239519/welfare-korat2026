@@ -1,8 +1,12 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
+use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\ReferenceController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TargetController;
 use App\Http\Controllers\Api\TrackerController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +34,30 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('targets',                  [TargetController::class, 'index']);
     Route::get('targets/{id}',             [TargetController::class, 'show'])->whereNumber('id');
     Route::patch('targets/{id}/status',    [TargetController::class, 'updateStatus'])->whereNumber('id');
+
+    // Import
+    Route::post('import/preview',  [ImportController::class, 'preview']);
+    Route::post('import/run',      [ImportController::class, 'run']);
+    Route::get('import/logs',      [ImportController::class, 'logs']);
+    Route::get('import/logs/{id}', [ImportController::class, 'showLog'])->whereNumber('id');
+
+    // Reports
+    Route::get('reports/daily-villages',        [ReportController::class, 'dailyVillages']);
+    Route::get('reports/daily-villages/export', [ReportController::class, 'exportDailyVillages']);
+    Route::get('reports/bottleneck',            [ReportController::class, 'bottleneck']);
+
+    // Admin (super_admin only — enforced at frontend via meta.roles, basic protection)
+    Route::middleware('role:super_admin')->prefix('admin')->group(function () {
+        Route::get('users',                    [AdminUserController::class, 'index']);
+        Route::get('users/stats',              [AdminUserController::class, 'stats']);
+        Route::patch('users/{id}',             [AdminUserController::class, 'update'])->whereNumber('id');
+        Route::post('users/{id}/approve',      [AdminUserController::class, 'approve'])->whereNumber('id');
+        Route::post('users/{id}/suspend',      [AdminUserController::class, 'suspend'])->whereNumber('id');
+        Route::delete('users/{id}',            [AdminUserController::class, 'destroy'])->whereNumber('id');
+
+        Route::get('activity',       [ActivityLogController::class, 'index']);
+        Route::get('activity/stats', [ActivityLogController::class, 'stats']);
+    });
 
     // Trackers
     Route::get('trackers',        [TrackerController::class, 'index']);

@@ -6,14 +6,32 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Target extends Model
 {
+    use LogsActivity;
+
     protected $fillable = [
         'household_id', 'village_id', 'tambon_id', 'amphur_id',
         'member_seq', 'year', 'prefix', 'first_name', 'last_name',
         'poverty_level', 'has_old_welfare', 'annual_income', 'active',
     ];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['first_name', 'last_name', 'poverty_level', 'active'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs()
+            ->setDescriptionForEvent(fn (string $event) => match ($event) {
+                'created' => 'เพิ่มเป้าหมาย',
+                'updated' => 'แก้ไขข้อมูลเป้าหมาย',
+                'deleted' => 'ลบเป้าหมาย',
+                default   => $event,
+            });
+    }
 
     protected $casts = [
         'has_old_welfare' => 'boolean',
