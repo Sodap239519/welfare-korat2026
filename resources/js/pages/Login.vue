@@ -1,16 +1,50 @@
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
+import { useAuthStore } from '@/stores/auth';
 
 const theme = useThemeStore();
+const auth  = useAuthStore();
+const route = useRoute();
 const router = useRouter();
-const tab = ref('login');
-const email = ref('');
-const password = ref('');
 
-function submit() {
-  router.push({ name: 'dashboard' });
+const tab = ref('login');
+
+const loginForm = reactive({ phone: '', password: '', remember: false });
+const registerForm = reactive({
+  name: '', phone: '', position_type: 'ผู้ใหญ่บ้าน', position_other: '',
+  password: '', password_confirmation: '', email: '',
+});
+const showPassword = ref(false);
+
+const fieldErrors = ref({});
+const flashOk = ref('');
+
+async function submitLogin() {
+  fieldErrors.value = {};
+  flashOk.value = '';
+  try {
+    await auth.login(loginForm.phone, loginForm.password, loginForm.remember);
+    const redirect = route.query.redirect || { name: 'dashboard' };
+    router.push(redirect);
+  } catch (e) {
+    fieldErrors.value = e.response?.data?.errors || {};
+  }
+}
+
+async function submitRegister() {
+  fieldErrors.value = {};
+  flashOk.value = '';
+  try {
+    const res = await auth.register({ ...registerForm });
+    flashOk.value = res.message;
+    tab.value = 'login';
+    loginForm.phone = registerForm.phone;
+    Object.assign(registerForm, { name: '', phone: '', position_other: '', password: '', password_confirmation: '', email: '' });
+  } catch (e) {
+    fieldErrors.value = e.response?.data?.errors || {};
+  }
 }
 </script>
 
@@ -68,34 +102,122 @@ function submit() {
       <div class="flex-1 flex items-center justify-center p-5 lg:p-10">
         <div class="w-full max-w-sm">
           <h2 class="text-2xl font-semibold">ยินดีต้อนรับกลับ</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">เข้าสู่ระบบเพื่อเริ่มทำงาน</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">เข้าสู่ระบบด้วยเบอร์โทรของคุณ</p>
 
           <div class="flex gap-1 mt-5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-1">
             <button @click="tab='login'" :class="['flex-1 py-2 text-sm font-medium rounded-lg', tab==='login' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500']">เข้าสู่ระบบ</button>
             <button @click="tab='register'" :class="['flex-1 py-2 text-sm font-medium rounded-lg', tab==='register' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500']">ลงทะเบียน</button>
           </div>
 
-          <form v-if="tab==='login'" @submit.prevent="submit" class="space-y-4 mt-5">
+          <div v-if="flashOk" class="mt-4 card-tint-green p-3 text-sm">
+            <i class="fi-rr-check-circle"></i> {{ flashOk }}
+          </div>
+          <div v-if="auth.error && !Object.keys(fieldErrors).length" class="mt-4 card-tint-red p-3 text-sm">
+            <i class="fi-rr-cross-circle"></i> {{ auth.error }}
+          </div>
+
+          <!-- LOGIN -->
+          <form v-if="tab==='login'" @submit.prevent="submitLogin" class="space-y-4 mt-5">
             <div>
-              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อีเมล</label>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทรศัพท์</label>
               <div class="relative">
-                <i class="fi-rr-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                <input v-model="email" type="email" placeholder="name@example.com" class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <i class="fi-rr-phone-call absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input v-model="loginForm.phone" type="tel" inputmode="tel" placeholder="08x-xxx-xxxx" autocomplete="username"
+                  class="w-full pl-10 pr-3 py-3 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.phone ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
               </div>
+              <div v-if="fieldErrors.phone" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.phone[0] }}</div>
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">รหัสผ่าน</label>
               <div class="relative">
                 <i class="fi-rr-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                <input v-model="password" type="password" placeholder="••••••••" class="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                <input v-model="loginForm.password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••" autocomplete="current-password"
+                  class="w-full pl-10 pr-10 py-3 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.password ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <i :class="showPassword ? 'fi-rr-eye-crossed' : 'fi-rr-eye'"></i>
+                </button>
               </div>
+              <div v-if="fieldErrors.password" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.password[0] }}</div>
             </div>
-            <button type="submit" class="btn-primary block w-full text-center py-3 font-medium">เข้าสู่ระบบ <i class="fi-rr-arrow-small-right"></i></button>
+            <div class="flex items-center justify-between text-xs">
+              <label class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                <input v-model="loginForm.remember" type="checkbox" class="rounded text-blue-600"> จดจำการเข้าสู่ระบบ
+              </label>
+            </div>
+            <button type="submit" :disabled="auth.loading" class="btn-primary block w-full text-center py-3 font-medium disabled:opacity-60">
+              <i v-if="auth.loading" class="fi-rr-spinner animate-spin"></i>
+              <span v-else>เข้าสู่ระบบ <i class="fi-rr-arrow-small-right"></i></span>
+            </button>
+
+            <div class="card-tint-sky p-3 text-xs">
+              <div class="font-medium mb-1"><i class="fi-rr-info"></i> บัญชี Demo สำหรับทดลอง</div>
+              <div>Super Admin: <code>0900000001</code> / <code>123456</code></div>
+              <div>Admin: <code>0900000002</code> / <code>123456</code></div>
+              <div>Tracker: <code>0812345678</code> / <code>123456</code></div>
+            </div>
           </form>
 
-          <div v-else class="mt-5 card-tint-blue p-4 text-sm">
-            <i class="fi-rr-info"></i> ฟอร์มลงทะเบียนจะใส่ใน Phase 1.5 (auth backend) — ตอนนี้ใช้ปุ่ม "เข้าสู่ระบบ" เพื่อดู Dashboard ก่อน
-          </div>
+          <!-- REGISTER -->
+          <form v-else @submit.prevent="submitRegister" class="space-y-3 mt-5">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ชื่อ-สกุล</label>
+                <input v-model="registerForm.name" type="text" placeholder="นายสมชาย ใจดี"
+                  class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.name ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <div v-if="fieldErrors.name" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.name[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทร (Username)</label>
+                <input v-model="registerForm.phone" type="tel" inputmode="tel" placeholder="08xxxxxxxx"
+                  class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.phone ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <div v-if="fieldErrors.phone" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.phone[0] }}</div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ตำแหน่ง</label>
+              <select v-model="registerForm.position_type" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                <option>ผู้ใหญ่บ้าน</option><option>กำนัน</option><option>ผู้ช่วยผู้ใหญ่บ้าน</option>
+                <option>อสม.</option><option>ส.อบต.</option><option>อื่นๆ</option>
+              </select>
+            </div>
+            <div v-if="registerForm.position_type === 'อื่นๆ'">
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ระบุตำแหน่ง</label>
+              <input v-model="registerForm.position_other" type="text"
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อีเมล <span class="text-slate-400">(ไม่บังคับ)</span></label>
+              <input v-model="registerForm.email" type="email" placeholder="name@example.com"
+                class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                :class="fieldErrors.email ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+              <div v-if="fieldErrors.email" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.email[0] }}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">รหัสผ่าน (≥ 6 ตัว)</label>
+                <input v-model="registerForm.password" type="password" minlength="6"
+                  class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.password ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <div v-if="fieldErrors.password" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.password[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ยืนยันรหัสผ่าน</label>
+                <input v-model="registerForm.password_confirmation" type="password" minlength="6"
+                  class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+            </div>
+            <div class="card-tint-blue text-xs p-3">
+              <i class="fi-rr-info"></i> บัญชีต้องได้รับการอนุมัติจาก Super Admin ก่อนเข้าใช้งาน
+            </div>
+            <button type="submit" :disabled="auth.loading" class="btn-primary w-full py-3 font-medium disabled:opacity-60">
+              <i v-if="auth.loading" class="fi-rr-spinner animate-spin"></i>
+              <span v-else>ลงทะเบียน</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>

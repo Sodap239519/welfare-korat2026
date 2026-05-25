@@ -10,14 +10,14 @@ class DemoUserSeeder extends Seeder
 {
     public function run(): void
     {
+        // Username = เบอร์โทรศัพท์, password >= 6 chars
         // Super Admin
         $super = User::updateOrCreate(
-            ['email' => 'super@welfare.korat.local'],
+            ['phone' => '0900000001'],
             [
                 'name'           => 'Super Admin',
-                'password'       => Hash::make('password'),
-                'phone'          => null,
-                'position_type'  => null,
+                'email'          => 'super@welfare.korat.local',
+                'password'       => Hash::make('123456'),
                 'active'         => true,
             ]
         );
@@ -25,11 +25,11 @@ class DemoUserSeeder extends Seeder
 
         // Admin ตำบลปากช่อง
         $admin = User::updateOrCreate(
-            ['email' => 'admin.pakchong@welfare.korat.local'],
+            ['phone' => '0900000002'],
             [
                 'name'           => 'นายอำเภอ ปากช่อง (Demo)',
-                'password'       => Hash::make('password'),
-                'phone'          => '044-313-XXX',
+                'email'          => 'admin.pakchong@welfare.korat.local',
+                'password'       => Hash::make('123456'),
                 'position_type'  => 'อื่นๆ',
                 'position_other' => 'นายอำเภอ',
                 'active'         => true,
@@ -39,11 +39,11 @@ class DemoUserSeeder extends Seeder
 
         // Tracker หมู่บ้าน
         $tracker = User::updateOrCreate(
-            ['email' => 'tracker.demo@welfare.korat.local'],
+            ['phone' => '0812345678'],
             [
                 'name'           => 'นายสมชาย ผู้ดูแล (Demo)',
-                'password'       => Hash::make('password'),
-                'phone'          => '081-234-5678',
+                'email'          => 'tracker.demo@welfare.korat.local',
+                'password'       => Hash::make('123456'),
                 'position_type'  => 'ผู้ใหญ่บ้าน',
                 'active'         => true,
             ]

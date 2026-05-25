@@ -1,11 +1,19 @@
 <script setup>
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { computed } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 
 defineProps({ open: Boolean });
 defineEmits(['close']);
 
 const route = useRoute();
+const router = useRouter();
+const auth = useAuthStore();
+
+async function doLogout() {
+  await auth.logout();
+  router.push({ name: 'login' });
+}
 const items = [
   { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard' },
   { name: 'overview',       icon: 'fi-rr-flag-alt',         label: 'ภาพรวมโครงการ' },
@@ -52,9 +60,12 @@ const isActive = (n) => computed(() => route.name === n);
       </RouterLink>
     </nav>
     <div class="p-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-      <RouterLink to="/login" class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-red-600">
+      <div v-if="auth.user" class="text-xs text-slate-600 dark:text-slate-300 mb-2 truncate">
+        <i class="fi-rr-user text-slate-400"></i> {{ auth.user.name }}
+      </div>
+      <button @click="doLogout" class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-red-600">
         <i class="fi-rr-sign-out-alt"></i> ออกจากระบบ
-      </RouterLink>
+      </button>
     </div>
   </aside>
 </template>
