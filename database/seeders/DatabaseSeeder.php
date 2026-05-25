@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
             DemoUserSeeder::class,
             // bulk data
             TargetImportSeeder::class,
+            // demo (remove or guard for production)
+            DemoTrackerSeeder::class,
+            DemoStatusSeeder::class,
         ]);
     }
 }

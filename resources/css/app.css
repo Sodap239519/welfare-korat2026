@@ -46,6 +46,30 @@
   .st-4-7 { @apply bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-200; }
 }
 
+/* SOP stepper (Overview page) */
+.sop-step { flex: 1; position: relative; text-align: center; padding: 1rem 0.5rem; }
+.sop-step::after {
+  content: ''; position: absolute; top: 28px; right: -50%;
+  height: 3px; width: 100%; background: #e2e8f0; z-index: 0;
+}
+.sop-step:last-child::after { display: none; }
+.sop-step.done::after { background: #16a34a; }
+.sop-circle {
+  position: relative; z-index: 1;
+  width: 56px; height: 56px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #e2e8f0; color: #64748b;
+  font-weight: 600; font-size: 1.25rem;
+}
+.sop-step.done .sop-circle { background: #16a34a; color: white; }
+.sop-step.current .sop-circle {
+  background: #1d4ed8; color: white;
+  box-shadow: 0 0 0 6px #dbeafe;
+}
+.dark .sop-step::after { background: #374151; }
+.dark .sop-circle { background: #374151; color: #94a3b8; }
+.dark .sop-step.current .sop-circle { box-shadow: 0 0 0 6px rgba(29,78,216,0.3); }
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
 .dark ::-webkit-scrollbar-thumb { background: #475569; }
