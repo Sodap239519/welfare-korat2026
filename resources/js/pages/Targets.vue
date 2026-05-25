@@ -4,7 +4,7 @@ import Pagination from '@/components/Pagination.vue';
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
-import { formatNumber, shortDate, statusColorClass } from '@/composables/useApi';
+import { formatNumber, shortDate, statusColorClass, statusShort } from '@/composables/useApi';
 
 const router = useRouter();
 
@@ -132,7 +132,7 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
         </button>
         <button v-for="s in statuses" :key="s.code" @click="selectStatus(s.code)"
                 :class="['px-3 py-1.5 rounded-full text-xs', s.color, filters.status === s.code ? 'ring-2 ring-blue-500' : '']">
-          {{ s.code }} · {{ formatNumber(statusCounts[s.code] || 0) }}
+          {{ statusShort(s.code) }} · {{ formatNumber(statusCounts[s.code] || 0) }}
         </button>
       </div>
 
@@ -163,7 +163,7 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
                 <div class="text-xs text-slate-500 dark:text-slate-400">{{ t.tambon }} · {{ t.amphur }}</div>
               </td>
               <td>
-                <span v-if="t.status_code" :class="['inline-block px-2 py-1 rounded-md text-xs', statusColorClass(t.status_code)]">{{ t.status_code }}</span>
+                <span v-if="t.status_code" :class="['inline-block px-2 py-1 rounded-md text-xs whitespace-nowrap', statusColorClass(t.status_code)]">{{ statusShort(t.status_code) }}</span>
                 <span v-else class="text-xs text-slate-400">ยังไม่อัปเดต</span>
               </td>
               <td class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px]">
@@ -195,7 +195,7 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
               <div class="font-medium truncate">{{ t.name }}</div>
               <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ t.village }}{{ t.moo ? ' หมู่ '+t.moo : '' }} · {{ t.tambon }}</div>
             </div>
-            <span v-if="t.status_code" :class="['shrink-0 inline-block px-2 py-1 rounded-md text-[11px] font-medium', statusColorClass(t.status_code)]">{{ t.status_code }}</span>
+            <span v-if="t.status_code" :class="['shrink-0 inline-block px-2 py-1 rounded-md text-[11px] font-medium whitespace-nowrap', statusColorClass(t.status_code)]">{{ statusShort(t.status_code) }}</span>
             <span v-else class="shrink-0 text-[11px] text-slate-400 px-2 py-1">—</span>
           </div>
           <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-slate-400">

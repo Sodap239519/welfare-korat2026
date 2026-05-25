@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { useRoute, useRouter } from 'vue-router';
-import { formatNumber, shortDate, statusColorClass } from '@/composables/useApi';
+import { formatNumber, shortDate, statusColorClass, statusShort } from '@/composables/useApi';
 
 const route = useRoute();
 const router = useRouter();
@@ -124,7 +124,7 @@ function initials(name) {
                 <div class="text-xs text-slate-500 dark:text-slate-400">สถานะปัจจุบัน</div>
                 <div class="flex items-center gap-2 mt-1.5">
                   <span v-if="target.current?.status_code" :class="['inline-block px-3 py-1.5 rounded-xl text-sm font-medium', statusColorClass(target.current.status_code)]">
-                    <i class="fi-sr-check-circle"></i> {{ target.current.status_code }} {{ statuses.find(s => s.code === target.current.status_code)?.label }}
+                    <i class="fi-sr-check-circle"></i> {{ statuses.find(s => s.code === target.current.status_code)?.label || statusShort(target.current.status_code) }}
                   </span>
                   <span v-else class="inline-block px-3 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600">ยังไม่อัปเดตสถานะ</span>
                 </div>
@@ -159,7 +159,7 @@ function initials(name) {
                          :class="['flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50',
                                   form.status_code === s.code ? 'border-2 border-blue-500 card-tint-blue' : 'border-slate-100 dark:border-slate-800']">
                     <input type="radio" v-model="form.status_code" :value="s.code" class="text-blue-600">
-                    <span :class="['text-sm px-2 py-0.5 rounded', s.color]">{{ s.code }} {{ s.label.slice(0, 20) }}</span>
+                    <span :class="['text-sm px-2 py-0.5 rounded whitespace-nowrap', s.color]">{{ statusShort(s.code) }}</span>
                   </label>
                 </div>
                 <div v-if="errors.status_code" class="text-[11px] text-red-600 mt-1">{{ errors.status_code[0] }}</div>
@@ -247,7 +247,7 @@ function initials(name) {
                 <div :class="['flex-1', i < target.logs.length - 1 ? 'pb-3 border-b border-slate-100 dark:border-slate-800' : '']">
                   <div class="flex items-baseline justify-between gap-2">
                     <span class="font-medium">
-                      เปลี่ยนเป็น <span :class="[statusColorClass(l.status_code), 'px-1.5 rounded text-xs']">{{ l.status_code }}</span>
+                      เปลี่ยนเป็น <span :class="[statusColorClass(l.status_code), 'px-1.5 rounded text-xs whitespace-nowrap']">{{ statusShort(l.status_code) }}</span>
                     </span>
                     <span class="text-xs text-slate-500">{{ shortDate(l.changed_at) }}</span>
                   </div>

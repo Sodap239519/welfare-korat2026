@@ -1,28 +1,36 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
-import { formatNumber, shortDate } from '@/composables/useApi';
+import { formatNumber, shortDate, statusShort } from '@/composables/useApi';
 import { useThemeStore } from '@/stores/theme';
 
 const theme = useThemeStore();
 const dark = computed(() => theme.isDark);
 
-const reportType = ref('daily');     // 'daily' | 'bottleneck'
+const reportType = ref('daily');         // 'daily' | 'bottleneck'
+const level = ref('village');            // amphur | tambon | village
 const amphurOpts = ref([]);
+const tambonOpts = ref([]);
 const amphurId = ref('');
+const tambonId = ref('');
 const date = ref(new Date().toISOString().slice(0, 10));
 
 const dailyRows = ref([]);
 const bottleneck = ref(null);
 const loading = ref(false);
 
+const levelLabel = computed(() => ({ amphur: 'อำเภอ', tambon: 'ตำบล', village: 'หมู่บ้าน' }[level.value]));
+
 const stats = computed(() => {
   const total = dailyRows.value.length;
   const excellent = dailyRows.value.filter(r => r.pct >= 80).length;
   const medium    = dailyRows.value.filter(r => r.pct >= 50 && r.pct < 80).length;
   const low       = dailyRows.value.filter(r => r.pct < 50).length;
-  return { total, excellent, medium, low };
+  const sumTotal  = dailyRows.value.reduce((a, r) => a + r.total, 0);
+  const sumDone   = dailyRows.value.reduce((a, r) => a + r.done, 0);
+  const overallPct = sumTotal > 0 ? Math.round((sumDone / sumTotal) * 100) : 0;
+  return { total, excellent, medium, low, sumTotal, sumDone, overallPct };
 });
 
 const chartOptions = computed(() => {
@@ -36,7 +44,7 @@ const chartOptions = computed(() => {
     ],
     plotOptions: { bar: { horizontal: true, borderRadius: 6, barHeight: '70%' } },
     dataLabels: { enabled: false },
-    xaxis: { categories: top.map(r => r.village), axisBorder: { show: false }, axisTicks: { show: false } },
+    xaxis: { categories: top.map(r => r.name), axisBorder: { show: false }, axisTicks: { show: false } },
     grid: { borderColor: dark.value ? '#1f2937' : '#eef2f7', strokeDashArray: 3, xaxis: { lines: { show: true } }, yaxis: { lines: { show: false } } },
     legend: { position: 'top', horizontalAlign: 'right' },
     tooltip: { theme: dark.value ? 'dark' : 'light' },
@@ -44,11 +52,18 @@ const chartOptions = computed(() => {
   };
 });
 
+async function loadTambons() {
+  tambonId.value = '';
+  if (!amphurId.value) { tambonOpts.value = []; return; }
+  tambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: amphurId.value } })).data.data;
+}
+
 async function loadDaily() {
   loading.value = true;
   try {
-    const params = { date: date.value };
+    const params = { level: level.value, date: date.value };
     if (amphurId.value) params.amphur_id = amphurId.value;
+    if (tambonId.value) params.tambon_id = tambonId.value;
     const { data } = await axios.get('/api/reports/daily-villages', { params });
     dailyRows.value = data.data;
   } finally { loading.value = false; }
@@ -67,8 +82,9 @@ async function load() {
 }
 
 function exportXlsx() {
-  const params = new URLSearchParams({ date: date.value, format: 'xlsx' });
+  const params = new URLSearchParams({ level: level.value, date: date.value, format: 'xlsx' });
   if (amphurId.value) params.append('amphur_id', amphurId.value);
+  if (tambonId.value) params.append('tambon_id', tambonId.value);
   window.location.href = '/api/reports/daily-villages/export?' + params.toString();
 }
 
@@ -76,6 +92,10 @@ onMounted(async () => {
   amphurOpts.value = (await axios.get('/api/ref/amphurs')).data.data;
   await load();
 });
+
+watch(level, loadDaily);
+watch(amphurId, async () => { await loadTambons(); await loadDaily(); });
+watch(tambonId, loadDaily);
 
 function levelClass(level) {
   if (level === 'ดีเยี่ยม') return 'card-tint-green text-green-700';
@@ -90,7 +110,7 @@ function pctClass(n) {
 </script>
 
 <template>
-  <AppLayout title="รายงาน + Export" subtitle="Daily · Bottleneck · Excel">
+  <AppLayout title="รายงาน + Export" subtitle="สรุปยอด · Bottleneck · Excel">
     <div class="space-y-4">
 
       <!-- Hero -->
@@ -98,7 +118,7 @@ function pctClass(n) {
         <div class="text-xs opacity-80">รายงาน{{ reportType === 'daily' ? 'ประจำวัน' : 'รายสัปดาห์' }}</div>
         <h2 class="text-base lg:text-lg font-semibold mt-1">
           {{ reportType === 'daily'
-              ? 'สรุปยอดการลงทะเบียนรายหมู่บ้าน'
+              ? `สรุปยอดการลงทะเบียนราย${levelLabel}`
               : 'วิเคราะห์ Bottleneck รายสัปดาห์' }}
         </h2>
         <div class="text-sm opacity-90 mt-0.5">
@@ -107,34 +127,78 @@ function pctClass(n) {
       </div>
 
       <!-- Toolbar -->
-      <div class="card p-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-        <select v-model="reportType" @change="load" class="col-span-2 sm:col-auto w-full sm:w-auto min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-          <option value="daily">สรุปยอดรายหมู่บ้าน (รายวัน)</option>
-          <option value="bottleneck">วิเคราะห์ Bottleneck (รายสัปดาห์)</option>
-        </select>
-        <input v-if="reportType === 'daily'" v-model="date" @change="loadDaily" type="date" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-        <select v-if="reportType === 'daily'" v-model="amphurId" @change="loadDaily" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-          <option value="">ทุกอำเภอ</option>
-          <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
-        <button v-if="reportType === 'daily'" @click="exportXlsx" class="col-span-2 sm:ml-auto sm:col-auto btn-green px-3 py-2.5 text-sm flex items-center justify-center gap-1.5">
-          <i class="fi-rr-file-excel"></i> Excel
-        </button>
+      <div class="card p-3 space-y-2">
+        <div class="flex flex-wrap gap-2 items-center">
+          <select v-model="reportType" @change="load" class="w-full sm:w-auto min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <option value="daily">สรุปยอด (รายวัน)</option>
+            <option value="bottleneck">วิเคราะห์ Bottleneck (รายสัปดาห์)</option>
+          </select>
+          <button v-if="reportType === 'daily'" @click="exportXlsx" class="sm:ml-auto btn-green px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-file-excel"></i> Export Excel
+          </button>
+        </div>
+
+        <!-- Level selector (รายอำเภอ / รายตำบล / รายหมู่บ้าน) -->
+        <div v-if="reportType === 'daily'" class="flex flex-wrap gap-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-1">
+          <button
+            v-for="opt in [
+              { v: 'amphur',  label: 'รายอำเภอ',  icon: 'fi-rr-marker' },
+              { v: 'tambon',  label: 'รายตำบล',   icon: 'fi-rr-map-marker-home' },
+              { v: 'village', label: 'รายหมู่บ้าน', icon: 'fi-rr-home' },
+            ]"
+            :key="opt.v"
+            @click="level = opt.v"
+            :class="['flex-1 sm:flex-none px-3 py-2 text-sm font-medium rounded-lg flex items-center justify-center gap-1.5 transition',
+                     level === opt.v
+                       ? 'bg-blue-700 text-white shadow-sm shadow-blue-500/30'
+                       : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700/50']">
+            <i :class="opt.icon"></i> {{ opt.label }}
+          </button>
+        </div>
+
+        <div v-if="reportType === 'daily'" class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+          <input v-model="date" type="date" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <select v-model="amphurId" :disabled="level === 'amphur'" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+            <option value="">ทุกอำเภอ</option>
+            <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+          <select v-model="tambonId" :disabled="!amphurId || level !== 'village'" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+            <option value="">ทุกตำบล</option>
+            <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+        </div>
       </div>
 
       <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
 
       <!-- DAILY -->
       <template v-else-if="reportType === 'daily'">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div class="card-tint-blue p-4"><div class="text-xs opacity-80">หมู่บ้านทั้งหมด</div><div class="text-2xl font-bold mt-1">{{ formatNumber(stats.total) }}</div></div>
-          <div class="card-tint-green p-4"><div class="text-xs opacity-80">บรรลุ ≥ 80%</div><div class="text-2xl font-bold mt-1 text-green-700">{{ formatNumber(stats.excellent) }}</div></div>
-          <div class="card-tint-orange p-4"><div class="text-xs opacity-80">50-79%</div><div class="text-2xl font-bold mt-1 text-orange-700">{{ formatNumber(stats.medium) }}</div></div>
-          <div class="card-tint-red p-4"><div class="text-xs opacity-80">ต่ำกว่า 50%</div><div class="text-2xl font-bold mt-1 text-red-700">{{ formatNumber(stats.low) }}</div></div>
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <div class="card-tint-blue p-4 col-span-2 lg:col-span-1">
+            <div class="text-xs opacity-80">รวมเป้าหมาย</div>
+            <div class="text-2xl font-bold mt-1">{{ formatNumber(stats.sumTotal) }}</div>
+            <div class="text-[11px] opacity-70">จำนวน {{ levelLabel }} {{ stats.total }} แห่ง</div>
+          </div>
+          <div class="card-tint-blue p-4">
+            <div class="text-xs opacity-80">รวม %</div>
+            <div class="text-2xl font-bold mt-1 text-blue-900 dark:text-blue-100">{{ stats.overallPct }}%</div>
+          </div>
+          <div class="card-tint-green p-4">
+            <div class="text-xs opacity-80">บรรลุ ≥ 80%</div>
+            <div class="text-2xl font-bold mt-1 text-green-700">{{ formatNumber(stats.excellent) }}</div>
+          </div>
+          <div class="card-tint-orange p-4">
+            <div class="text-xs opacity-80">50-79%</div>
+            <div class="text-2xl font-bold mt-1 text-orange-700">{{ formatNumber(stats.medium) }}</div>
+          </div>
+          <div class="card-tint-red p-4">
+            <div class="text-xs opacity-80">ต่ำกว่า 50%</div>
+            <div class="text-2xl font-bold mt-1 text-red-700">{{ formatNumber(stats.low) }}</div>
+          </div>
         </div>
 
         <div v-if="dailyRows.length" class="card p-4 lg:p-5 min-w-0 overflow-hidden">
-          <div class="font-semibold text-sm">10 หมู่บ้านที่ก้าวหน้าสูงสุด</div>
+          <div class="font-semibold text-sm">10 {{ levelLabel }}ที่ก้าวหน้าสูงสุด</div>
           <div class="w-full overflow-hidden">
             <apexchart type="bar" height="360" :options="chartOptions" :series="chartOptions.series" />
           </div>
@@ -144,28 +208,29 @@ function pctClass(n) {
           <table class="w-full text-sm">
             <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th class="text-left py-2 px-4">หมู่บ้าน</th>
-                <th class="text-left">ตำบล / อำเภอ</th>
+                <th class="text-left py-2 px-4">{{ levelLabel }}</th>
+                <th v-if="level !== 'amphur'" class="text-left">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
                 <th class="text-right">เป้า</th>
-                <th class="text-right">4.7</th>
-                <th class="text-right">4.6</th>
+                <th class="text-right">{{ statusShort('4.7') }}</th>
+                <th class="text-right">{{ statusShort('4.6') }}</th>
                 <th class="text-right">รวม</th>
                 <th class="text-right">%</th>
                 <th class="text-left pl-4 pr-3">สถานะ</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
-              <tr v-for="r in dailyRows" :key="r.village_id">
-                <td class="py-2 px-4 font-medium">{{ r.village }}</td>
-                <td class="text-xs text-slate-500 dark:text-slate-400">{{ r.tambon }} · {{ r.amphur }}</td>
+              <tr v-for="r in dailyRows" :key="r.id">
+                <td class="py-2 px-4 font-medium">{{ r.name }}</td>
+                <td v-if="level === 'village'" class="text-xs text-slate-500 dark:text-slate-400">{{ r.tambon }} · {{ r.amphur }}</td>
+                <td v-else-if="level === 'tambon'" class="text-xs text-slate-500 dark:text-slate-400">{{ r.amphur }}</td>
                 <td class="text-right">{{ formatNumber(r.total) }}</td>
                 <td class="text-right">{{ formatNumber(r.kyc_done) }}</td>
                 <td class="text-right">{{ formatNumber(r.kyc_waiting) }}</td>
                 <td class="text-right font-medium">{{ formatNumber(r.done) }}</td>
                 <td :class="['text-right font-semibold', pctClass(r.pct)]">{{ r.pct }}%</td>
-                <td class="pl-4 pr-3"><span :class="['text-xs px-2 py-0.5 rounded-full font-medium', levelClass(r.level)]">{{ r.level }}</span></td>
+                <td class="pl-4 pr-3"><span :class="['text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap', levelClass(r.level)]">{{ r.level }}</span></td>
               </tr>
-              <tr v-if="dailyRows.length === 0"><td colspan="8" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
+              <tr v-if="dailyRows.length === 0"><td :colspan="level === 'village' ? 8 : (level === 'tambon' ? 8 : 7)" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
             </tbody>
           </table>
         </div>
@@ -184,7 +249,7 @@ function pctClass(n) {
           <div class="font-semibold mb-3"><i class="fi-sr-bell text-orange-500"></i> ขั้นตอนที่ติดขัด</div>
           <div v-for="s in bottleneck.stuck_stages" :key="s.status_code" class="card-tint-red p-3 mb-2 flex items-center justify-between">
             <div>
-              <div class="font-medium text-red-700 dark:text-red-300">ค้างที่ขั้น {{ s.status_code }}</div>
+              <div class="font-medium text-red-700 dark:text-red-300">ค้างที่ขั้น {{ statusShort(s.status_code) }}</div>
               <div class="text-xs opacity-80">{{ formatNumber(s.count) }} ราย · เฉลี่ย {{ s.avg_days }} วัน</div>
             </div>
             <span class="text-red-600 font-bold">{{ s.avg_days }} วัน</span>

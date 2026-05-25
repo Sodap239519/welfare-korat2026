@@ -15,8 +15,7 @@ async function doLogout() {
   router.push({ name: 'login' });
 }
 const items = [
-  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard' },
-  { name: 'overview',       icon: 'fi-rr-flag-alt',         label: 'ภาพรวมโครงการ' },
+  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม' },
   { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย' },
   { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม' },
   { name: 'import',         icon: 'fi-rr-cloud-upload-alt', label: 'นำเข้าข้อมูล' },

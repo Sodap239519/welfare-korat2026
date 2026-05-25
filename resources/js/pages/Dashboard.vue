@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
-import { formatNumber } from '@/composables/useApi';
+import { formatNumber, STATUS_SHORT } from '@/composables/useApi';
 
 const theme = useThemeStore();
 const auth = useAuthStore();
@@ -15,6 +15,9 @@ const stats = ref(null);
 const trend = ref({ labels: [], series: [{ name: 'ยอดสะสม', data: [] }, { name: 'เป้าหมาย', data: [] }] });
 const channel = ref({ labels: [], data: [] });
 const villages = ref([]);
+const phases = ref([]);
+const overview = ref(null);
+const channelsRef = ref([]);
 const amphurOpts = ref([]);
 const tambonOpts = ref([]);
 const villageOpts = ref([]);
@@ -22,7 +25,14 @@ const refreshing = ref(false);
 const asOf = ref('—');
 
 async function loadOpts() {
-  amphurOpts.value = (await axios.get('/api/ref/amphurs')).data.data;
+  const [a, p, c] = await Promise.all([
+    axios.get('/api/ref/amphurs'),
+    axios.get('/api/ref/project-phases'),
+    axios.get('/api/ref/channels'),
+  ]);
+  amphurOpts.value = a.data.data;
+  phases.value = p.data.data;
+  channelsRef.value = c.data.data;
 }
 async function loadTambons() {
   filters.value.tambon_id = '';
@@ -40,16 +50,18 @@ async function loadAll() {
   refreshing.value = true;
   const params = { ...filters.value };
   Object.keys(params).forEach(k => params[k] === '' && delete params[k]);
-  const [s, t, c, v] = await Promise.all([
+  const [s, t, c, v, ov] = await Promise.all([
     axios.get('/api/dashboard/stats',        { params }),
     axios.get('/api/dashboard/trends',       { params: { ...params, days: 14 } }),
     axios.get('/api/dashboard/by-channel',   { params }),
     axios.get('/api/dashboard/top-villages', { params: { ...params, limit: 5 } }),
+    axios.get('/api/ref/overview-metrics'),
   ]);
   stats.value = s.data;
   trend.value = t.data;
   channel.value = c.data;
   villages.value = v.data.data;
+  overview.value = ov.data;
   asOf.value = new Date(s.data.as_of).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
   refreshing.value = false;
 }
@@ -77,10 +89,7 @@ const trendOptions = computed(() => ({
 const statusOptions = computed(() => {
   const ord = ['4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
   const colorMap = { '4.1':'#94a3b8','4.2':'#2563eb','4.3':'#fb923c','4.4':'#f97316','4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a' };
-  const labels = ord.map(c => c + ' ' + ({
-    '4.1':'ไม่ประสงค์','4.2':'ระหว่างลงทะเบียน','4.3':'เตรียมเอกสาร','4.4':'ส่งเอกสารเพิ่ม',
-    '4.5':'รออุทธรณ์','4.6':'รอยืนยันตัวตน','4.7':'ใช้สิทธิแล้ว'
-  }[c]));
+  const labels = ord.map(c => STATUS_SHORT[c] || c);
   const series = ord.map(c => Number(stats.value?.by_status?.[c] ?? 0));
   const colors = ord.map(c => colorMap[c]);
   return {
@@ -117,6 +126,15 @@ const channelOptions = computed(() => ({
   series: [{ name: 'จำนวน', data: channel.value.data }],
 }));
 
+const channelCountMap = computed(() => {
+  const map = {};
+  channel.value.labels?.forEach((label, i) => { map[label] = channel.value.data[i] || 0; });
+  return map;
+});
+
+const phaseIconMap = { 1:'fi-rr-megaphone', 2:'fi-rr-edit', 3:'fi-rr-folder', 4:'fi-rr-search', 5:'fi-rr-chart-pie' };
+const currentPhaseIdx = computed(() => phases.value.findIndex(p => p.is_current));
+
 function pctColor(n) {
   if (n >= 80) return 'text-green-600';
   if (n >= 50) return 'text-orange-600';
@@ -130,29 +148,27 @@ function pctBar(n) {
 </script>
 
 <template>
-  <AppLayout :greeting="`สวัสดี, ${auth.user?.name || 'ผู้ใช้'} 👋`" title="Dashboard">
+  <AppLayout :greeting="`สวัสดี, ${auth.user?.name || 'ผู้ใช้'} 👋`" title="Dashboard · ภาพรวมโครงการ">
     <div class="space-y-4">
+
       <!-- HERO -->
       <div class="card-hero p-5 lg:p-6" v-if="stats">
         <div class="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div class="text-xs opacity-80">ภาพรวมโครงการ · จ.นครราชสีมา</div>
-            <h1 class="text-lg lg:text-xl font-semibold mt-1">บัตรสวัสดิการแห่งรัฐ 2569</h1>
-            <div class="text-xs opacity-80 mt-0.5 flex items-center gap-1.5">
+            <div class="text-xs opacity-80">แผนปฏิบัติการส่งต่อข้อมูลให้คนจนเข้าถึงสิทธิของรัฐ</div>
+            <h1 class="text-lg lg:text-xl font-semibold mt-1">โครงการลงทะเบียนบัตรสวัสดิการแห่งรัฐ 2569 รอบใหม่</h1>
+            <div class="text-xs opacity-80 mt-1 flex items-center gap-1.5">
               <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse"></span>
-              อัปเดต {{ asOf }}
+              จ.นครราชสีมา · อัปเดต {{ asOf }}
             </div>
           </div>
           <div class="text-right">
             <div class="text-xs opacity-80">ความคืบหน้ารวม</div>
             <div class="text-3xl lg:text-4xl font-bold leading-none">{{ stats.pct_done }}%</div>
+            <div class="text-xs opacity-80 mt-1">{{ formatNumber(stats.registered) }} / {{ formatNumber(stats.total) }}</div>
           </div>
         </div>
-        <div class="flex items-end justify-between gap-3 mt-5">
-          <div class="text-sm opacity-90">{{ formatNumber(stats.registered) }} / {{ formatNumber(stats.total) }} คน</div>
-          <RouterLink to="/overview" class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full flex items-center gap-1">ภาพรวม SOP <i class="fi-rr-arrow-small-right"></i></RouterLink>
-        </div>
-        <div class="mt-2 h-2 rounded-full bg-white/20 overflow-hidden">
+        <div class="mt-3 h-2 rounded-full bg-white/20 overflow-hidden">
           <div class="h-full bg-white" :style="{ width: stats.pct_done + '%' }"></div>
         </div>
       </div>
@@ -198,6 +214,80 @@ function pctBar(n) {
         </div>
       </div>
 
+      <!-- SOP stepper (ย้ายมาจาก Overview) -->
+      <div v-if="phases.length" class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <div class="font-semibold">SOP 5 ชั้น</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">
+              ขั้นปัจจุบัน: ชั้น {{ phases.find(p => p.is_current)?.sop_level || '—' }} — {{ phases.find(p => p.is_current)?.name }}
+            </div>
+          </div>
+          <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium">ดำเนินการอยู่</span>
+        </div>
+
+        <!-- Desktop horizontal stepper -->
+        <div class="hidden md:flex items-start mt-2">
+          <div v-for="(p, idx) in phases" :key="p.id"
+               :class="['sop-step', p.is_current ? 'current' : (idx < currentPhaseIdx ? 'done' : '')]">
+            <div class="sop-circle">
+              <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
+              <i v-else-if="p.is_current" :class="phaseIconMap[p.sop_level] || 'fi-rr-circle'"></i>
+              <span v-else>{{ p.sop_level }}</span>
+            </div>
+            <div :class="['mt-2 text-sm font-medium', p.is_current ? 'text-blue-700 dark:text-blue-400' : '']">ชั้น {{ p.sop_level }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">{{ p.name }}</div>
+          </div>
+        </div>
+
+        <!-- Mobile vertical -->
+        <div class="md:hidden space-y-2 mt-1">
+          <div v-for="(p, idx) in phases" :key="p.id"
+               :class="['flex gap-3 items-start', p.is_current ? 'card-tint-blue p-3 rounded-2xl' : '']">
+            <div :class="['w-9 h-9 shrink-0 rounded-full flex items-center justify-center',
+                         idx < currentPhaseIdx ? 'bg-green-600 text-white' :
+                         (p.is_current ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500')]">
+              <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
+              <span v-else class="font-bold">{{ p.sop_level }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div :class="['font-medium text-sm', p.is_current ? 'text-blue-700 dark:text-blue-300' : '']">
+                ชั้น {{ p.sop_level }} · {{ p.name }} <span v-if="p.is_current">⟵ ปัจจุบัน</span>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ p.description }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ชั้น 4 — 3 ฝ่าย (จาก Overview) -->
+      <div v-if="overview">
+        <div class="text-sm font-semibold mb-2">ชั้น 4 — ดำเนินการ 3 ฝ่าย</div>
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="card-tint-blue p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center"><i class="fi-rr-search"></i></div>
+              <div><div class="font-medium">ตรวจสอบสิทธิ์</div><div class="text-xs opacity-70">กรมบัญชีกลาง</div></div>
+            </div>
+            <div class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ formatNumber(overview.level_4.check_rights) }}</div>
+          </div>
+          <div class="card-tint-orange p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center"><i class="fi-rr-paper-plane"></i></div>
+              <div><div class="font-medium">ส่งเอกสารเพิ่มเติม</div><div class="text-xs opacity-70">ผ่าน 13 ธนาคาร</div></div>
+            </div>
+            <div class="text-2xl font-bold text-orange-700 dark:text-orange-300">{{ formatNumber(overview.level_4.extra_docs) }}</div>
+          </div>
+          <div class="card-tint-sky p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center"><i class="fi-rr-fingerprint"></i></div>
+              <div><div class="font-medium">ยืนยันตัวตน / ใช้สิทธิ</div><div class="text-xs opacity-70">e-KYC</div></div>
+            </div>
+            <div class="text-2xl font-bold text-sky-900 dark:text-sky-100">{{ formatNumber(overview.level_4.kyc_waiting + overview.level_4.kyc_done) }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Trend -->
       <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
         <div class="font-semibold text-sm">แนวโน้มการลงทะเบียน 14 วันล่าสุด</div>
@@ -210,8 +300,8 @@ function pctBar(n) {
       <!-- Status + Channel -->
       <div class="grid lg:grid-cols-2 gap-3">
         <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
-          <div class="font-semibold text-sm">สัดส่วนสถานะ</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">ตามขั้นตอน 4.1 - 4.7</div>
+          <div class="font-semibold text-sm">สัดส่วนสถานะการลงทะเบียน</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">7 สถานะ</div>
           <div class="w-full overflow-hidden">
             <apexchart type="donut" height="280" :options="statusOptions.options" :series="statusOptions.series" />
           </div>
@@ -221,6 +311,36 @@ function pctBar(n) {
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">4 ช่องทางหลัก</div>
           <div class="w-full overflow-hidden">
             <apexchart type="bar" height="280" :options="channelOptions.options" :series="channelOptions.series" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 ช่องทาง + 5 ธนาคาร (จาก Overview) -->
+      <div v-if="channelsRef.length" class="card p-5">
+        <div class="font-semibold">4 ช่องทางการลงทะเบียน</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">ผู้เข้าระบบเลือกได้ตามความสะดวก</div>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div v-for="c in channelsRef" :key="c.id" class="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-center">
+            <div class="w-12 h-12 mx-auto rounded-xl card-tint-sky flex items-center justify-center text-sky-700 text-xl mb-2"><i :class="c.icon || 'fi-rr-circle'"></i></div>
+            <div class="font-medium text-sm">{{ c.name }}</div>
+            <div class="text-xl font-bold mt-1">{{ formatNumber(channelCountMap[c.name] || 0) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 ธนาคาร (จาก Overview) -->
+      <div v-if="overview?.by_bank?.length" class="card p-5">
+        <div class="font-semibold flex items-center gap-2">
+          <i class="fi-rr-bank text-green-700"></i> เจาะลึกช่องทางธนาคาร · 5 แห่ง
+        </div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">รวม {{ formatNumber(overview.by_bank.reduce((a,b) => a + b.count, 0)) }} รายการที่เลือกธนาคาร</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div v-for="b in overview.by_bank" :key="b.code" class="border border-slate-100 dark:border-slate-800 rounded-2xl p-3 text-center">
+            <div class="w-10 h-10 mx-auto rounded-xl card-tint-green flex items-center justify-center text-green-700 mb-2">
+              <i class="fi-rr-bank"></i>
+            </div>
+            <div class="text-xs font-medium leading-tight">{{ b.name }}</div>
+            <div class="text-lg font-bold mt-1">{{ formatNumber(b.count) }}</div>
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ const routes = [
   { path: '/login', name: 'login', component: () => import('@/pages/Login.vue'), meta: { guest: true } },
 
   { path: '/dashboard',     name: 'dashboard',     component: () => import('@/pages/Dashboard.vue'),     meta: { auth: true } },
-  { path: '/overview',      name: 'overview',      component: () => import('@/pages/Overview.vue'),      meta: { auth: true } },
+  { path: '/overview',      redirect: '/dashboard' },   // รวมเป็นหน้าเดียวแล้ว
   { path: '/targets',       name: 'targets',       component: () => import('@/pages/Targets.vue'),       meta: { auth: true } },
   { path: '/targets/:id',   name: 'target-detail', component: () => import('@/pages/TargetDetail.vue'),  meta: { auth: true } },
   { path: '/trackers',      name: 'trackers',      component: () => import('@/pages/Trackers.vue'),      meta: { auth: true } },
