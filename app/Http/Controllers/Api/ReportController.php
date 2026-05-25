@@ -138,7 +138,7 @@ class ReportController extends Controller
             ->when($request->filled('amphur_id'), fn ($q) => $q->where('amphurs.id', (int) $request->amphur_id))
             ->when($request->filled('tambon_id'), fn ($q) => $q->where('tambons.id', (int) $request->tambon_id))
             ->groupBy('villages.id', 'villages.name', 'villages.moo', 'tambons.name', 'amphurs.name')
-            ->orderByRaw('done / GREATEST(total, 1) DESC');
+            ->orderByRaw('COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) / GREATEST(COUNT(DISTINCT targets.id), 1) DESC');
     }
 
     private function mapVillageRow($r): array
