@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Pagination from '@/components/Pagination.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate } from '@/composables/useApi';
@@ -95,14 +96,12 @@ const eventIcon = {
         </div>
       </div>
 
-      <div v-if="data.last_page > 1" class="flex items-center justify-between text-sm">
-        <div class="text-xs text-slate-500 dark:text-slate-400">หน้า {{ data.current_page }} / {{ data.last_page }} · {{ formatNumber(data.total) }}</div>
-        <div class="flex items-center gap-1">
-          <button @click="load(data.current_page - 1)" :disabled="data.current_page <= 1" class="px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40"><i class="fi-rr-angle-left"></i></button>
-          <span class="px-3 py-1.5 rounded-lg bg-blue-700 text-white">{{ data.current_page }}</span>
-          <button @click="load(data.current_page + 1)" :disabled="data.current_page >= data.last_page" class="px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40"><i class="fi-rr-angle-right"></i></button>
-        </div>
-      </div>
+      <Pagination
+        :current="data.current_page"
+        :last="data.last_page"
+        :total="data.total"
+        unit="เหตุการณ์"
+        @go="load" />
     </div>
   </AppLayout>
 </template>
