@@ -7,9 +7,16 @@
 @tailwind utilities;
 
 @layer base {
-  html { font-size: var(--fz, 16px); }
+  html, body {
+    font-size: var(--fz, 16px);
+    overflow-x: hidden;     /* ไม่ให้เลื่อนแนวนอนบน mobile */
+    max-width: 100vw;
+  }
   body { font-family: 'Prompt', sans-serif; color: #0f172a; background: #ffffff; }
   .dark body { background: #0b1220; color: #e2e8f0; }
+
+  /* ป้องกัน inline element / image / iframe ขยายเกินกรอบ */
+  img, video, canvas, iframe, svg { max-width: 100%; height: auto; }
 }
 
 @layer components {

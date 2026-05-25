@@ -9,11 +9,11 @@ const sidebarOpen = ref(false);
 </script>
 
 <template>
-  <div class="lg:flex min-h-screen">
+  <div class="lg:flex min-h-screen overflow-x-hidden">
     <Sidebar :open="sidebarOpen" @close="sidebarOpen = false" />
-    <div class="flex-1 min-w-0">
+    <div class="flex-1 min-w-0 w-full max-w-full">
       <TopBar :title="title" :subtitle="subtitle" :greeting="greeting" @open-sidebar="sidebarOpen = true" />
-      <main class="p-4 lg:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
+      <main class="p-4 lg:p-6 max-w-7xl mx-auto pb-24 lg:pb-6 min-w-0 w-full">
         <slot />
       </main>
     </div>

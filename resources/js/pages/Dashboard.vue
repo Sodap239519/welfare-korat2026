@@ -157,21 +157,21 @@ function pctBar(n) {
         </div>
       </div>
 
-      <!-- Filter -->
-      <div class="flex flex-wrap items-center gap-2">
-        <select v-model="filters.amphur_id" @change="loadTambons" class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+      <!-- Filter — grid on mobile, flex on desktop -->
+      <div class="grid grid-cols-3 sm:flex sm:flex-wrap sm:items-center gap-2">
+        <select v-model="filters.amphur_id" @change="loadTambons" class="w-full min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm">
           <option value="">ทุกอำเภอ</option>
           <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
         </select>
-        <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+        <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="w-full min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
           <option value="">ทุกตำบล</option>
           <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
         </select>
-        <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+        <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="w-full min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
           <option value="">ทุกหมู่บ้าน</option>
           <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (หมู่ '+v.moo+')' : '' }}</option>
         </select>
-        <button @click="loadAll" :disabled="refreshing" class="ml-auto btn-primary px-3 py-2 text-xs flex items-center gap-1.5 disabled:opacity-60">
+        <button @click="loadAll" :disabled="refreshing" class="col-span-3 sm:col-auto sm:ml-auto btn-primary px-3 py-2 text-xs flex items-center justify-center gap-1.5 disabled:opacity-60">
           <i :class="['fi-rr-refresh', refreshing && 'animate-spin']"></i> รีเฟรช
         </button>
       </div>
@@ -199,23 +199,29 @@ function pctBar(n) {
       </div>
 
       <!-- Trend -->
-      <div class="card p-4 lg:p-5">
+      <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
         <div class="font-semibold text-sm">แนวโน้มการลงทะเบียน 14 วันล่าสุด</div>
         <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">ยอดสะสมรายวัน · เทียบเป้าหมาย</div>
-        <apexchart type="area" height="280" :options="trendOptions" :series="trend.series" />
+        <div class="w-full overflow-hidden">
+          <apexchart type="area" height="280" :options="trendOptions" :series="trend.series" />
+        </div>
       </div>
 
       <!-- Status + Channel -->
       <div class="grid lg:grid-cols-2 gap-3">
-        <div class="card p-4 lg:p-5">
+        <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
           <div class="font-semibold text-sm">สัดส่วนสถานะ</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">ตามขั้นตอน 4.1 - 4.7</div>
-          <apexchart type="donut" height="280" :options="statusOptions.options" :series="statusOptions.series" />
+          <div class="w-full overflow-hidden">
+            <apexchart type="donut" height="280" :options="statusOptions.options" :series="statusOptions.series" />
+          </div>
         </div>
-        <div class="card p-4 lg:p-5">
+        <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
           <div class="font-semibold text-sm">ช่องทางการลงทะเบียน</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">4 ช่องทางหลัก</div>
-          <apexchart type="bar" height="280" :options="channelOptions.options" :series="channelOptions.series" />
+          <div class="w-full overflow-hidden">
+            <apexchart type="bar" height="280" :options="channelOptions.options" :series="channelOptions.series" />
+          </div>
         </div>
       </div>
 

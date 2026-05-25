@@ -113,19 +113,21 @@ function pctClass(n) {
         </div>
       </div>
 
-      <div class="card p-3 flex flex-wrap items-center gap-2">
-        <div class="relative flex-1 min-w-[200px]">
-          <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-          <input v-model="filters.q" placeholder="ค้นหาชื่อ / เบอร์โทร"
-            class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+      <div class="card p-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="relative flex-1 min-w-0">
+            <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input v-model="filters.q" placeholder="ค้นหาชื่อ / เบอร์โทร"
+              class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <button @click="openCreate" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่ม</span>
+          </button>
         </div>
-        <select v-model="filters.position" class="px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+        <select v-model="filters.position" class="w-full min-w-0 mt-2 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
           <option value="">ทุกตำแหน่ง</option>
           <option v-for="p in positions" :key="p" :value="p">{{ p }}</option>
         </select>
-        <button @click="openCreate" class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5">
-          <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มผู้ติดตาม</span>
-        </button>
       </div>
 
       <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>

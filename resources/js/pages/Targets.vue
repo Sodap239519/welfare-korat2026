@@ -96,41 +96,41 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
 
       <!-- Search + actions -->
       <div class="card p-3">
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="relative flex-1 min-w-[200px]">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="relative flex-1 min-w-0">
             <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input v-model="filters.q" placeholder="ค้นหาด้วย ชื่อ-สกุล"
               class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
           </div>
-          <button @click="filtersOpen = !filtersOpen" class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5">
+          <button @click="filtersOpen = !filtersOpen" class="btn-outline shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-filter"></i> <span class="hidden sm:inline">ตัวกรอง</span>
             <span v-if="activeFilterCount" class="bg-blue-700 text-white text-[10px] rounded-full px-1.5 py-0.5 ml-1">{{ activeFilterCount }}</span>
           </button>
         </div>
 
-        <div v-show="filtersOpen" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          <select v-model="filters.amphur_id" @change="loadTambons" class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+        <div v-show="filtersOpen" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <select v-model="filters.amphur_id" @change="loadTambons" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <option value="">ทุกอำเภอ</option>
             <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
-          <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+          <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
             <option value="">ทุกตำบล</option>
             <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
           </select>
-          <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+          <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
             <option value="">ทุกหมู่บ้าน</option>
             <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (หมู่ '+v.moo+')' : '' }}</option>
           </select>
         </div>
       </div>
 
-      <!-- Status pill counters -->
-      <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        <button @click="filters.status = ''" :class="['shrink-0 px-3 py-1.5 rounded-full text-xs', !filters.status ? 'bg-blue-700 text-white' : 'border border-slate-100 dark:border-slate-800']">
+      <!-- Status pill counters (wrap, no horizontal scroll) -->
+      <div class="flex flex-wrap gap-2">
+        <button @click="filters.status = ''" :class="['px-3 py-1.5 rounded-full text-xs', !filters.status ? 'bg-blue-700 text-white' : 'border border-slate-100 dark:border-slate-800']">
           ทั้งหมด · {{ formatNumber(statusCounts._total || 0) }}
         </button>
         <button v-for="s in statuses" :key="s.code" @click="selectStatus(s.code)"
-                :class="['shrink-0 px-3 py-1.5 rounded-full text-xs', s.color, filters.status === s.code ? 'ring-2 ring-blue-500' : '']">
+                :class="['px-3 py-1.5 rounded-full text-xs', s.color, filters.status === s.code ? 'ring-2 ring-blue-500' : '']">
           {{ s.code }} · {{ formatNumber(statusCounts[s.code] || 0) }}
         </button>
       </div>
