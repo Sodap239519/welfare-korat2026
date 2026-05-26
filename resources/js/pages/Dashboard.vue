@@ -121,6 +121,18 @@ const statusColorMap = {
   '4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a',
 };
 
+// Tint class + accent text per status (สำหรับ KPI card)
+const statusTintMap = {
+  '0':   { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-200', icon: 'fi-rr-question', label: 'ยังไม่อัปเดต' },
+  '4.1': { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-300', icon: 'fi-rr-ban',      label: 'ไม่ประสงค์' },
+  '4.2': { tint: 'card-tint-blue',                                                                  accent: 'text-blue-700 dark:text-blue-300',   icon: 'fi-rr-edit',     label: 'ลงทะเบียน' },
+  '4.3': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-folder', label: 'เตรียมเอกสาร' },
+  '4.4': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-paper-plane', label: 'ส่งเอกสารเพิ่ม' },
+  '4.5': { tint: 'card-tint-red',                                                                   accent: 'text-red-700 dark:text-red-300',     icon: 'fi-rr-triangle-warning', label: 'รออุทธรณ์' },
+  '4.6': { tint: 'card-tint-sky',                                                                   accent: 'text-sky-700 dark:text-sky-300',     icon: 'fi-rr-fingerprint', label: 'รอยืนยันตัวตน' },
+  '4.7': { tint: 'card-tint-green',                                                                 accent: 'text-green-700 dark:text-green-300', icon: 'fi-rr-check-circle', label: 'ใช้สิทธิ์แล้ว' },
+};
+
 async function loadOpts() {
   const [a, p, c] = await Promise.all([
     axios.get('/api/ref/amphurs'),
@@ -337,6 +349,25 @@ function pctBar(n) {
   return 'bg-red-500';
 }
 
+// 8 status KPI cards (ยังไม่อัปเดต + 4.1-4.7) — ใช้ stats.by_status + stats.total
+const statusCards = computed(() => {
+  const order = ['0', '4.1', '4.2', '4.3', '4.4', '4.5', '4.6', '4.7'];
+  const total = Math.max(stats.value?.total || 0, 1);
+  return order.map(code => {
+    const count = Number(stats.value?.by_status?.[code] ?? 0);
+    return {
+      code,
+      label: statusTintMap[code].label,
+      icon:  statusTintMap[code].icon,
+      tint:  statusTintMap[code].tint,
+      accent: statusTintMap[code].accent,
+      dot:   statusColorMap[code] || '#94a3b8',
+      count,
+      pct: Math.round((count / total) * 1000) / 10,  // 1 decimal
+    };
+  });
+});
+
 // แตกแถบสีตาม by_status เป็น segments
 function statusSegments(row) {
   const order = ['4.2','4.3','4.4','4.5','4.6','4.7']; // ไม่นับ 4.1 (ไม่ประสงค์) + 0 (ยังไม่อัปเดต)
@@ -396,25 +427,36 @@ function statusSegments(row) {
         </button>
       </div>
 
-      <!-- KPI -->
-      <div v-if="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="card-tint-blue p-4">
-          <div class="flex items-center justify-between"><div class="text-xs opacity-80">เป้าหมาย</div><i class="fi-rr-users-alt text-blue-700"></i></div>
-          <div class="text-2xl lg:text-3xl font-bold mt-3 text-blue-900 dark:text-blue-100">{{ formatNumber(stats.total) }}</div>
-          <div class="text-[11px] mt-1 opacity-70">คน</div>
+      <!-- KPI · ทุกสถานะการลงทะเบียน (ยังไม่อัปเดต + 4.1-4.7) -->
+      <div v-if="stats">
+        <div class="flex items-baseline justify-between mb-2 px-1">
+          <div class="text-sm font-semibold">สถานะการลงทะเบียน · ทั้งหมด {{ formatNumber(stats.total) }} คน</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400">
+            <span v-if="stats.today_change > 0" class="text-green-600 dark:text-green-400">+{{ stats.today_change }} วันนี้</span>
+            <span v-else>ยังไม่มีการอัปเดตวันนี้</span>
+          </div>
         </div>
-        <div class="card-tint-green p-4">
-          <div class="flex items-center justify-between"><div class="text-xs opacity-80">ลงทะเบียนแล้ว</div><i class="fi-rr-check text-green-700"></i></div>
-          <div class="text-2xl lg:text-3xl font-bold mt-3 text-green-900 dark:text-green-100">{{ formatNumber(stats.registered) }}</div>
-          <div class="text-[11px] mt-1 opacity-70">{{ stats.pct_done }}% · +{{ stats.today_change }} วันนี้</div>
-        </div>
-        <div class="card-tint-sky p-4">
-          <div class="flex items-center justify-between"><div class="text-xs opacity-80">รอยืนยันตัวตน</div><i class="fi-rr-fingerprint text-sky-700"></i></div>
-          <div class="text-2xl lg:text-3xl font-bold mt-3 text-sky-900 dark:text-sky-100">{{ formatNumber(stats.waiting_kyc) }}</div>
-        </div>
-        <div class="card-tint-red p-4">
-          <div class="flex items-center justify-between"><div class="text-xs opacity-80">ติดขัด · รอแก้</div><i class="fi-rr-triangle-warning text-red-700"></i></div>
-          <div class="text-2xl lg:text-3xl font-bold mt-3 text-red-700 dark:text-red-300">{{ formatNumber(stats.stuck) }}</div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2 sm:gap-3">
+          <div v-for="s in statusCards" :key="s.code"
+               @click="s.code !== '0' && $router.push({ name: 'targets', query: { status: s.code } })"
+               :class="[s.tint, 'rounded-2xl p-3 min-w-0 transition',
+                        s.code !== '0' && 'cursor-pointer hover:shadow-md hover:-translate-y-0.5']">
+            <div class="flex items-center justify-between gap-1 mb-2">
+              <span class="text-[10px] opacity-70 font-medium whitespace-nowrap">{{ s.code === '0' ? '—' : s.code }}</span>
+              <i :class="[s.icon, s.accent, 'text-sm']"></i>
+            </div>
+            <div class="text-[11px] leading-tight opacity-80 truncate" :title="s.label">{{ s.label }}</div>
+            <div :class="['text-xl lg:text-2xl font-bold mt-1 leading-none', s.accent]">{{ formatNumber(s.count) }}</div>
+            <div class="mt-1.5">
+              <div class="flex items-center justify-between text-[10px] opacity-70">
+                <span>{{ s.pct }}%</span>
+                <span>{{ formatNumber(s.count) }}/{{ formatNumber(stats.total) }}</span>
+              </div>
+              <div class="mt-1 h-1 rounded-full bg-white/50 dark:bg-slate-900/40 overflow-hidden">
+                <div class="h-full rounded-full" :style="{ width: Math.min(s.pct, 100) + '%', background: s.dot }"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
