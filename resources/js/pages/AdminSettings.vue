@@ -5,11 +5,12 @@ import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
 
-// Tabs
+// Tabs / submenu
 const tabs = [
   { key: 'channels', label: 'ช่องทางลงทะเบียน', icon: 'fi-rr-megaphone' },
   { key: 'statuses', label: 'สถานะลงทะเบียน',  icon: 'fi-rr-flag' },
   { key: 'banks',    label: 'ธนาคาร',          icon: 'fi-rr-bank' },
+  { key: 'sop',      label: 'ขั้นตอน SOP + กระบวนการ', icon: 'fi-rr-list-check' },
 ];
 const tab = ref('channels');
 
@@ -17,7 +18,35 @@ const tab = ref('channels');
 const channels = ref([]);
 const statuses = ref([]);
 const banks = ref([]);
+const phases = ref([]);
 const loading = ref(false);
+
+// Icon picker — สำหรับ bullets ใน SOP
+const ICON_BULLET_OPTIONS = [
+  { i: 'fi-rr-circle',            l: '● จุดทั่วไป' },
+  { i: 'fi-rr-id-card-clip-alt',  l: '🆔 บัตรประชาชน' },
+  { i: 'fi-rr-fingerprint',       l: '👆 ลายนิ้วมือ' },
+  { i: 'fi-rr-coins',             l: '💰 เงิน / รายได้' },
+  { i: 'fi-rr-list-check',        l: '☑ รายการตรวจ' },
+  { i: 'fi-rr-marker',            l: '📍 พิกัด' },
+  { i: 'fi-rr-phone-call',        l: '📞 เบอร์โทร' },
+  { i: 'fi-rr-chart-pie',         l: '📊 สถิติ' },
+  { i: 'fi-rr-info',              l: 'ℹ ข้อมูล' },
+  { i: 'fi-rr-comments',          l: '💬 ปรึกษา' },
+  { i: 'fi-rr-house-chimney',     l: '🏠 บ้าน' },
+  { i: 'fi-rr-building',          l: '🏢 อาคาร' },
+  { i: 'fi-rr-ambulance',         l: '🚑 เคลื่อนที่' },
+  { i: 'fi-rr-hand-holding-heart',l: '💝 เยี่ยมบ้าน' },
+  { i: 'fi-rr-calendar',          l: '📅 ปฏิทิน' },
+  { i: 'fi-rr-user-headset',      l: '🎧 CRM' },
+  { i: 'fi-rr-search-alt',        l: '🔍 วิเคราะห์' },
+  { i: 'fi-rr-file-edit',         l: '📝 เอกสาร' },
+  { i: 'fi-rr-megaphone',         l: '📢 ประกาศ' },
+  { i: 'fi-rr-check-circle',      l: '✓ ตรวจเรียบร้อย' },
+  { i: 'fi-rr-paper-plane',       l: '✈ ส่ง' },
+  { i: 'fi-rr-folder',            l: '📁 แฟ้ม' },
+  { i: 'fi-rr-users-alt',         l: '👥 กลุ่มคน' },
+];
 
 // Modal — generic
 const showEdit = ref(false);
@@ -36,17 +65,106 @@ const endpoints = {
 async function loadAll() {
   loading.value = true;
   try {
-    const [c, s, b] = await Promise.all([
+    const [c, s, b, p] = await Promise.all([
       axios.get(endpoints.channel.list),
       axios.get(endpoints.status.list),
       axios.get(endpoints.bank.list),
+      axios.get('/api/ref/project-phases', { params: { _: Date.now() } }),
     ]);
     channels.value = c.data.data;
     statuses.value = s.data.data;
     banks.value    = b.data.data;
+    phases.value   = p.data.data;
   } finally { loading.value = false; }
 }
 onMounted(loadAll);
+
+async function refetchPhases() {
+  const { data } = await axios.get('/api/ref/project-phases', {
+    params: { _: Date.now() },
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+  });
+  phases.value = data.data;
+}
+
+// ───── SOP edit modal ─────
+const showSopEdit = ref(false);
+const sopForm = reactive({
+  id: null, name: '', description: '', sop_level: 1,
+  detailsSummary: '', detailsFooter: '', detailsBullets: [],
+});
+const sopErr = ref({});
+const sopSaving = ref(false);
+
+function openSopAdd() {
+  const maxLvl = phases.value.length ? Math.max(...phases.value.map(p => p.sop_level)) : 0;
+  Object.assign(sopForm, {
+    id: null, name: '', description: '', sop_level: maxLvl + 1,
+    detailsSummary: '', detailsFooter: '', detailsBullets: [],
+  });
+  sopErr.value = {};
+  showSopEdit.value = true;
+}
+
+function openSopEdit(phase) {
+  const d = phase.details || {};
+  Object.assign(sopForm, {
+    id: phase.id, name: phase.name || '',
+    description: phase.description || '', sop_level: phase.sop_level || 1,
+    detailsSummary: d.summary || '',
+    detailsFooter:  d.footer  || '',
+    detailsBullets: Array.isArray(d.bullets) ? d.bullets.map(b => ({ ...b })) : [],
+  });
+  sopErr.value = {};
+  showSopEdit.value = true;
+}
+
+function addSopBullet() { sopForm.detailsBullets.push({ icon: 'fi-rr-circle', text: '' }); }
+function removeSopBullet(i) { sopForm.detailsBullets.splice(i, 1); }
+function moveSopBullet(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= sopForm.detailsBullets.length) return;
+  [sopForm.detailsBullets[i], sopForm.detailsBullets[j]] = [sopForm.detailsBullets[j], sopForm.detailsBullets[i]];
+}
+
+async function saveSop() {
+  sopSaving.value = true; sopErr.value = {};
+  try {
+    const bullets = sopForm.detailsBullets
+      .filter(b => b.text?.trim())
+      .map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text.trim() }));
+    const details = (sopForm.detailsSummary || sopForm.detailsFooter || bullets.length)
+      ? { summary: sopForm.detailsSummary || null, footer: sopForm.detailsFooter || null, bullets }
+      : null;
+    const payload = {
+      name: sopForm.name, description: sopForm.description,
+      sop_level: sopForm.sop_level, details,
+    };
+    if (sopForm.id) await axios.patch(`/api/admin/phases/${sopForm.id}`, payload);
+    else            await axios.post('/api/admin/phases', payload);
+    showSopEdit.value = false;
+    await refetchPhases();
+  } catch (e) {
+    sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { sopSaving.value = false; }
+}
+
+async function setSopCurrentInSettings(phase) {
+  if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
+  await axios.post(`/api/admin/phases/${phase.id}/set-current`);
+  await refetchPhases();
+}
+
+async function deleteSop(phase) {
+  if (phase.is_current) { alert('ลบขั้นที่เป็นปัจจุบันไม่ได้ — กรุณาตั้งขั้นอื่นเป็นปัจจุบันก่อน'); return; }
+  if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
+  try {
+    await axios.delete(`/api/admin/phases/${phase.id}`);
+    await refetchPhases();
+  } catch (e) { alert(e.response?.data?.message || 'ลบไม่สำเร็จ'); }
+}
+
+const sortedPhases = computed(() => [...phases.value].sort((a, b) => (a.sop_level - b.sop_level)));
 
 // Open modal — type = 'channel'|'status'|'bank', item = row (null = create)
 function openEdit(type, item = null) {
@@ -134,15 +252,20 @@ const ICON_OPTIONS = [
   <AppLayout title="ตั้งค่าข้อมูล" subtitle="Super Admin · ช่องทาง · สถานะ · ธนาคาร">
     <div class="space-y-4">
 
-      <!-- Tabs -->
-      <div class="card p-1 flex gap-1">
-        <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
-                :class="['flex-1 py-2.5 px-3 rounded-xl text-sm font-medium flex items-center justify-center gap-1.5 transition',
-                         tab === t.key
-                           ? 'bg-blue-700 text-white shadow-sm shadow-blue-500/30'
-                           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50']">
-          <i :class="t.icon"></i> {{ t.label }}
-        </button>
+      <!-- Submenu — dropdown -->
+      <div class="card p-3 flex items-center gap-3 flex-wrap">
+        <label class="text-sm font-medium shrink-0">เลือกเมนูย่อย:</label>
+        <div class="relative flex-1 min-w-0 sm:max-w-xs">
+          <select v-model="tab"
+                  class="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium appearance-none">
+            <option v-for="t in tabs" :key="t.key" :value="t.key">{{ t.label }}</option>
+          </select>
+          <i class="fi-rr-angle-small-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+        </div>
+        <span class="text-[11px] text-slate-500 hidden sm:inline">
+          <i :class="tabs.find(t => t.key === tab)?.icon"></i>
+          {{ tabs.find(t => t.key === tab)?.label }}
+        </span>
       </div>
 
       <div v-if="loading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
@@ -219,6 +342,148 @@ const ICON_OPTIONS = [
         </div>
         <div v-if="banks.length === 0" class="card p-8 text-center text-sm text-slate-500">ยังไม่มีธนาคาร</div>
       </div>
+
+      <!-- SOP — ขั้นตอน + กระบวนการดำเนินงาน -->
+      <div v-show="!loading && tab === 'sop'" class="space-y-2">
+        <div class="card p-3 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <div class="text-sm font-semibold">ขั้นตอน SOP + กระบวนการดำเนินงาน</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">
+              {{ phases.length }} ขั้น · ปัจจุบัน: ชั้น {{ phases.find(p => p.is_current)?.sop_level || '—' }}
+            </div>
+          </div>
+          <button @click="openSopAdd" class="btn-green px-3 py-2 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-add"></i> เพิ่มขั้นใหม่
+          </button>
+        </div>
+
+        <div v-for="p in sortedPhases" :key="p.id"
+             :class="['card p-4 transition',
+                      p.is_current ? 'ring-2 ring-blue-500 bg-blue-50/30 dark:bg-blue-900/10' : '']">
+          <div class="flex items-start gap-3">
+            <div :class="['w-10 h-10 shrink-0 rounded-xl text-white flex items-center justify-center font-bold',
+                          p.is_current ? 'bg-blue-700' : 'bg-slate-400 dark:bg-slate-600']">
+              {{ p.sop_level }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold">ชั้น {{ p.sop_level }} · {{ p.name }}</span>
+                <span v-if="p.is_current" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-700 text-white">กำลังดำเนินการ</span>
+              </div>
+              <div v-if="p.description" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ p.description }}</div>
+              <!-- กระบวนการดำเนินงาน (bullets) -->
+              <div v-if="p.details?.bullets?.length" class="mt-2 flex flex-wrap gap-1.5">
+                <span v-for="(b, i) in p.details.bullets" :key="i"
+                      class="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  <i :class="b.icon || 'fi-rr-circle'"></i> {{ b.text }}
+                </span>
+              </div>
+              <div v-else class="mt-2 text-[10px] text-slate-400 italic">— ยังไม่มีกระบวนการดำเนินงานย่อย</div>
+            </div>
+            <div class="shrink-0 flex flex-col items-end gap-1">
+              <div class="flex items-center gap-0.5">
+                <button @click="openSopEdit(p)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+                <button @click="deleteSop(p)" :disabled="p.is_current"
+                        class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600 disabled:opacity-30 disabled:cursor-not-allowed" title="ลบ">
+                  <i class="fi-rr-trash text-sm"></i>
+                </button>
+              </div>
+              <button v-if="!p.is_current" @click="setSopCurrentInSettings(p)"
+                      class="text-[10px] px-2 py-1 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-700 text-slate-500 whitespace-nowrap">
+                <i class="fi-rr-pin"></i> ตั้งเป็นปัจจุบัน
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-if="phases.length === 0" class="card p-8 text-center text-sm text-slate-500">ยังไม่มีขั้น SOP</div>
+      </div>
+
+      <!-- SOP Edit Modal -->
+      <Modal :show="showSopEdit" max-width="max-w-2xl" @close="showSopEdit = false">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold flex items-center gap-2">
+            <i :class="sopForm.id ? 'fi-rr-edit' : 'fi-rr-add'" class="text-blue-700"></i>
+            {{ sopForm.id ? 'แก้ไขขั้น SOP' : 'เพิ่มขั้น SOP ใหม่' }}
+          </div>
+          <button @click="showSopEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+        </div>
+
+        <div v-if="sopErr?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ sopErr.general[0] }}</div>
+
+        <form @submit.prevent="saveSop" class="space-y-3">
+          <div class="grid grid-cols-[80px_1fr] gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชั้นที่ <span class="text-red-600">*</span></label>
+              <input v-model.number="sopForm.sop_level" type="number" min="1" max="99" required
+                     class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชื่อขั้นตอน <span class="text-red-600">*</span></label>
+              <input v-model="sopForm.name" required maxlength="150"
+                     class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">คำอธิบายขั้นตอน</label>
+            <textarea v-model="sopForm.description" rows="2" maxlength="500"
+                      class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm"></textarea>
+          </div>
+
+          <!-- กระบวนการดำเนินงาน (bullets) -->
+          <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+            <div class="text-xs font-semibold mb-2 flex items-center gap-1.5">
+              <i class="fi-rr-list-check"></i> กระบวนการดำเนินงาน
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-500 mb-1">บทสรุปสั้น</label>
+              <input v-model="sopForm.detailsSummary" maxlength="500"
+                     class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+            </div>
+            <div class="mt-3">
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-[11px] text-slate-500">ขั้นตอนย่อย (มีไอคอนนำหน้า)</label>
+                <button type="button" @click="addSopBullet" class="text-[11px] text-blue-700 hover:underline flex items-center gap-1">
+                  <i class="fi-rr-add"></i> เพิ่มขั้นตอน
+                </button>
+              </div>
+              <div v-if="sopForm.detailsBullets.length === 0" class="text-[11px] text-slate-400 text-center py-3 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                ยังไม่มีขั้นตอนย่อย
+              </div>
+              <div v-for="(b, i) in sopForm.detailsBullets" :key="i"
+                   class="flex items-center gap-1.5 mb-1.5">
+                <select v-model="b.icon"
+                        class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-32 shrink-0">
+                  <option v-for="o in ICON_BULLET_OPTIONS" :key="o.i" :value="o.i">{{ o.l }}</option>
+                </select>
+                <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
+                <input v-model="b.text" maxlength="300" placeholder="ข้อความขั้นตอน"
+                       class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+                <button type="button" @click="moveSopBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <i class="fi-rr-angle-up text-xs"></i>
+                </button>
+                <button type="button" @click="moveSopBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <i class="fi-rr-angle-down text-xs"></i>
+                </button>
+                <button type="button" @click="removeSopBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
+                  <i class="fi-rr-cross-small text-xs"></i>
+                </button>
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="block text-[11px] text-slate-500 mb-1">หมายเหตุท้ายขั้น (footer)</label>
+              <input v-model="sopForm.detailsFooter" maxlength="500"
+                     class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+            </div>
+          </div>
+
+          <div class="flex gap-2 justify-end pt-1">
+            <button type="button" @click="showSopEdit = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+            <button type="submit" :disabled="sopSaving" class="btn-primary px-4 py-2 text-sm flex items-center gap-1.5">
+              <i :class="['fi-rr-disk', sopSaving && 'animate-spin']"></i> บันทึก
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <!-- Edit Modal -->
       <Modal :show="showEdit" max-width="max-w-md" @close="showEdit = false">

@@ -250,8 +250,12 @@ async function setSopCurrent(phase) {
   if (!auth.isSuperAdmin) return;
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
   await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  // Refetch phases — Vue reactivity จะ re-render สีของ cards ทันที (ไม่ต้อง hard reload)
-  phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+  // Cache-bust + reload data ทั้งหมดเผื่อมี side-effect ที่อื่น
+  phases.value = (await axios.get('/api/ref/project-phases', {
+    params: { _: Date.now() },
+    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+  })).data.data;
+  await loadAll();  // refresh KPIs / charts / overview ด้วย
 }
 
 // Icon options (curated) สำหรับ bullet picker
@@ -355,8 +359,11 @@ async function saveSopPhase() {
       await axios.post('/api/admin/phases', payload);
     }
     showSopEdit.value = false;
-    // refetch — Vue reactivity จะ re-render cards พร้อม details ใหม่ทันที
-    phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+    // refetch + cache-bust
+    phases.value = (await axios.get('/api/ref/project-phases', {
+      params: { _: Date.now() },
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+    })).data.data;
   } catch (e) {
     sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
   } finally { sopSaving.value = false; }
@@ -368,7 +375,10 @@ async function deleteSopPhase(phase) {
   if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?\nการลบไม่สามารถย้อนกลับได้`)) return;
   try {
     await axios.delete(`/api/admin/phases/${phase.id}`);
-    phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+    phases.value = (await axios.get('/api/ref/project-phases', {
+      params: { _: Date.now() },
+      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
+    })).data.data;
   } catch (e) {
     alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
   }

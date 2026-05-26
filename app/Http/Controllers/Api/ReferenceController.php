@@ -88,9 +88,12 @@ class ReferenceController extends Controller
 
     public function projectPhases(): JsonResponse
     {
-        return response()->json([
+        $resp = response()->json([
             'data' => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
         ]);
+        // กัน browser HTTP cache — ข้อมูลนี้ต้องสด เพราะ admin แก้แล้วต้องเห็นทันที
+        return $resp->header('Cache-Control', 'no-store, no-cache, must-revalidate')
+                    ->header('Pragma', 'no-cache');
     }
 
     /** POST /api/admin/phases/{id}/set-current — Super Admin only (route middleware) */
