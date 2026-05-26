@@ -18,6 +18,14 @@ const form = reactive({ full_name: '', position: 'ผู้ใหญ่บ้า
 const formErrors = ref({});
 const saving = ref(false);
 
+// "เปิดบัญชี" modal
+const showCreateUser = ref(false);
+const cuTracker = ref(null);
+const cuPassword = ref('');
+const cuSaving = ref(false);
+const cuError = ref('');
+const cuFlash = ref('');
+
 const amphurOpts = ref([]);
 const tambonOpts = ref([]);
 const villageOpts = ref([]);
@@ -114,6 +122,28 @@ async function remove(id) {
   await load();
 }
 
+function openCreateUser(t) {
+  cuTracker.value = t;
+  cuPassword.value = '';
+  cuError.value = '';
+  cuFlash.value = '';
+  showCreateUser.value = true;
+}
+
+async function submitCreateUser() {
+  if (cuPassword.value.length < 6) { cuError.value = 'รหัสผ่านอย่างน้อย 6 ตัว'; return; }
+  cuSaving.value = true;
+  cuError.value = '';
+  try {
+    const { data } = await axios.post(`/api/trackers/${cuTracker.value.id}/create-user`, { password: cuPassword.value });
+    cuFlash.value = data.message;
+    setTimeout(() => { showCreateUser.value = false; cuFlash.value = ''; }, 2000);
+    await load();
+  } catch (e) {
+    cuError.value = e.response?.data?.message || 'ผิดพลาด';
+  } finally { cuSaving.value = false; }
+}
+
 const positionColor = {
   'ผู้ใหญ่บ้าน':'bg-blue-700',
   'กำนัน':'bg-sky-600',
@@ -177,6 +207,14 @@ function pctClass(n) {
               <div class="min-w-0 flex-1">
                 <div class="font-medium truncate">{{ t.full_name }}</div>
                 <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ t.position }}{{ t.position_other ? ' ('+t.position_other+')' : '' }}</div>
+                <div class="mt-1">
+                  <span v-if="t.has_account" class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    <i class="fi-rr-check-circle"></i> มีบัญชี · login ได้
+                  </span>
+                  <span v-else class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                    <i class="fi-rr-lock"></i> ยังไม่มีบัญชี
+                  </span>
+                </div>
               </div>
             </div>
             <div v-if="auth.isSuperAdmin" class="shrink-0 flex items-center gap-0.5">
@@ -196,6 +234,17 @@ function pctClass(n) {
           <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-2 text-xs min-w-0">
             <div class="truncate"><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">{{ formatNumber(t.total) }}</span></div>
             <div class="truncate text-right"><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span :class="['font-semibold', pctClass(t.pct)]">{{ formatNumber(t.done) }} ({{ t.pct }}%)</span></div>
+          </div>
+
+          <!-- Super Admin: ปุ่มเปิดบัญชี (สำหรับคนที่ยังไม่มี user) -->
+          <button v-if="auth.isSuperAdmin && !t.has_account && t.phone"
+                  @click="openCreateUser(t)"
+                  class="mt-3 w-full text-xs py-2 px-3 rounded-lg border border-dashed border-blue-300 dark:border-slate-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-slate-800/50 flex items-center justify-center gap-1.5">
+            <i class="fi-rr-user-add"></i> เปิดบัญชีให้ login ใช้งาน
+          </button>
+          <div v-else-if="auth.isSuperAdmin && !t.has_account && !t.phone"
+               class="mt-3 text-[11px] text-slate-400 text-center">
+            <i class="fi-rr-info"></i> ต้องระบุเบอร์โทรก่อนเปิดบัญชี
           </div>
         </div>
 
@@ -263,6 +312,50 @@ function pctClass(n) {
               </button>
             </div>
           </form>
+      </Modal>
+
+      <!-- เปิดบัญชี modal -->
+      <Modal :show="showCreateUser" max-width="max-w-md" @close="showCreateUser = false">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="font-semibold flex items-center gap-2"><i class="fi-rr-user-add text-blue-700"></i> เปิดบัญชีให้ผู้กำกับติดตาม</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">สร้างบัญชี User · ผูก scope กับหมู่บ้านโดยอัตโนมัติ</div>
+          </div>
+          <button @click="showCreateUser = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+        </div>
+
+        <div v-if="cuFlash" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ cuFlash }}</div>
+        <div v-if="cuError" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ cuError }}</div>
+
+        <div v-if="cuTracker" class="card-tint-blue p-3 text-sm space-y-1 mb-4">
+          <div class="font-medium">{{ cuTracker.full_name }}</div>
+          <div class="text-xs opacity-80">
+            <i class="fi-rr-briefcase"></i> {{ cuTracker.position }}{{ cuTracker.position_other ? ' ('+cuTracker.position_other+')' : '' }}
+          </div>
+          <div class="text-xs opacity-80"><i class="fi-rr-phone-call"></i> {{ cuTracker.phone }} <span class="text-blue-700 dark:text-blue-300 font-medium">← ใช้เบอร์นี้ login</span></div>
+          <div class="text-xs opacity-80"><i class="fi-rr-marker"></i> {{ cuTracker.village }}{{ cuTracker.moo ? ' ม.'+cuTracker.moo : '' }} · {{ cuTracker.tambon }}</div>
+        </div>
+
+        <form @submit.prevent="submitCreateUser" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">รหัสผ่านชั่วคราว (≥ 6 ตัว) <span class="text-red-600">*</span></label>
+            <input v-model="cuPassword" type="password" minlength="6" required autofocus class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <div class="text-[10px] text-slate-500 mt-1">
+              แจ้งให้ผู้กำกับเปลี่ยนรหัสผ่านครั้งแรกที่ login ผ่านเมนู "แก้ไขข้อมูลส่วนตัว"
+            </div>
+          </div>
+          <div class="card-tint-orange p-3 text-[11px] leading-snug">
+            <i class="fi-rr-info text-orange-700"></i>
+            หลังเปิดบัญชี ผู้กำกับติดตามจะเห็น <b>เฉพาะรายชื่อกลุ่มเป้าหมายในหมู่บ้านของตัวเอง</b>
+            สามารถอัปเดตสถานะลงทะเบียน (4.1-4.7) ของแต่ละคนได้
+          </div>
+          <div class="flex gap-2 justify-end pt-1">
+            <button type="button" @click="showCreateUser = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+            <button type="submit" :disabled="cuSaving" class="btn-primary px-4 py-2 text-sm flex items-center gap-1.5">
+              <i :class="['fi-rr-key', cuSaving && 'animate-spin']"></i> เปิดบัญชี
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   </AppLayout>

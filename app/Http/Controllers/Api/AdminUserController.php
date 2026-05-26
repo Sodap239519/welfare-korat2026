@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\UserScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,45 @@ class AdminUserController extends Controller
 
         $page->getCollection()->transform(fn ($u) => $this->present($u));
         return response()->json($page);
+    }
+
+    /** POST /api/admin/users — สร้างผู้ใช้ใหม่ */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'           => ['required', 'string', 'max:150'],
+            'phone'          => ['required', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone'],
+            'email'          => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'position_type'  => ['nullable', 'string', 'max:40'],
+            'position_other' => ['nullable', 'string', 'max:100'],
+            'password'       => ['required', Password::min(6)],
+            'role'           => ['required', 'string', 'in:super_admin,admin,tracker'],
+            'active'         => ['sometimes', 'boolean'],
+            // optional scope (สำหรับ admin/tracker — Super Admin ไม่ต้องผูก scope)
+            'scope_type'     => ['nullable', 'string', 'in:amphur,tambon,village'],
+            'scope_id'       => ['nullable', 'integer'],
+        ]);
+
+        $user = User::create([
+            'name'           => $data['name'],
+            'phone'          => $data['phone'],
+            'email'          => $data['email'] ?? null,
+            'position_type'  => $data['position_type'] ?? null,
+            'position_other' => $data['position_other'] ?? null,
+            'password'       => Hash::make($data['password']),
+            'active'         => $data['active'] ?? true,
+        ]);
+        $user->assignRole($data['role']);
+
+        if (!empty($data['scope_type']) && !empty($data['scope_id'])) {
+            UserScope::create([
+                'user_id'    => $user->id,
+                'scope_type' => $data['scope_type'],
+                'scope_id'   => (int) $data['scope_id'],
+            ]);
+        }
+
+        return response()->json(['data' => $this->present($user->fresh('roles'))], 201);
     }
 
     /** PATCH /api/admin/users/{id} */

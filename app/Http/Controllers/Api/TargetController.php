@@ -38,6 +38,24 @@ class TargetController extends Controller
           ->when($request->filled('tambon_id'),  fn ($q) => $q->where('tambon_id',  (int) $request->tambon_id))
           ->when($request->filled('village_id'), fn ($q) => $q->where('village_id', (int) $request->village_id));
 
+        // Auto-scope: tracker role เห็นเฉพาะหมู่บ้าน/ตำบล/อำเภอ ใน user_scopes (เว้นแต่ super_admin/admin)
+        $user = $request->user();
+        if ($user && !$user->hasRole('super_admin') && !$user->hasRole('admin')) {
+            $scopes = \App\Models\UserScope::where('user_id', $user->id)->get();
+            if ($scopes->isNotEmpty()) {
+                $q->where(function ($w) use ($scopes) {
+                    foreach ($scopes as $s) {
+                        $col = match ($s->scope_type) {
+                            'village' => 'village_id',
+                            'tambon'  => 'tambon_id',
+                            'amphur'  => 'amphur_id',
+                        };
+                        $w->orWhere($col, $s->scope_id);
+                    }
+                });
+            }
+        }
+
         // Filter by current status code
         if ($request->filled('status')) {
             $code = (string) $request->status;

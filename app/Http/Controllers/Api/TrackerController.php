@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Target;
 use App\Models\TargetCurrentStatus;
 use App\Models\Tracker;
+use App\Models\User;
+use App\Models\UserScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class TrackerController extends Controller
 {
@@ -63,6 +67,8 @@ class TrackerController extends Controller
                 'tambon_id'      => $t->village?->tambon_id,
                 'amphur'         => $t->village?->tambon?->amphur?->name,
                 'amphur_id'      => $t->village?->tambon?->amphur_id,
+                'user_id'        => $t->user_id,
+                'has_account'    => !is_null($t->user_id),
                 'total'          => $total,
                 'done'           => $done,
                 'pct'            => $total > 0 ? round(($done / $total) * 100) : 0,
@@ -108,5 +114,61 @@ class TrackerController extends Controller
         $tracker = Tracker::findOrFail($id);
         $tracker->update(['active' => false]);
         return response()->json(['message' => 'Tracker deactivated']);
+    }
+
+    /**
+     * POST /api/trackers/{id}/create-user
+     * เปิดบัญชี User ให้ผู้กำกับติดตามคนนี้ (เฉพาะ Super Admin)
+     * - สร้าง User (role=tracker) ด้วยข้อมูลจาก tracker
+     * - สร้าง UserScope (village) เพื่อล็อกขอบเขตเห็นเฉพาะหมู่บ้านนั้น
+     * - link tracker.user_id = user.id
+     */
+    public function createUser(Request $request, int $id): JsonResponse
+    {
+        $tracker = Tracker::findOrFail($id);
+
+        if ($tracker->user_id) {
+            return response()->json(['message' => 'ผู้กำกับติดตามคนนี้มีบัญชีอยู่แล้ว'], 422);
+        }
+        if (!$tracker->phone) {
+            return response()->json(['message' => 'ต้องใส่เบอร์โทรในข้อมูลผู้กำกับติดตามก่อนเปิดบัญชี'], 422);
+        }
+
+        $data = $request->validate([
+            'password' => ['required', Password::min(6)],
+        ]);
+
+        // ตรวจซ้ำเบอร์โทรในระบบ
+        if (User::where('phone', $tracker->phone)->exists()) {
+            return response()->json([
+                'message' => "เบอร์ {$tracker->phone} ถูกใช้แล้วในระบบ — กรุณาเปลี่ยนเบอร์ใน tracker ก่อน",
+            ], 422);
+        }
+
+        $user = DB::transaction(function () use ($tracker, $data) {
+            $user = User::create([
+                'name'           => $tracker->full_name,
+                'phone'          => $tracker->phone,
+                'position_type'  => $tracker->position,
+                'position_other' => $tracker->position_other,
+                'password'       => Hash::make($data['password']),
+                'active'         => true,
+            ]);
+            $user->assignRole('tracker');
+
+            UserScope::create([
+                'user_id'    => $user->id,
+                'scope_type' => 'village',
+                'scope_id'   => $tracker->village_id,
+            ]);
+
+            $tracker->update(['user_id' => $user->id]);
+            return $user;
+        });
+
+        return response()->json([
+            'message' => "เปิดบัญชีให้ {$tracker->full_name} เรียบร้อย — login ด้วยเบอร์ {$tracker->phone}",
+            'user_id' => $user->id,
+        ]);
     }
 }

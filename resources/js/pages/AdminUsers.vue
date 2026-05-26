@@ -17,6 +17,13 @@ const form = reactive({ name: '', phone: '', email: '', role: 'tracker', positio
 const formErrors = ref({});
 const saving = ref(false);
 
+// + Create user modal
+const showCreate = ref(false);
+const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true });
+const createErrors = ref({});
+const createSaving = ref(false);
+const createFlash = ref('');
+
 async function load(page = 1) {
   loading.value = true;
   try {
@@ -43,6 +50,26 @@ function openEdit(u) {
   });
   formErrors.value = {};
   showEdit.value = true;
+}
+
+function openCreate() {
+  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true });
+  createErrors.value = {};
+  createFlash.value = '';
+  showCreate.value = true;
+}
+
+async function createUser() {
+  createSaving.value = true;
+  createErrors.value = {};
+  try {
+    await axios.post('/api/admin/users', createForm);
+    createFlash.value = `สร้างผู้ใช้ ${createForm.name} แล้ว — login เบอร์ ${createForm.phone}`;
+    setTimeout(() => { showCreate.value = false; createFlash.value = ''; }, 1800);
+    await load(1);
+  } catch (e) {
+    createErrors.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { createSaving.value = false; }
 }
 
 async function save() {
@@ -102,6 +129,9 @@ function initials(name) {
             <input v-model="filters.q" placeholder="ค้นหาชื่อ / เบอร์โทร / อีเมล"
               class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
           </div>
+          <button @click="openCreate" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มผู้ใช้</span>
+          </button>
         </div>
         <div class="grid grid-cols-2 gap-2 mt-2">
           <select v-model="filters.role" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
@@ -204,6 +234,69 @@ function initials(name) {
               </button>
             </div>
           </form>
+      </Modal>
+
+      <!-- Create user modal -->
+      <Modal :show="showCreate" max-width="max-w-md" @close="showCreate = false">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="font-semibold">เพิ่มผู้ใช้ใหม่</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">สำหรับ Super Admin · ผู้ใช้ login ได้ทันทีหลังสร้าง</div>
+          </div>
+          <button @click="showCreate = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+        </div>
+
+        <div v-if="createFlash" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ createFlash }}</div>
+        <div v-if="createErrors?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ createErrors.general[0] }}</div>
+
+        <form @submit.prevent="createUser" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชื่อ-สกุล <span class="text-red-600">*</span></label>
+            <input v-model="createForm.name" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <div v-if="createErrors.name" class="text-[11px] text-red-600 mt-1">{{ createErrors.name[0] }}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทร <span class="text-red-600">*</span></label>
+              <input v-model="createForm.phone" required placeholder="0812345678" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              <div v-if="createErrors.phone" class="text-[11px] text-red-600 mt-1">{{ createErrors.phone[0] }}</div>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Role <span class="text-red-600">*</span></label>
+              <select v-model="createForm.role" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                <option value="tracker">Tracker</option>
+                <option value="admin">Admin</option>
+                <option value="super_admin">Super Admin</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">อีเมล (ไม่บังคับ)</label>
+            <input v-model="createForm.email" type="email" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <div v-if="createErrors.email" class="text-[11px] text-red-600 mt-1">{{ createErrors.email[0] }}</div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">รหัสผ่านชั่วคราว (≥ 6 ตัว) <span class="text-red-600">*</span></label>
+            <input v-model="createForm.password" type="password" minlength="6" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <div v-if="createErrors.password" class="text-[11px] text-red-600 mt-1">{{ createErrors.password[0] }}</div>
+            <div class="text-[10px] text-slate-500 mt-1">แจ้งให้ผู้ใช้ใหม่เปลี่ยนรหัสผ่านที่หน้าโปรไฟล์หลัง login ครั้งแรก</div>
+          </div>
+          <label class="flex items-center gap-2 text-sm">
+            <input v-model="createForm.active" type="checkbox" class="rounded text-blue-600"> เปิดใช้งานบัญชีทันที (ไม่ต้องอนุมัติ)
+          </label>
+          <div class="card-tint-blue p-3 text-[11px] leading-snug">
+            <i class="fi-rr-info text-blue-700"></i>
+            หากต้องการเปิดบัญชีให้ <b>ผู้กำกับติดตาม</b> ที่มีในระบบแล้ว
+            แนะนำให้ไปหน้า <b>"ผู้กำกับติดตาม"</b> แล้วกดปุ่ม <b>"เปิดบัญชี"</b>
+            เพื่อให้ระบบล็อก scope หมู่บ้านให้อัตโนมัติ
+          </div>
+          <div class="flex gap-2 justify-end pt-1">
+            <button type="button" @click="showCreate = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+            <button type="submit" :disabled="createSaving" class="btn-green px-4 py-2 text-sm flex items-center gap-1.5">
+              <i :class="['fi-rr-add', createSaving && 'animate-spin']"></i> สร้างบัญชี
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   </AppLayout>

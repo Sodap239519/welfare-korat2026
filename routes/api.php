@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:super_admin')->prefix('admin')->group(function () {
         Route::get('users',                    [AdminUserController::class, 'index']);
         Route::get('users/stats',              [AdminUserController::class, 'stats']);
+        Route::post('users',                   [AdminUserController::class, 'store']);
         Route::patch('users/{id}',             [AdminUserController::class, 'update'])->whereNumber('id');
         Route::post('users/{id}/approve',      [AdminUserController::class, 'approve'])->whereNumber('id');
         Route::post('users/{id}/suspend',      [AdminUserController::class, 'suspend'])->whereNumber('id');
@@ -79,12 +80,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('phases/{id}/set-current', [ReferenceController::class, 'setCurrentPhase'])->whereNumber('id');
     });
 
-    // Trackers — อ่านได้ทุก role · เขียน/แก้ไข/ลบ เฉพาะ super_admin
+    // Trackers — อ่านได้ทุก role · เขียน/แก้ไข/ลบ + เปิดบัญชี เฉพาะ super_admin
     Route::get('trackers',        [TrackerController::class, 'index']);
     Route::middleware('role:super_admin')->group(function () {
-        Route::post('trackers',       [TrackerController::class, 'store']);
-        Route::patch('trackers/{id}', [TrackerController::class, 'update'])->whereNumber('id');
-        Route::delete('trackers/{id}',[TrackerController::class, 'destroy'])->whereNumber('id');
+        Route::post('trackers',                   [TrackerController::class, 'store']);
+        Route::patch('trackers/{id}',             [TrackerController::class, 'update'])->whereNumber('id');
+        Route::delete('trackers/{id}',            [TrackerController::class, 'destroy'])->whereNumber('id');
+        Route::post('trackers/{id}/create-user',  [TrackerController::class, 'createUser'])->whereNumber('id');
     });
 
     // Lookups
