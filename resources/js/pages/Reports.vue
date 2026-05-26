@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Pagination from '@/components/Pagination.vue';
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate, statusShort } from '@/composables/useApi';
@@ -110,24 +111,23 @@ async function load() {
   else await loadBottleneck();
 }
 
-// 5 หัวข้อรายงาน — เป็น tab + meta สำหรับแสดงผลและส่งออก
+// 4 หัวข้อรายงาน — เป็น tab + meta สำหรับแสดงผลและส่งออก
 const topicTabs = [
   { key: 'summary',        label: 'สรุปยอดทุกสถานะ',  icon: 'fi-rr-chart-pie' },
   { key: 'targets-raw',    label: 'รายชื่อต้นฉบับ',      icon: 'fi-rr-users-alt' },
   { key: 'targets-status', label: 'รายชื่อ + สถานะ',     icon: 'fi-rr-id-badge' },
   { key: 'trackers',       label: 'ผู้กำกับติดตาม',     icon: 'fi-rr-user-headset' },
-  { key: 'chart',          label: 'ภาพกราฟ',           icon: 'fi-rr-picture' },
 ];
 
 // โหลดข้อมูลตาม tab ที่เลือก
-async function loadTabData() {
+async function loadTabData(page = 1) {
   if (topic.value === 'summary') {
-    await loadDaily(1);
+    await loadDaily(page);
     return;
   }
   tabLoading.value = true;
   try {
-    const params = { per_page: 35 };
+    const params = { per_page: 35, page };
     if (amphurId.value) params.amphur_id = amphurId.value;
     if (tambonId.value) params.tambon_id = tambonId.value;
 
@@ -138,14 +138,14 @@ async function loadTabData() {
       const { data } = await axios.get('/api/trackers', { params });
       trackersList.value = data;
     }
-    // chart tab — ใช้ chartOptions ที่มีอยู่แล้ว
   } finally { tabLoading.value = false; }
 }
 
-// ส่งออกตาม tab ปัจจุบัน
-function exportCurrent() {
-  if (topic.value === 'chart') return downloadChartPng();
+// Page change handlers สำหรับ Pagination component
+function loadTargetsPage(page) { loadTabData(page); }
 
+// ส่งออกตาม tab ปัจจุบัน — export ทุกแถว ไม่จำกัด page
+function exportCurrent() {
   const params = new URLSearchParams();
   if (amphurId.value) params.append('amphur_id', amphurId.value);
   if (tambonId.value) params.append('tambon_id', tambonId.value);
@@ -430,22 +430,11 @@ function pctClass(n) {
           </table>
         </div>
 
-        <!-- Pagination -->
-        <div v-if="dailyLastPage > 1" class="flex items-center justify-between gap-2 text-sm">
-          <div class="text-xs text-slate-500 dark:text-slate-400">
-            หน้า {{ dailyPage }} / {{ dailyLastPage }} · ทั้งหมด {{ formatNumber(dailyTotal) }} {{ levelLabel }} · {{ perPage }} แถว/หน้า
-          </div>
-          <div class="flex gap-1">
-            <button @click="loadDaily(dailyPage - 1)" :disabled="dailyPage <= 1"
-                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800">
-              <i class="fi-rr-angle-small-left"></i> ก่อนหน้า
-            </button>
-            <button @click="loadDaily(dailyPage + 1)" :disabled="dailyPage >= dailyLastPage"
-                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800">
-              ถัดไป <i class="fi-rr-angle-small-right"></i>
-            </button>
-          </div>
-        </div>
+        <!-- Pagination (numbered 1 2 ... N) -->
+        <Pagination v-if="dailyLastPage > 1"
+                    :current="dailyPage" :last="dailyLastPage" :total="dailyTotal"
+                    :unit="levelLabel"
+                    @go="loadDaily" />
         </div>
         <!-- ╔══════════════════════════════════════╗ -->
         <!-- ║ Tab: รายชื่อต้นฉบับ / +สถานะ           ║ -->
@@ -496,9 +485,10 @@ function pctClass(n) {
               </tbody>
             </table>
           </div>
-          <div v-if="targetsList.last_page > 1" class="text-xs text-slate-500 mt-2 text-center">
-            หน้า {{ targetsList.current_page }} / {{ targetsList.last_page }} · ทั้งหมด {{ formatNumber(targetsList.total) }} คน
-          </div>
+          <Pagination v-if="targetsList.last_page > 1"
+                      :current="targetsList.current_page" :last="targetsList.last_page" :total="targetsList.total"
+                      unit="คน"
+                      @go="loadTargetsPage" />
         </div>
 
         <!-- ╔══════════════════════════════════════╗ -->
@@ -541,26 +531,15 @@ function pctClass(n) {
               </tbody>
             </table>
           </div>
-          <div class="text-xs text-slate-500 mt-2 text-center">
+          <Pagination v-if="trackersList.last_page > 1"
+                      :current="trackersList.current_page" :last="trackersList.last_page" :total="trackersList.total"
+                      unit="คน"
+                      @go="loadTargetsPage" />
+          <div v-else class="text-xs text-slate-500 mt-2 text-center">
             ทั้งหมด {{ formatNumber(trackersList.total) }} คน
           </div>
         </div>
 
-        <!-- ╔══════════════════════════════════════╗ -->
-        <!-- ║ Tab: ภาพกราฟ                             ║ -->
-        <!-- ╚══════════════════════════════════════╝ -->
-        <div v-else-if="topic === 'chart'">
-          <div v-if="dailyRows.length" class="card p-4 lg:p-5">
-            <div class="flex items-center justify-between mb-3">
-              <div class="font-semibold text-sm">10 {{ levelLabel }}ที่ก้าวหน้าสูงสุด</div>
-              <button @click="downloadChartPng" class="text-xs text-blue-700 hover:underline flex items-center gap-1">
-                <i class="fi-rr-download"></i> ดาวน์โหลด PNG
-              </button>
-            </div>
-            <apexchart type="bar" height="500" :options="chartOptions" :series="chartOptions.series" />
-          </div>
-          <div v-else class="card p-8 text-center text-sm text-slate-500">โหลดข้อมูลก่อน (เลือกระดับ → ตำบล หรือ หมู่บ้าน)</div>
-        </div>
       </template>
 
       <!-- BOTTLENECK -->
