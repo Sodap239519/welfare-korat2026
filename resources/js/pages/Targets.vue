@@ -365,13 +365,16 @@ async function submitAdd() {
         </div>
       </div>
 
-      <!-- Status pill counters -->
-      <div class="flex flex-wrap gap-2">
-        <button @click="filters.status = ''" :class="['px-3 py-1.5 rounded-full text-xs', !filters.status ? 'bg-blue-700 text-white' : 'border border-slate-100 dark:border-slate-800']">
+      <!-- Status pill counters — แถวเดียว เลื่อนซ้าย-ขวาได้บนมือถือ -->
+      <div class="status-pills flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 snap-x">
+        <button @click="filters.status = ''"
+                :class="['shrink-0 snap-start whitespace-nowrap px-3 py-1.5 rounded-full text-xs',
+                         !filters.status ? 'bg-blue-700 text-white' : 'border border-slate-100 dark:border-slate-800']">
           ทั้งหมด · {{ formatNumber(statusCounts._total || 0) }}
         </button>
         <button v-for="s in statuses" :key="s.code" @click="selectStatus(s.code)"
-                :class="['px-3 py-1.5 rounded-full text-xs', s.color, filters.status === s.code ? 'ring-2 ring-blue-500' : '']">
+                :class="['shrink-0 snap-start whitespace-nowrap px-3 py-1.5 rounded-full text-xs',
+                         s.color, filters.status === s.code ? 'ring-2 ring-blue-500' : '']">
           {{ statusShort(s.code) }} · {{ formatNumber(statusCounts[s.code] || 0) }}
         </button>
       </div>
@@ -672,3 +675,19 @@ async function submitAdd() {
     </div>
   </AppLayout>
 </template>
+
+<style scoped>
+/* Status pills: scrollbar บางๆ + fade ขอบขวาบอกว่ายังเลื่อนได้ */
+.status-pills {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  /* แสดง gradient fade ทางขวาเฉพาะเมื่อ scroll ได้ */
+  mask-image: linear-gradient(to right, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 92%, transparent 100%);
+}
+.status-pills::-webkit-scrollbar { height: 4px; }
+.status-pills::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.status-pills::-webkit-scrollbar-track { background: transparent; }
+:global(.dark) .status-pills { scrollbar-color: #475569 transparent; }
+:global(.dark) .status-pills::-webkit-scrollbar-thumb { background: #475569; }
+</style>
