@@ -197,6 +197,7 @@ class TargetController extends Controller
             'moo'       => $data['moo'],
             'name'      => $cleanVillage,
         ]);
+        $village->ensureCoords();   // กันหมู่บ้านใหม่หายจากแผนที่
 
         // house_code: ใช้ที่ผู้ใช้กรอก ถ้าไม่กรอกใช้ synthetic
         $code = !empty($data['house_code'])

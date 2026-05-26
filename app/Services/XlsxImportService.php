@@ -99,6 +99,8 @@ class XlsxImportService
                             'moo'       => $moo,
                             'name'      => $villageName ?: '(ไม่ระบุ)',
                         ]);
+                    // ใส่พิกัด fallback ถ้าหมู่บ้านใหม่ — กันหายจาก map
+                    $village->ensureCoords();
 
                     $hash = Household::hashFor($houseCode);
                     $household = Household::where('house_code_hash', $hash)->first();
