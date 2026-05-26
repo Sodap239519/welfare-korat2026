@@ -70,7 +70,7 @@ const initials = computed(() => {
 const roleLabel = computed(() => {
   if (auth.isSuperAdmin) return 'Super Admin';
   if (auth.roles.includes('admin')) return 'Admin';
-  return 'Tracker';
+  return 'ผู้กำกับติดตาม';
 });
 
 const colorMap = {

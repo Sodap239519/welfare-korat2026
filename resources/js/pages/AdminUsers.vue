@@ -106,6 +106,12 @@ const roleColor = {
   admin: 'card-tint-sky text-sky-700',
   tracker: 'card-tint-green text-green-700',
 };
+const ROLE_LABEL = {
+  super_admin: 'Super Admin',
+  admin:       'Admin',
+  tracker:     'ผู้กำกับติดตาม',
+};
+const roleLabel = (code) => ROLE_LABEL[code] || code || '—';
 function initials(name) {
   return (name || 'U').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').replace(/[^ก-๙A-Za-z]/g, '');
 }
@@ -118,7 +124,7 @@ function initials(name) {
       <div v-if="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="card-tint-blue p-4"><div class="text-xs opacity-80">ผู้ใช้ทั้งหมด</div><div class="text-2xl font-bold mt-1">{{ formatNumber(stats.total) }}</div></div>
         <div class="card-tint-sky p-4"><div class="text-xs opacity-80">Super Admin</div><div class="text-2xl font-bold mt-1 text-sky-800">{{ formatNumber(stats.super_admin) }}</div></div>
-        <div class="card-tint-green p-4"><div class="text-xs opacity-80">Tracker</div><div class="text-2xl font-bold mt-1 text-green-700">{{ formatNumber(stats.tracker) }}</div></div>
+        <div class="card-tint-green p-4"><div class="text-xs opacity-80">ผู้กำกับติดตาม</div><div class="text-2xl font-bold mt-1 text-green-700">{{ formatNumber(stats.tracker) }}</div></div>
         <div class="card-tint-orange p-4"><div class="text-xs opacity-80">รออนุมัติ</div><div class="text-2xl font-bold mt-1 text-orange-700">{{ formatNumber(stats.pending) }}</div></div>
       </div>
 
@@ -143,7 +149,7 @@ function initials(name) {
               <option value="">ทุก Role</option>
               <option value="super_admin">Super Admin</option>
               <option value="admin">Admin</option>
-              <option value="tracker">Tracker</option>
+              <option value="tracker">ผู้กำกับติดตาม</option>
             </select>
             <button v-if="filters.role" @click="filters.role = ''" title="ล้าง"
                     class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
@@ -174,7 +180,7 @@ function initials(name) {
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <div class="font-medium truncate">{{ u.name }}</div>
-                <span :class="['text-[10px] px-2 py-0.5 rounded font-medium', roleColor[u.roles[0]] || 'st-4-1']">{{ u.roles[0] || '—' }}</span>
+                <span :class="['text-[10px] px-2 py-0.5 rounded font-medium', roleColor[u.roles[0]] || 'st-4-1']">{{ roleLabel(u.roles[0]) }}</span>
               </div>
               <div class="text-xs text-slate-500 dark:text-slate-400 truncate">
                 <i class="fi-rr-phone-call"></i> {{ u.phone }}
@@ -226,7 +232,7 @@ function initials(name) {
                 <select v-model="form.role" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
                   <option value="super_admin">Super Admin</option>
                   <option value="admin">Admin</option>
-                  <option value="tracker">Tracker</option>
+                  <option value="tracker">ผู้กำกับติดตาม</option>
                 </select>
               </div>
             </div>
@@ -280,7 +286,7 @@ function initials(name) {
             <div>
               <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">Role <span class="text-red-600">*</span></label>
               <select v-model="createForm.role" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-                <option value="tracker">Tracker</option>
+                <option value="tracker">ผู้กำกับติดตาม</option>
                 <option value="admin">Admin</option>
                 <option value="super_admin">Super Admin</option>
               </select>
