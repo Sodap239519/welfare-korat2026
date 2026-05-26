@@ -186,7 +186,7 @@ function initials(name) {
                   <span v-if="target.current?.status_code" :class="['inline-block px-3 py-1.5 rounded-xl text-sm font-medium', statusColorClass(target.current.status_code)]">
                     <i class="fi-sr-check-circle"></i> {{ statuses.find(s => s.code === target.current.status_code)?.label || statusShort(target.current.status_code) }}
                   </span>
-                  <span v-else class="inline-block px-3 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600">ยังไม่อัปเดตสถานะ</span>
+                  <span v-else class="inline-block px-3 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600">ยังไม่ถูกติดตาม</span>
                 </div>
               </div>
               <div v-if="target.current" class="text-right text-xs text-slate-500 dark:text-slate-400">

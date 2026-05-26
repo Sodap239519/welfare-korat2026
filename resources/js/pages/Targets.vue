@@ -413,7 +413,7 @@ async function submitAdd() {
               </td>
               <td class="cursor-pointer" @click="goDetail(t.id)">
                 <span v-if="t.status_code" :class="['inline-block px-2 py-1 rounded-md text-xs whitespace-nowrap', statusColorClass(t.status_code)]">{{ statusShort(t.status_code) }}</span>
-                <span v-else class="text-xs text-slate-400">ยังไม่อัปเดต</span>
+                <span v-else class="text-xs text-slate-400">ยังไม่ถูกติดตาม</span>
               </td>
               <td class="text-xs text-slate-500 dark:text-slate-400 max-w-[200px] cursor-pointer" @click="goDetail(t.id)">
                 <div v-if="t.channel" class="truncate">
