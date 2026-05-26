@@ -361,34 +361,29 @@ const channelCountMap = computed(() => {
   return map;
 });
 
-// Column chart factory — % ลงทะเบียน รายอำเภอ/ตำบล (รองรับ scroll horizontal)
-function makeOverviewChart(rows, levelName) {
+// Stacked column chart — 4 ชั้น (ยังไม่ถูกติดตาม / ไม่ประสงค์ / กำลังลงทะเบียน / เรียบร้อย)
+// 100% stacked → เห็นสัดส่วน · tooltip บอกจำนวนจริง
+function makeStackedOverviewChart(rows, levelName) {
+  const sumInProgress = r => ['4.2','4.3','4.4','4.5','4.6']
+    .reduce((a, c) => a + (r.by_status?.[c] || 0), 0);
+
   return {
     options: {
-      chart: { type: 'bar', height: 320, fontFamily: 'Prompt, sans-serif', toolbar: { show: false }, animations: { enabled: false } },
+      chart: {
+        type: 'bar', height: 360, fontFamily: 'Prompt, sans-serif',
+        stacked: true, stackType: '100%',
+        toolbar: { show: false }, animations: { enabled: false },
+      },
+      colors: ['#cbd5e1', '#94a3b8', '#f97316', '#16a34a'],
       plotOptions: {
-        bar: {
-          horizontal: false,
-          borderRadius: 6,
-          columnWidth: '70%',
-          distributed: true,            // แต่ละแท่งใช้สีจาก colors array
-          dataLabels: { position: 'top' },
-          colors: {
-            ranges: [
-              { from: 0,  to: 49,  color: '#dc2626' },   // แดง — ต้องเร่งรัด
-              { from: 50, to: 79,  color: '#f97316' },   // ส้ม — ปานกลาง
-              { from: 80, to: 100, color: '#16a34a' },   // เขียว — ดีเยี่ยม
-            ],
-          },
-        },
+        bar: { horizontal: false, borderRadius: 4, columnWidth: '75%', borderRadiusApplication: 'end' },
       },
-      dataLabels: {
-        enabled: true,
-        formatter: v => v + '%',
-        offsetY: -18,
-        style: { fontSize: '10px', colors: ['#0f172a'], fontWeight: 600 },
+      dataLabels: { enabled: false },
+      legend: {
+        position: 'top', horizontalAlign: 'center', fontSize: '11px',
+        markers: { width: 12, height: 12, radius: 3 },
       },
-      legend: { show: false },
+      stroke: { width: 1, colors: [dark.value ? '#0f172a' : '#ffffff'] },
       xaxis: {
         categories: rows.map(r => r.name),
         labels: {
@@ -398,30 +393,56 @@ function makeOverviewChart(rows, levelName) {
         axisBorder: { show: false }, axisTicks: { show: false },
       },
       yaxis: {
-        min: 0, max: 100,
         labels: { formatter: v => v + '%' },
-        title: { text: '% ลงทะเบียน', style: { fontSize: '10px', fontWeight: 500 } },
+        title: { text: 'สัดส่วน (%)', style: { fontSize: '10px', fontWeight: 500 } },
       },
       grid: { borderColor: dark.value ? '#1f2937' : '#eef2f7', strokeDashArray: 3 },
       tooltip: {
         theme: dark.value ? 'dark' : 'light',
-        y: { formatter: (v, opts) => {
-          const r = rows[opts.dataPointIndex];
-          return `${v}% (${formatNumber(r.done)} / ${formatNumber(r.total)} ราย)`;
-        }},
-        x: { formatter: (val, opts) => {
-          const r = rows[opts.dataPointIndex];
-          return `${levelName}: ${r.name}` + (r.location ? ` · ${r.location}` : '');
-        }},
+        shared: true, intersect: false,
+        x: {
+          formatter: (val, opts) => {
+            const r = rows[opts.dataPointIndex];
+            return `${levelName}: ${r.name}` + (r.location ? ` · ${r.location}` : '') +
+                   ` · เป้า ${formatNumber(r.total)} คน`;
+          },
+        },
+        y: { formatter: v => formatNumber(v) + ' ราย' },
       },
       theme: { mode: dark.value ? 'dark' : 'light' },
     },
-    series: [{ name: '% ลงทะเบียน', data: rows.map(r => r.pct) }],
+    series: [
+      { name: 'ยังไม่ถูกติดตาม',     data: rows.map(r => r.by_status?.['0']  || 0) },
+      { name: 'ไม่ประสงค์ลงทะเบียน',  data: rows.map(r => r.by_status?.['4.1'] || 0) },
+      { name: 'กำลังลงทะเบียน',       data: rows.map(r => sumInProgress(r)) },
+      { name: 'ลงทะเบียนเรียบร้อยแล้ว', data: rows.map(r => r.by_status?.['4.7'] || 0) },
+    ],
   };
 }
 
-const amphurChart = computed(() => makeOverviewChart(allAmphurs.value, 'อำเภอ'));
-const tambonChart = computed(() => makeOverviewChart(allTambons.value, 'ตำบล'));
+const amphurChart = computed(() => makeStackedOverviewChart(allAmphurs.value, 'อำเภอ'));
+const tambonChart = computed(() => makeStackedOverviewChart(allTambons.value, 'ตำบล'));
+
+// Carousel state
+const currentOverviewIdx = ref(0);
+const overviewCarouselRef = ref(null);
+const overviewCards = [
+  { key: 'amphur', label: 'ภาพรวมทุกอำเภอ', icon: 'fi-rr-marker', iconClass: 'text-blue-700' },
+  { key: 'tambon', label: 'ภาพรวมทุกตำบล', icon: 'fi-rr-marker', iconClass: 'text-sky-700' },
+];
+
+function onOverviewScroll() {
+  const el = overviewCarouselRef.value;
+  if (!el) return;
+  const idx = Math.round(el.scrollLeft / el.clientWidth);
+  if (idx !== currentOverviewIdx.value) currentOverviewIdx.value = idx;
+}
+
+function goToOverview(idx) {
+  const el = overviewCarouselRef.value;
+  if (!el) return;
+  el.scrollTo({ left: idx * el.clientWidth, behavior: 'smooth' });
+}
 
 const phaseIconMap = { 1:'fi-rr-megaphone', 2:'fi-rr-edit', 3:'fi-rr-folder', 4:'fi-rr-search', 5:'fi-rr-chart-pie' };
 const currentPhaseIdx = computed(() => phases.value.findIndex(p => p.is_current));
@@ -833,58 +854,79 @@ function statusSegments(row) {
         </div>
       </div>
 
-      <!-- ภาพรวมทุกอำเภอ + ทุกตำบล (column chart, scroll horizontal) -->
-      <div class="grid lg:grid-cols-2 gap-3">
-        <!-- Card 1: ทุกอำเภอ -->
-        <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
-          <div class="flex items-start justify-between mb-3 gap-2">
-            <div class="min-w-0">
-              <div class="font-semibold text-sm flex items-center gap-1.5">
-                <i class="fi-rr-marker text-blue-700"></i> ภาพรวมทุกอำเภอ
+      <!-- ภาพรวม carousel — 1 card/หน้า เลื่อนซ้าย-ขวา (อำเภอ ↔ ตำบล) -->
+      <div class="relative">
+        <div ref="overviewCarouselRef" @scroll.passive="onOverviewScroll"
+             class="overview-carousel flex overflow-x-auto snap-x snap-mandatory gap-3 -mx-1 px-1 pb-1 scroll-smooth">
+          <!-- Card: อำเภอ -->
+          <div class="shrink-0 w-full snap-start">
+            <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between mb-3 gap-2">
+                <div class="min-w-0">
+                  <div class="font-semibold text-sm flex items-center gap-1.5">
+                    <i class="fi-rr-marker text-blue-700"></i> ภาพรวมทุกอำเภอ
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">
+                    {{ allAmphurs.length }} อำเภอ · เลื่อนภายในกราฟเพื่อดูทั้งหมด
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-1 rounded-full card-tint-blue whitespace-nowrap font-medium">1 / 2</span>
               </div>
-              <div class="text-xs text-slate-500 dark:text-slate-400">
-                {{ allAmphurs.length }} อำเภอ · เลื่อนซ้าย-ขวาเพื่อดูทั้งหมด
+              <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+              <div v-else-if="allAmphurs.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
+              <div v-else class="overflow-x-auto scroll-chart">
+                <div :style="{ minWidth: Math.max(allAmphurs.length * 70, 400) + 'px' }">
+                  <apexchart type="bar" height="360" :options="amphurChart.options" :series="amphurChart.series" />
+                </div>
               </div>
-            </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400 shrink-0 self-end whitespace-nowrap">
-              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-red-600"></span>&lt;50%</span>
-              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-orange-500"></span>50-79%</span>
-              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-green-600"></span>≥80%</span>
             </div>
           </div>
-          <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
-          <div v-else-if="allAmphurs.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
-          <div v-else class="overflow-x-auto scroll-chart">
-            <div :style="{ minWidth: Math.max(allAmphurs.length * 60, 400) + 'px' }">
-              <apexchart type="bar" height="320" :options="amphurChart.options" :series="amphurChart.series" />
+
+          <!-- Card: ตำบล -->
+          <div class="shrink-0 w-full snap-start">
+            <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
+              <div class="flex items-start justify-between mb-3 gap-2">
+                <div class="min-w-0">
+                  <div class="font-semibold text-sm flex items-center gap-1.5">
+                    <i class="fi-rr-marker text-sky-700"></i> ภาพรวมทุกตำบล
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400">
+                    {{ allTambons.length }} ตำบล · เลื่อนภายในกราฟเพื่อดูทั้งหมด
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-1 rounded-full card-tint-sky whitespace-nowrap font-medium">2 / 2</span>
+              </div>
+              <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+              <div v-else-if="allTambons.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
+              <div v-else class="overflow-x-auto scroll-chart">
+                <div :style="{ minWidth: Math.max(allTambons.length * 60, 400) + 'px' }">
+                  <apexchart type="bar" height="360" :options="tambonChart.options" :series="tambonChart.series" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Card 2: ทุกตำบล -->
-        <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
-          <div class="flex items-start justify-between mb-3 gap-2">
-            <div class="min-w-0">
-              <div class="font-semibold text-sm flex items-center gap-1.5">
-                <i class="fi-rr-marker text-sky-700"></i> ภาพรวมทุกตำบล
-              </div>
-              <div class="text-xs text-slate-500 dark:text-slate-400">
-                {{ allTambons.length }} ตำบล · เลื่อนซ้าย-ขวาเพื่อดูทั้งหมด
-              </div>
-            </div>
-            <div class="text-[10px] text-slate-500 dark:text-slate-400 shrink-0 self-end whitespace-nowrap">
-              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-red-600"></span>&lt;50%</span>
-              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-orange-500"></span>50-79%</span>
-              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-green-600"></span>≥80%</span>
-            </div>
-          </div>
-          <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
-          <div v-else-if="allTambons.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
-          <div v-else class="overflow-x-auto scroll-chart">
-            <div :style="{ minWidth: Math.max(allTambons.length * 55, 400) + 'px' }">
-              <apexchart type="bar" height="320" :options="tambonChart.options" :series="tambonChart.series" />
-            </div>
-          </div>
+        <!-- Desktop: arrow buttons -->
+        <button @click="goToOverview(0)" v-if="currentOverviewIdx > 0"
+                class="hidden lg:flex absolute -left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white dark:bg-slate-800 shadow-lg items-center justify-center hover:scale-110 transition border border-slate-100 dark:border-slate-700 z-10">
+          <i class="fi-rr-angle-left"></i>
+        </button>
+        <button @click="goToOverview(overviewCards.length - 1)" v-if="currentOverviewIdx < overviewCards.length - 1"
+                class="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white dark:bg-slate-800 shadow-lg items-center justify-center hover:scale-110 transition border border-slate-100 dark:border-slate-700 z-10">
+          <i class="fi-rr-angle-right"></i>
+        </button>
+
+        <!-- Dot indicators + label -->
+        <div class="flex justify-center items-center gap-3 mt-3">
+          <button v-for="(c, i) in overviewCards" :key="c.key"
+                  @click="goToOverview(i)"
+                  :class="['flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition',
+                           currentOverviewIdx === i
+                             ? 'bg-blue-700 text-white shadow-md'
+                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700']">
+            <i :class="c.icon"></i> {{ c.label }}
+          </button>
         </div>
       </div>
     </div>
