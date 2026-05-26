@@ -6,8 +6,10 @@ import { useRouter } from 'vue-router';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { formatNumber } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const auth = useAuthStore();
 
 const mapEl = ref(null);
 let map = null;
@@ -20,6 +22,10 @@ const tambonOpts = ref([]);
 const filters = reactive({ amphur_id: '', tambon_id: '' });
 
 const stats = ref({ total: 0, done: 0, pct: 0, villages: 0 });
+
+// Edit mode — Super Admin ลากหมุดแก้พิกัด
+const editMode = ref(false);
+const editFlash = ref('');
 
 function colorFor(pct) {
   if (pct >= 80) return '#16a34a'; // green
@@ -116,22 +122,46 @@ async function loadVillages() {
   } finally { loading.value = false; }
 }
 
-function renderMarkers() {
+function renderMarkers(fitBounds = true) {
   if (!map) return;
   if (markerLayer) { map.removeLayer(markerLayer); }
   markerLayer = L.layerGroup().addTo(map);
 
   const bounds = [];
   villages.value.forEach(v => {
-    const m = L.marker([v.lat, v.lng], { icon: makeIcon(v.pct) })
-      .bindPopup(popupHtml(v), { maxWidth: 260 });
+    const draggable = editMode.value && auth.isSuperAdmin;
+    const m = L.marker([v.lat, v.lng], { icon: makeIcon(v.pct), draggable });
+
+    if (!draggable) {
+      m.bindPopup(popupHtml(v), { maxWidth: 260 });
+    } else {
+      m.bindTooltip(`${v.name} (ม.${v.moo || '?'}) · ลากเพื่อย้าย`,
+        { permanent: false, direction: 'top', offset: [0, -42] });
+      m.on('dragend', async (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        try {
+          await axios.patch(`/api/villages/${v.id}/coords`, { lat, lng });
+          v.lat = lat; v.lng = lng;
+          editFlash.value = `บันทึก ${v.name} ที่ [${lat.toFixed(5)}, ${lng.toFixed(5)}] แล้ว`;
+          setTimeout(() => { editFlash.value = ''; }, 2500);
+        } catch (err) {
+          alert('บันทึกไม่สำเร็จ: ' + (err.response?.data?.message || err.message));
+          e.target.setLatLng([v.lat, v.lng]); // ดีดกลับ
+        }
+      });
+    }
     m.addTo(markerLayer);
     bounds.push([v.lat, v.lng]);
   });
 
-  if (bounds.length > 0) {
+  if (fitBounds && bounds.length > 0) {
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
   }
+}
+
+function toggleEditMode() {
+  editMode.value = !editMode.value;
+  renderMarkers(false);  // re-render โดยไม่ reset bounds
 }
 
 function initMap() {
@@ -197,12 +227,36 @@ watch(() => filters.tambon_id, loadVillages);
         </select>
       </div>
 
-      <!-- Legend -->
+      <!-- Legend + Edit mode toggle -->
       <div class="card p-3 flex flex-wrap items-center gap-3 text-xs">
         <span class="font-medium">สีตามความคืบหน้า:</span>
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#16a34a"></span> ≥ 80% ดีเยี่ยม</span>
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#f97316"></span> 50-79% ปานกลาง</span>
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#dc2626"></span> &lt; 50% ต้องเร่งรัด</span>
+
+        <!-- Super Admin only: toggle drag-to-edit -->
+        <button v-if="auth.isSuperAdmin" @click="toggleEditMode"
+                :class="['ml-auto px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition',
+                         editMode
+                           ? 'bg-orange-500 text-white shadow'
+                           : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800']">
+          <i :class="editMode ? 'fi-rr-check' : 'fi-rr-edit'"></i>
+          {{ editMode ? 'เสร็จสิ้นการแก้พิกัด' : 'แก้พิกัดหมุด (ลากบนแผนที่)' }}
+        </button>
+      </div>
+
+      <!-- Edit mode banner -->
+      <div v-if="editMode" class="card-tint-orange p-3 text-xs flex items-start gap-2">
+        <i class="fi-rr-info mt-0.5 text-orange-700"></i>
+        <div>
+          <b>โหมดแก้พิกัด:</b> ลาก ↔ หมุดบนแผนที่ไปยังตำแหน่งที่ตั้งจริงของหมู่บ้าน → ระบบบันทึกอัตโนมัติเมื่อปล่อย
+          <span class="block mt-1 opacity-80">tip: zoom เข้า + เลื่อนแผนที่ไปหาตำแหน่งจริง แล้วลากหมุดไปวาง</span>
+        </div>
+      </div>
+
+      <!-- Flash message after save -->
+      <div v-if="editFlash" class="card-tint-green p-3 text-xs flex items-center gap-2">
+        <i class="fi-rr-check-circle text-green-700"></i> {{ editFlash }}
       </div>
 
       <!-- Map container — isolate stacking context กัน leaflet panes แทรกขึ้น Modal -->

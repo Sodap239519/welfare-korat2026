@@ -87,6 +87,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('trackers/{id}',             [TrackerController::class, 'update'])->whereNumber('id');
         Route::delete('trackers/{id}',            [TrackerController::class, 'destroy'])->whereNumber('id');
         Route::post('trackers/{id}/create-user',  [TrackerController::class, 'createUser'])->whereNumber('id');
+
+        // Map pin editing
+        Route::patch('villages/{id}/coords', [\App\Http\Controllers\Api\VillageController::class, 'updateCoords'])->whereNumber('id');
     });
 
     // Lookups
