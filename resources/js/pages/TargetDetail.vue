@@ -162,7 +162,7 @@ function initials(name) {
               <div class="flex flex-wrap items-center gap-3 mt-2 text-xs opacity-90">
                 <span v-if="target.year"><i class="fi-rr-calendar"></i> ปี {{ target.year }}</span>
                 <span><i class="fi-rr-coins"></i> {{ formatNumber(target.annual_income) }} บ./ปี</span>
-                <span v-if="target.has_old_welfare"><i class="fi-rr-credit-card"></i> มีบัตรเดิม</span>
+                <span v-if="target.has_old_welfare"><i class="fi-rr-credit-card"></i> เคยได้รับบัตรสวัสดิการ</span>
               </div>
             </div>
           </div>
@@ -378,7 +378,7 @@ function initials(name) {
               </button>
             </div>
             <label class="flex items-center gap-2 text-sm">
-              <input v-model="editForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> มีบัตรสวัสดิการเดิม
+              <input v-model="editForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> เคยได้รับบัตรสวัสดิการ
             </label>
             <div class="flex gap-2 justify-end pt-1">
               <button type="button" @click="showEdit = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>

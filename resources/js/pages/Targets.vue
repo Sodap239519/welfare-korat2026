@@ -262,22 +262,21 @@ async function openAddModal() {
   showAddModal.value = true;
 }
 
-// ตัด "บ้าน"/"หมู่บ้าน" ที่ขึ้นต้นทันทีที่กรอก
+// ตัด "บ้าน"/"หมู่บ้าน" ที่ขึ้นต้นทันทีที่กรอก + autofill หมู่ที่ ถ้าเลือกจาก datalist
 function onVillageInput(e) {
   const cleaned = sanitizeVillage(e.target.value);
-  if (cleaned !== e.target.value) {
-    addForm.village_name = cleaned;
-    e.target.value = cleaned;
-  } else {
-    addForm.village_name = e.target.value;
-  }
+  addForm.village_name = cleaned;
+  if (cleaned !== e.target.value) e.target.value = cleaned;
+  // ถ้าตรงกับ suggestion ในฐานข้อมูล → autofill หมู่ที่ (แก้ไขทับได้ภายหลัง)
+  const match = addVillageOpts.value.find(v => v.name === cleaned);
+  if (match && match.moo) addForm.moo = String(match.moo);
 }
 
-// เมื่อเลือก suggestion จาก datalist → autofill หมู่ที่ + sanitize ชื่อ
+// เผื่อกรณีพิมพ์เองแล้วตรงพอดี (sanitize ซ้ำตอน blur)
 function onVillagePick() {
-  const match = addVillageOpts.value.find(v => v.name === addForm.village_name);
-  if (match && match.moo && !addForm.moo) addForm.moo = match.moo;
   addForm.village_name = sanitizeVillage(addForm.village_name);
+  const match = addVillageOpts.value.find(v => v.name === addForm.village_name);
+  if (match && match.moo && !addForm.moo) addForm.moo = String(match.moo);
 }
 
 async function submitAdd() {
@@ -606,10 +605,7 @@ async function submitAdd() {
               </div>
               <div class="grid grid-cols-[1fr_80px] gap-2">
                 <div>
-                  <label class="block text-[11px] mb-1">
-                    ชื่อหมู่บ้าน/ชุมชน <span class="text-red-600">*</span>
-                    <span class="text-slate-500">— กรอกได้เอง · ห้ามใส่ "บ้าน" / "หมู่บ้าน" นำหน้า</span>
-                  </label>
+                  <label class="block text-[11px] mb-1">ชื่อหมู่บ้าน/ชุมชน <span class="text-red-600">*</span></label>
                   <input
                     :value="addForm.village_name"
                     @input="onVillageInput"
@@ -621,6 +617,7 @@ async function submitAdd() {
                   <datalist id="village-suggestions">
                     <option v-for="v in addVillageOpts" :key="v.id" :value="v.name">{{ v.moo ? 'ม.'+v.moo : '' }}</option>
                   </datalist>
+                  <div class="text-[10px] text-slate-500 mt-1">กรอกเองได้ · ระบบจะตัดคำว่า "บ้าน" / "หมู่บ้าน" ให้</div>
                   <div v-if="addErrors.village_name" class="text-[11px] text-red-600 mt-1">{{ addErrors.village_name[0] }}</div>
                 </div>
                 <div>
@@ -636,7 +633,7 @@ async function submitAdd() {
                   <div v-if="addErrors.address_no" class="text-[11px] text-red-600 mt-1">{{ addErrors.address_no[0] }}</div>
                 </div>
                 <div>
-                  <label class="block text-[11px] mb-1">รหัสบ้าน <span class="text-slate-500">(ไม่บังคับ — ไม่แสดงใน UI)</span></label>
+                  <label class="block text-[11px] mb-1">รหัสบ้าน <span class="text-slate-500">(ไม่บังคับ)</span></label>
                   <input v-model="addForm.house_code" placeholder="11 หลัก" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
                 </div>
               </div>
@@ -654,7 +651,7 @@ async function submitAdd() {
                 <input v-model="addForm.year" type="number" min="2500" max="2700" placeholder="2569" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
               </div>
               <label class="flex items-center gap-2 text-sm sm:col-span-2">
-                <input v-model="addForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> มีบัตรสวัสดิการเดิม
+                <input v-model="addForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> เคยได้รับบัตรสวัสดิการ
               </label>
             </div>
 
