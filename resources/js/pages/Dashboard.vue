@@ -250,47 +250,113 @@ async function setSopCurrent(phase) {
   if (!auth.isSuperAdmin) return;
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
   await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+  // Reload หน้าเต็มเพื่ออัปเดต SOP + KPIs + chart ทั้งหมด
+  window.location.reload();
 }
+
+// Icon options (curated) สำหรับ bullet picker
+const ICON_OPTIONS = [
+  { i: 'fi-rr-circle',            l: '● จุดทั่วไป' },
+  { i: 'fi-rr-id-card-clip-alt',  l: '🆔 บัตรประชาชน' },
+  { i: 'fi-rr-fingerprint',       l: '👆 ลายนิ้วมือ / Laser ID' },
+  { i: 'fi-rr-coins',             l: '💰 เงิน / รายได้' },
+  { i: 'fi-rr-list-check',        l: '☑ รายการตรวจสอบ' },
+  { i: 'fi-rr-marker',            l: '📍 พิกัด / สถานที่' },
+  { i: 'fi-rr-phone-call',        l: '📞 เบอร์โทร' },
+  { i: 'fi-rr-chart-pie',         l: '📊 สถิติ' },
+  { i: 'fi-rr-info',              l: 'ℹ ข้อมูล' },
+  { i: 'fi-rr-comments',          l: '💬 ปรึกษา' },
+  { i: 'fi-rr-house-chimney',     l: '🏠 บ้าน' },
+  { i: 'fi-rr-building',          l: '🏢 อาคาร / ศูนย์บริการ' },
+  { i: 'fi-rr-ambulance',         l: '🚑 หน่วยเคลื่อนที่' },
+  { i: 'fi-rr-hand-holding-heart',l: '💝 เยี่ยมบ้าน' },
+  { i: 'fi-rr-calendar',          l: '📅 ปฏิทิน' },
+  { i: 'fi-rr-user-headset',      l: '🎧 CRM / call center' },
+  { i: 'fi-rr-search-alt',        l: '🔍 วิเคราะห์' },
+  { i: 'fi-rr-file-edit',         l: '📝 เอกสาร' },
+  { i: 'fi-rr-megaphone',         l: '📢 ประกาศ' },
+  { i: 'fi-rr-check-circle',      l: '✓ ตรวจสอบเรียบร้อย' },
+  { i: 'fi-rr-paper-plane',       l: '✈ ส่ง' },
+  { i: 'fi-rr-folder',            l: '📁 แฟ้ม' },
+  { i: 'fi-rr-users-alt',         l: '👥 กลุ่มคน' },
+];
 
 // SOP Phase CRUD (Super Admin)
 const showSopEdit = ref(false);
-const sopForm = reactive({ id: null, name: '', description: '', sop_level: 1 });
+const sopForm = reactive({
+  id: null, name: '', description: '', sop_level: 1,
+  // details = { summary, bullets: [{icon,text}], footer }
+  detailsSummary: '', detailsFooter: '', detailsBullets: [],
+});
 const sopErr = ref({});
 const sopSaving = ref(false);
 
 function openSopAdd() {
   if (!auth.isSuperAdmin) return;
   const maxLvl = phases.value.length ? Math.max(...phases.value.map(p => p.sop_level)) : 0;
-  Object.assign(sopForm, { id: null, name: '', description: '', sop_level: maxLvl + 1 });
+  Object.assign(sopForm, {
+    id: null, name: '', description: '', sop_level: maxLvl + 1,
+    detailsSummary: '', detailsFooter: '', detailsBullets: [],
+  });
   sopErr.value = {};
   showSopEdit.value = true;
 }
 
 function openSopEdit(phase) {
   if (!auth.isSuperAdmin) return;
+  // ดึง details จาก DB (phase.details) มาก่อน · ถ้าไม่มีให้ fall back หา hardcoded sopDetails
+  const d = phase.details && Object.keys(phase.details).length
+    ? phase.details
+    : (sopDetails[phase.sop_level] || {});
   Object.assign(sopForm, {
     id: phase.id, name: phase.name || '',
     description: phase.description || '', sop_level: phase.sop_level || 1,
+    detailsSummary: d.summary || '',
+    detailsFooter:  d.footer  || '',
+    detailsBullets: Array.isArray(d.bullets) ? d.bullets.map(b => ({ ...b })) : [],
   });
   sopErr.value = {};
   showSopEdit.value = true;
 }
 
+function addBullet() {
+  sopForm.detailsBullets.push({ icon: 'fi-rr-circle', text: '' });
+}
+function removeBullet(idx) {
+  sopForm.detailsBullets.splice(idx, 1);
+}
+function moveBullet(idx, dir) {
+  const j = idx + dir;
+  if (j < 0 || j >= sopForm.detailsBullets.length) return;
+  const tmp = sopForm.detailsBullets[idx];
+  sopForm.detailsBullets[idx] = sopForm.detailsBullets[j];
+  sopForm.detailsBullets[j] = tmp;
+}
+
 async function saveSopPhase() {
   sopSaving.value = true; sopErr.value = {};
   try {
+    const bullets = sopForm.detailsBullets
+      .filter(b => b.text && b.text.trim())
+      .map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text.trim() }));
+    const details = (sopForm.detailsSummary || sopForm.detailsFooter || bullets.length)
+      ? { summary: sopForm.detailsSummary || null, footer: sopForm.detailsFooter || null, bullets }
+      : null;
+
+    const payload = {
+      name: sopForm.name,
+      description: sopForm.description,
+      sop_level: sopForm.sop_level,
+      details,
+    };
     if (sopForm.id) {
-      await axios.patch(`/api/admin/phases/${sopForm.id}`, {
-        name: sopForm.name, description: sopForm.description, sop_level: sopForm.sop_level,
-      });
+      await axios.patch(`/api/admin/phases/${sopForm.id}`, payload);
     } else {
-      await axios.post('/api/admin/phases', {
-        name: sopForm.name, description: sopForm.description, sop_level: sopForm.sop_level,
-      });
+      await axios.post('/api/admin/phases', payload);
     }
     showSopEdit.value = false;
-    phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+    // reload หน้าเพื่ออัปเดต SOP cards + sopDetails fallback ให้แน่ใจ
+    window.location.reload();
   } catch (e) {
     sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
   } finally { sopSaving.value = false; }
@@ -722,22 +788,22 @@ function statusSegments(row) {
               </button>
             </div>
 
-            <!-- Collapsible details -->
+            <!-- Collapsible details (prefer DB details ก่อน hardcoded fallback) -->
             <div v-if="sopExpanded[p.sop_level]"
                  class="px-4 pb-4 border-t border-current/10 bg-white/40 dark:bg-slate-900/30 rounded-b-2xl">
               <div class="text-xs leading-snug mt-3 mb-2 text-slate-600 dark:text-slate-300">
-                {{ sopDetails[p.sop_level]?.summary || p.description }}
+                {{ (p.details?.summary) || sopDetails[p.sop_level]?.summary || p.description }}
               </div>
               <ul class="space-y-1.5">
-                <li v-for="(b, i) in (sopDetails[p.sop_level]?.bullets || [])" :key="i"
-                    class="flex items-start gap-2 text-xs leading-snug">
-                  <i :class="[b.icon, 'mt-0.5 shrink-0 opacity-70']"></i>
+                <li v-for="(b, i) in ((p.details?.bullets?.length ? p.details.bullets : sopDetails[p.sop_level]?.bullets) || [])"
+                    :key="i" class="flex items-start gap-2 text-xs leading-snug">
+                  <i :class="[b.icon || 'fi-rr-circle', 'mt-0.5 shrink-0 opacity-70']"></i>
                   <span>{{ b.text }}</span>
                 </li>
               </ul>
-              <div v-if="sopDetails[p.sop_level]?.footer"
+              <div v-if="(p.details?.footer) || sopDetails[p.sop_level]?.footer"
                    class="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                {{ sopDetails[p.sop_level].footer }}
+                {{ (p.details?.footer) || sopDetails[p.sop_level].footer }}
               </div>
             </div>
 
@@ -764,7 +830,7 @@ function statusSegments(row) {
       </div>
 
       <!-- Modal: เพิ่ม / แก้ไข ขั้น SOP -->
-      <Modal :show="showSopEdit" max-width="max-w-md" @close="showSopEdit = false">
+      <Modal :show="showSopEdit" max-width="max-w-2xl" @close="showSopEdit = false">
         <div class="flex items-center justify-between mb-3">
           <div class="font-semibold flex items-center gap-2">
             <i :class="sopForm.id ? 'fi-rr-edit' : 'fi-rr-add'" class="text-blue-700"></i>
@@ -791,12 +857,61 @@ function statusSegments(row) {
             </div>
           </div>
           <div>
-            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">คำอธิบายขั้นตอน</label>
-            <textarea v-model="sopForm.description" rows="3" maxlength="500"
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">คำอธิบายขั้นตอน (สั้น 1 บรรทัด)</label>
+            <textarea v-model="sopForm.description" rows="2" maxlength="500"
                       placeholder="เช่น มรก.มม. ส่ง Briefing 1 หน้า · เกณฑ์สิทธิ + เอกสารที่ต้องเตรียม"
                       class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm resize-y"></textarea>
-            <div v-if="sopErr.description" class="text-[11px] text-red-600 mt-1">{{ sopErr.description[0] }}</div>
           </div>
+
+          <!-- รายละเอียดย่อย (details) -->
+          <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xs font-semibold flex items-center gap-1.5"><i class="fi-rr-list-check"></i> รายละเอียดย่อย (แสดงในใต้ "ดูรายละเอียด")</div>
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-500 mb-1">บทสรุปสั้น (summary)</label>
+              <input v-model="sopForm.detailsSummary" maxlength="500"
+                     placeholder="เช่น มรก.มม. + DSS ส่ง 'รายชื่อรายอำเภอ/ตำบล/หมู่บ้าน' พร้อมเลข 13 หลัก"
+                     class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+            </div>
+            <div class="mt-3">
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-[11px] text-slate-500">หัวข้อย่อย (มีไอคอนนำหน้า)</label>
+                <button type="button" @click="addBullet" class="text-[11px] text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1">
+                  <i class="fi-rr-add"></i> เพิ่มหัวข้อ
+                </button>
+              </div>
+              <div v-if="sopForm.detailsBullets.length === 0" class="text-[11px] text-slate-400 text-center py-3 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                ยังไม่มีหัวข้อย่อย — กด "เพิ่มหัวข้อ" เพื่อสร้าง
+              </div>
+              <div v-for="(b, i) in sopForm.detailsBullets" :key="i"
+                   class="flex items-center gap-1.5 mb-1.5 group">
+                <select v-model="b.icon"
+                        class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-32 shrink-0">
+                  <option v-for="opt in ICON_OPTIONS" :key="opt.i" :value="opt.i">{{ opt.l }}</option>
+                </select>
+                <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
+                <input v-model="b.text" maxlength="300" placeholder="ข้อความหัวข้อย่อย"
+                       class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+                <button type="button" @click="moveBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <i class="fi-rr-angle-up text-xs"></i>
+                </button>
+                <button type="button" @click="moveBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <i class="fi-rr-angle-down text-xs"></i>
+                </button>
+                <button type="button" @click="removeBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
+                  <i class="fi-rr-cross-small text-xs"></i>
+                </button>
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="block text-[11px] text-slate-500 mb-1">หมายเหตุท้ายขั้น (footer)</label>
+              <input v-model="sopForm.detailsFooter" maxlength="500"
+                     placeholder="เช่น นำเข้าระบบ NOAH + แบบฟอร์มที่ มรก. ออกแบบให้"
+                     class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+            </div>
+          </div>
+
           <div class="flex gap-2 justify-end pt-1">
             <button type="button" @click="showSopEdit = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
             <button type="submit" :disabled="sopSaving" class="btn-primary px-4 py-2 text-sm flex items-center gap-1.5">

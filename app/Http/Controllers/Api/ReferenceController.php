@@ -89,7 +89,7 @@ class ReferenceController extends Controller
     public function projectPhases(): JsonResponse
     {
         return response()->json([
-            'data' => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'is_current']),
+            'data' => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
         ]);
     }
 
@@ -114,23 +114,35 @@ class ReferenceController extends Controller
         ]);
     }
 
+    private static function detailsRules(): array
+    {
+        return [
+            'details'                  => ['sometimes', 'nullable', 'array'],
+            'details.summary'          => ['sometimes', 'nullable', 'string', 'max:500'],
+            'details.footer'           => ['sometimes', 'nullable', 'string', 'max:500'],
+            'details.bullets'          => ['sometimes', 'nullable', 'array', 'max:20'],
+            'details.bullets.*.icon'   => ['sometimes', 'nullable', 'string', 'max:80'],
+            'details.bullets.*.text'   => ['required_with:details.bullets', 'string', 'max:300'],
+        ];
+    }
+
     /** POST /api/admin/phases — สร้างขั้น SOP ใหม่ */
     public function storePhase(Request $request): JsonResponse
     {
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'name'        => ['required', 'string', 'max:150'],
             'description' => ['nullable', 'string', 'max:500'],
             'sop_level'   => ['nullable', 'integer', 'min:1', 'max:99'],
             'icon'        => ['nullable', 'string', 'max:80'],
-        ]);
+        ], self::detailsRules()));
 
-        // auto increment sop_level + sort_order ถ้าไม่ระบุ
         $maxLevel = (int) ProjectPhase::max('sop_level');
         $maxSort  = (int) ProjectPhase::max('sort_order');
 
         $phase = ProjectPhase::create([
             'name'        => $data['name'],
             'description' => $data['description'] ?? null,
+            'details'     => $data['details'] ?? null,
             'sop_level'   => $data['sop_level'] ?? ($maxLevel + 1),
             'icon'        => $data['icon'] ?? 'fi-rr-circle',
             'sort_order'  => $maxSort + 1,
@@ -143,16 +155,16 @@ class ReferenceController extends Controller
         return response()->json(['data' => $phase], 201);
     }
 
-    /** PATCH /api/admin/phases/{id} — แก้ไขชื่อ/รายละเอียด/sop_level */
+    /** PATCH /api/admin/phases/{id} — แก้ไขชื่อ/รายละเอียด/sop_level/details */
     public function updatePhase(Request $request, int $id): JsonResponse
     {
         $phase = ProjectPhase::findOrFail($id);
-        $data = $request->validate([
+        $data = $request->validate(array_merge([
             'name'        => ['sometimes', 'string', 'max:150'],
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'sop_level'   => ['sometimes', 'integer', 'min:1', 'max:99'],
             'icon'        => ['sometimes', 'nullable', 'string', 'max:80'],
-        ]);
+        ], self::detailsRules()));
         $phase->update($data);
 
         activity('sop_phase')->causedBy(auth()->user())->performedOn($phase)
