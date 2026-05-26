@@ -213,40 +213,45 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
 const showAddModal = ref(false);
 const addForm = reactive({
   prefix: 'นาย', first_name: '', last_name: '',
-  address_no: '', amphur_id: '', tambon_id: '', village_id: '',
-  poverty_level: '', has_old_welfare: false, annual_income: '', year: '',
+  amphur_id: '', tambon_id: '',
+  village_name: '',           // free-text (combobox)
+  moo: '',                    // หมู่ที่ — required
+  house_code: '',             // optional — ไม่บังคับ
+  address_no: '',
+  has_old_welfare: false, annual_income: '', year: '',
 });
 const addTambonOpts = ref([]);
-const addVillageOpts = ref([]);
+const addVillageOpts = ref([]);   // suggestions for combobox datalist
 const addErrors = ref({});
 const addSaving = ref(false);
 
 const prefixOpts = ['นาย', 'นาง', 'นางสาว', 'เด็กชาย', 'เด็กหญิง', 'อื่น ๆ'];
-const povertyOpts = ['อยู่ยาก', 'อยู่ลำบาก', 'ยากจน', 'อื่น ๆ'];
+
+// คำที่จะถูกตัดอัตโนมัติเมื่อขึ้นต้นชื่อหมู่บ้าน
+function sanitizeVillage(name) {
+  return String(name || '').replace(/^\s*(หมู่บ้าน|บ้าน)\s*/u, '').trim();
+}
 
 async function loadAddTambons() {
-  addForm.tambon_id = ''; addForm.village_id = ''; addTambonOpts.value = []; addVillageOpts.value = [];
+  addForm.tambon_id = ''; addForm.village_name = ''; addTambonOpts.value = []; addVillageOpts.value = [];
   if (!addForm.amphur_id) return;
   addTambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: addForm.amphur_id } })).data.data;
 }
 async function loadAddVillages() {
-  addForm.village_id = ''; addVillageOpts.value = [];
+  addVillageOpts.value = [];
   if (!addForm.tambon_id) return;
   addVillageOpts.value = (await axios.get('/api/ref/villages', { params: { tambon_id: addForm.tambon_id } })).data.data;
 }
 
 async function openAddModal() {
-  // Pre-fill scope ตาม filter ปัจจุบัน
   Object.assign(addForm, {
     prefix: 'นาย', first_name: '', last_name: '',
-    address_no: '',
     amphur_id: filters.amphur_id || '',
     tambon_id: filters.tambon_id || '',
-    village_id: filters.village_id || '',
-    poverty_level: '', has_old_welfare: false, annual_income: '', year: '',
+    village_name: '', moo: '', house_code: '', address_no: '',
+    has_old_welfare: false, annual_income: '', year: '',
   });
   addErrors.value = {};
-  // Load cascade if pre-filled
   if (addForm.amphur_id) {
     addTambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: addForm.amphur_id } })).data.data;
   }
@@ -256,17 +261,37 @@ async function openAddModal() {
   showAddModal.value = true;
 }
 
+// ตัด "บ้าน"/"หมู่บ้าน" ที่ขึ้นต้นทันทีที่กรอก
+function onVillageInput(e) {
+  const cleaned = sanitizeVillage(e.target.value);
+  if (cleaned !== e.target.value) {
+    addForm.village_name = cleaned;
+    e.target.value = cleaned;
+  } else {
+    addForm.village_name = e.target.value;
+  }
+}
+
+// เมื่อเลือก suggestion จาก datalist → autofill หมู่ที่ + sanitize ชื่อ
+function onVillagePick() {
+  const match = addVillageOpts.value.find(v => v.name === addForm.village_name);
+  if (match && match.moo && !addForm.moo) addForm.moo = match.moo;
+  addForm.village_name = sanitizeVillage(addForm.village_name);
+}
+
 async function submitAdd() {
   addSaving.value = true;
   addErrors.value = {};
   try {
     const payload = {
-      village_id: addForm.village_id,
+      tambon_id: addForm.tambon_id,
+      village_name: sanitizeVillage(addForm.village_name),
+      moo: addForm.moo,
+      house_code: addForm.house_code || null,
       address_no: addForm.address_no,
       prefix: addForm.prefix || null,
       first_name: addForm.first_name,
       last_name: addForm.last_name || null,
-      poverty_level: addForm.poverty_level || null,
       has_old_welfare: addForm.has_old_welfare ? 1 : 0,
       annual_income: addForm.annual_income !== '' ? Number(addForm.annual_income) : null,
       year: addForm.year !== '' ? Number(addForm.year) : null,
@@ -562,10 +587,10 @@ async function submitAdd() {
               </div>
             </div>
 
-            <!-- ที่อยู่ — อำเภอ/ตำบล/หมู่บ้าน + บ้านเลขที่ -->
+            <!-- ที่อยู่ — อำเภอ/ตำบล + หมู่บ้าน (combobox) + หมู่ที่ + บ้านเลขที่ -->
             <div class="card-tint-blue p-3 rounded-2xl space-y-2">
               <div class="text-xs font-medium"><i class="fi-rr-marker"></i> ที่อยู่</div>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="block text-[11px] mb-1">อำเภอ <span class="text-red-600">*</span></label>
                   <select v-model="addForm.amphur_id" @change="loadAddTambons" class="w-full min-w-0 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
@@ -580,31 +605,47 @@ async function submitAdd() {
                     <option v-for="t in addTambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
                   </select>
                 </div>
+              </div>
+              <div class="grid grid-cols-[1fr_80px] gap-2">
                 <div>
-                  <label class="block text-[11px] mb-1">หมู่บ้าน <span class="text-red-600">*</span></label>
-                  <select v-model="addForm.village_id" :disabled="!addForm.tambon_id" class="w-full min-w-0 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
-                    <option value="">เลือก</option>
-                    <option v-for="v in addVillageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (ม.'+v.moo+')' : '' }}</option>
-                  </select>
+                  <label class="block text-[11px] mb-1">
+                    ชื่อหมู่บ้าน/ชุมชน <span class="text-red-600">*</span>
+                    <span class="text-slate-500">— กรอกได้เอง · ห้ามใส่ "บ้าน" / "หมู่บ้าน" นำหน้า</span>
+                  </label>
+                  <input
+                    :value="addForm.village_name"
+                    @input="onVillageInput"
+                    @blur="onVillagePick"
+                    :disabled="!addForm.tambon_id"
+                    list="village-suggestions"
+                    placeholder="พิมพ์หรือเลือกชื่อหมู่บ้าน"
+                    class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+                  <datalist id="village-suggestions">
+                    <option v-for="v in addVillageOpts" :key="v.id" :value="v.name">{{ v.moo ? 'ม.'+v.moo : '' }}</option>
+                  </datalist>
+                  <div v-if="addErrors.village_name" class="text-[11px] text-red-600 mt-1">{{ addErrors.village_name[0] }}</div>
+                </div>
+                <div>
+                  <label class="block text-[11px] mb-1">หมู่ที่ <span class="text-red-600">*</span></label>
+                  <input v-model="addForm.moo" required placeholder="1" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <div v-if="addErrors.moo" class="text-[11px] text-red-600 mt-1">{{ addErrors.moo[0] }}</div>
                 </div>
               </div>
-              <div v-if="addErrors.village_id" class="text-[11px] text-red-600">{{ addErrors.village_id[0] }}</div>
-              <div>
-                <label class="block text-[11px] mb-1">บ้านเลขที่ <span class="text-red-600">*</span> <span class="text-slate-500">เช่น 27/1, 229/55</span></label>
-                <input v-model="addForm.address_no" required placeholder="27/1" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-                <div v-if="addErrors.address_no" class="text-[11px] text-red-600 mt-1">{{ addErrors.address_no[0] }}</div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] mb-1">บ้านเลขที่ <span class="text-red-600">*</span> <span class="text-slate-500">เช่น 27/1</span></label>
+                  <input v-model="addForm.address_no" required placeholder="27/1" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <div v-if="addErrors.address_no" class="text-[11px] text-red-600 mt-1">{{ addErrors.address_no[0] }}</div>
+                </div>
+                <div>
+                  <label class="block text-[11px] mb-1">รหัสบ้าน <span class="text-slate-500">(ไม่บังคับ — ไม่แสดงใน UI)</span></label>
+                  <input v-model="addForm.house_code" placeholder="11 หลัก" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                </div>
               </div>
             </div>
 
-            <!-- ข้อมูลครัวเรือน -->
+            <!-- ข้อมูลรายได้ + ปี -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">สถานะความยากจน</label>
-                <select v-model="addForm.poverty_level" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-                  <option value="">— ไม่ระบุ —</option>
-                  <option v-for="p in povertyOpts" :key="p" :value="p">{{ p }}</option>
-                </select>
-              </div>
               <div>
                 <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">รายได้เฉลี่ย (บาท/ปี)</label>
                 <input v-model="addForm.annual_income" type="number" min="0" placeholder="0" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
@@ -614,7 +655,7 @@ async function submitAdd() {
                 <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">ปีข้อมูล (พ.ศ.)</label>
                 <input v-model="addForm.year" type="number" min="2500" max="2700" placeholder="2569" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
               </div>
-              <label class="flex items-end gap-2 text-sm pb-2">
+              <label class="flex items-center gap-2 text-sm sm:col-span-2">
                 <input v-model="addForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> มีบัตรสวัสดิการเดิม
               </label>
             </div>
@@ -626,7 +667,7 @@ async function submitAdd() {
 
             <div class="flex gap-2 justify-end">
               <button type="button" @click="showAddModal = false" class="btn-outline px-4 py-2.5 text-sm">ยกเลิก</button>
-              <button type="submit" :disabled="addSaving || !addForm.first_name || !addForm.village_id || !addForm.address_no" class="btn-green px-4 py-2.5 text-sm flex items-center gap-1.5 disabled:opacity-50">
+              <button type="submit" :disabled="addSaving || !addForm.first_name || !addForm.tambon_id || !addForm.village_name || !addForm.moo || !addForm.address_no" class="btn-green px-4 py-2.5 text-sm flex items-center gap-1.5 disabled:opacity-50">
                 <i :class="['fi-rr-disk', addSaving && 'animate-spin']"></i> เพิ่มรายชื่อ
               </button>
             </div>

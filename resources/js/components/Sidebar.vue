@@ -35,7 +35,7 @@ const isActive = (n) => computed(() => route.name === n);
 <template>
   <div v-show="open" class="lg:hidden fixed inset-0 bg-slate-900/50 z-40" @click="$emit('close')"></div>
   <aside
-    :class="['fixed lg:sticky top-0 left-0 z-50 lg:z-10 w-72 lg:w-60 h-screen bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-transform flex flex-col',
+    :class="['fixed top-0 left-0 z-50 lg:z-40 w-72 lg:w-60 h-screen bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-transform flex flex-col',
              open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0']">
     <div class="flex items-center justify-between gap-2 px-4 h-16 border-b border-slate-100 dark:border-slate-800 shrink-0">
       <RouterLink to="/" class="flex items-center gap-2.5">

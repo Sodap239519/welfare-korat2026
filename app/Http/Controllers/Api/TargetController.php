@@ -165,55 +165,77 @@ class TargetController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'village_id'      => ['required', 'integer', 'exists:villages,id'],
+            'tambon_id'       => ['required', 'integer', 'exists:tambons,id'],
+            'village_name'    => ['required', 'string', 'max:150'],
+            'moo'             => ['required', 'string', 'max:10'],
+            'house_code'      => ['nullable', 'string', 'max:30'],
             'address_no'      => ['required', 'string', 'max:50'],
             'prefix'          => ['nullable', 'string', 'max:20'],
             'first_name'      => ['required', 'string', 'max:100'],
             'last_name'       => ['nullable', 'string', 'max:100'],
-            'poverty_level'   => ['nullable', 'string', 'max:30'],
             'has_old_welfare' => ['sometimes', 'boolean'],
             'annual_income'   => ['nullable', 'integer', 'min:0', 'max:999999999'],
             'year'            => ['nullable', 'integer', 'between:2500,2700'],
         ]);
 
-        $village = Village::with('tambon')->findOrFail($data['village_id']);
+        // Sanitize village name — ตัด "บ้าน" / "หมู่บ้าน" ที่ขึ้นต้นออก
+        $cleanVillage = preg_replace('/^(หมู่บ้าน|บ้าน)\s*/u', '', trim($data['village_name']));
+        if ($cleanVillage === '') {
+            return response()->json([
+                'message' => 'ชื่อหมู่บ้านว่างหลังตัดคำนำหน้า',
+                'errors'  => ['village_name' => ['กรุณาระบุชื่อหมู่บ้าน (ห้ามใส่ "บ้าน" / "หมู่บ้าน" นำหน้า)']],
+            ], 422);
+        }
 
-        // หาหรือสร้าง household ตาม village + address_no (synthetic code เพราะไม่ได้มาจาก xlsx)
-        $syntheticCode = 'MANUAL-V'.$village->id.'-'.$data['address_no'];
-        $hash = Household::hashFor($syntheticCode);
+        $tambon = \App\Models\Tambon::findOrFail($data['tambon_id']);
+
+        // หา/สร้าง village ตาม (tambon_id + moo + name)
+        $village = Village::firstOrCreate([
+            'tambon_id' => $tambon->id,
+            'moo'       => $data['moo'],
+            'name'      => $cleanVillage,
+        ]);
+
+        // house_code: ใช้ที่ผู้ใช้กรอก ถ้าไม่กรอกใช้ synthetic
+        $code = !empty($data['house_code'])
+            ? trim($data['house_code'])
+            : 'MANUAL-V'.$village->id.'-'.$data['address_no'];
+        $hash = Household::hashFor($code);
         $household = Household::where('house_code_hash', $hash)->first();
         if (!$household) {
             $household = new Household();
             $household->village_id = $village->id;
             $household->address_no = $data['address_no'];
-            $household->setHouseCode($syntheticCode);
+            $household->setHouseCode($code);
             $household->save();
         }
 
-        // member_seq ถัดไปในบ้านเดียวกัน
         $nextSeq = ((int) Target::where('household_id', $household->id)->max('member_seq')) + 1;
 
         $target = Target::create([
             'household_id'    => $household->id,
             'village_id'      => $village->id,
-            'tambon_id'       => $village->tambon_id,
-            'amphur_id'       => $village->tambon->amphur_id,
+            'tambon_id'       => $tambon->id,
+            'amphur_id'       => $tambon->amphur_id,
             'member_seq'      => $nextSeq,
             'year'            => $data['year'] ?? ((int) date('Y') + 543),
             'prefix'          => $data['prefix'] ?? null,
             'first_name'      => $data['first_name'],
             'last_name'       => $data['last_name'] ?? null,
-            'poverty_level'   => $data['poverty_level'] ?? null,
+            // poverty_level ลบออก — ไม่ต้องระบุ
             'has_old_welfare' => $data['has_old_welfare'] ?? false,
             'annual_income'   => $data['annual_income'] ?? 0,
             'active'          => true,
         ]);
 
         return response()->json([
-            'message' => "เพิ่มรายชื่อ \"{$target->first_name}\" เรียบร้อย",
+            'message' => "เพิ่มรายชื่อ \"{$target->first_name}\" เรียบร้อย ที่ {$cleanVillage} (ม.{$data['moo']})",
             'data'    => [
                 'id'                => $target->id,
                 'name'              => trim(($target->prefix ?? '').' '.$target->first_name.' '.($target->last_name ?? '')),
+                'village_id'        => $village->id,
+                'village_name'      => $cleanVillage,
+                'moo'               => $data['moo'],
                 'member_seq'        => $target->member_seq,
                 'household_address' => $household->address_no,
             ],
