@@ -1,6 +1,7 @@
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import axios from 'axios';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 
@@ -15,11 +16,33 @@ const loginForm = reactive({ phone: '', password: '', remember: false });
 const registerForm = reactive({
   name: '', phone: '', position_type: 'ผู้ใหญ่บ้าน', position_other: '',
   password: '', password_confirmation: '', email: '',
+  // ขอบเขตที่รับผิดชอบ — บังคับเลือก หมู่บ้าน
+  amphur_id: '', tambon_id: '', village_id: '',
 });
 const showPassword = ref(false);
 
 const fieldErrors = ref({});
 const flashOk = ref('');
+
+// Geography options for register (load on mount)
+const amphurOpts = ref([]);
+const tambonOpts = ref([]);
+const villageOpts = ref([]);
+onMounted(async () => {
+  amphurOpts.value = (await axios.get('/api/auth/geo/amphurs')).data.data;
+});
+watch(() => registerForm.amphur_id, async (id) => {
+  registerForm.tambon_id = ''; registerForm.village_id = '';
+  tambonOpts.value = []; villageOpts.value = [];
+  if (!id) return;
+  tambonOpts.value = (await axios.get('/api/auth/geo/tambons', { params: { amphur_id: id } })).data.data;
+});
+watch(() => registerForm.tambon_id, async (id) => {
+  registerForm.village_id = '';
+  villageOpts.value = [];
+  if (!id) return;
+  villageOpts.value = (await axios.get('/api/auth/geo/villages', { params: { tambon_id: id } })).data.data;
+});
 
 async function submitLogin() {
   fieldErrors.value = {};
@@ -41,7 +64,10 @@ async function submitRegister() {
     flashOk.value = res.message;
     tab.value = 'login';
     loginForm.phone = registerForm.phone;
-    Object.assign(registerForm, { name: '', phone: '', position_other: '', password: '', password_confirmation: '', email: '' });
+    Object.assign(registerForm, {
+      name: '', phone: '', position_other: '', password: '', password_confirmation: '', email: '',
+      amphur_id: '', tambon_id: '', village_id: '',
+    });
   } catch (e) {
     fieldErrors.value = e.response?.data?.errors || {};
   }
@@ -189,6 +215,36 @@ async function submitRegister() {
               <input v-model="registerForm.position_other" type="text"
                 class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             </div>
+
+            <!-- พื้นที่รับผิดชอบ — จำเป็นต้องเลือก -->
+            <div class="card-tint-orange p-3 rounded-xl">
+              <div class="text-xs font-medium mb-2 flex items-center gap-1.5">
+                <i class="fi-rr-marker text-orange-700"></i>
+                หมู่บ้านที่รับผิดชอบ <span class="text-red-600">*</span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <select v-model="registerForm.amphur_id" required
+                  class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <option value="">เลือกอำเภอ</option>
+                  <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+                </select>
+                <select v-model="registerForm.tambon_id" :disabled="!registerForm.amphur_id" required
+                  class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+                  <option value="">เลือกตำบล</option>
+                  <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
+                </select>
+                <select v-model="registerForm.village_id" :disabled="!registerForm.tambon_id" required
+                  class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+                  <option value="">เลือกหมู่บ้าน</option>
+                  <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (ม.'+v.moo+')' : '' }}</option>
+                </select>
+              </div>
+              <div v-if="fieldErrors.village_id" class="text-[11px] text-red-600 mt-2">{{ fieldErrors.village_id[0] }}</div>
+              <div class="text-[10px] text-slate-600 dark:text-slate-400 mt-2 leading-snug">
+                ระบบจะแสดงเฉพาะรายชื่อกลุ่มเป้าหมายในหมู่บ้านนี้ให้คุณติดตาม
+              </div>
+            </div>
+
             <div>
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อีเมล <span class="text-slate-400">(ไม่บังคับ)</span></label>
               <input v-model="registerForm.email" type="email" placeholder="name@example.com"

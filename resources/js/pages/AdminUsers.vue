@@ -190,6 +190,18 @@ function initials(name) {
                 เข้าใช้งานล่าสุด {{ shortDate(u.last_login_at) }}
                 <span v-if="!u.active" class="text-orange-600 font-medium ml-1">· รออนุมัติ / ระงับ</span>
               </div>
+              <!-- ขอบเขตพื้นที่ — สำคัญสำหรับ tracker -->
+              <div v-if="u.scopes && u.scopes.length" class="mt-1 flex flex-wrap gap-1">
+                <span v-for="s in u.scopes" :key="s.type + s.id"
+                      class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                  <i class="fi-rr-marker"></i> {{ s.label }}
+                </span>
+              </div>
+              <div v-else-if="u.roles.includes('tracker')" class="mt-1">
+                <span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                  <i class="fi-rr-triangle-warning"></i> ยังไม่ได้กำหนดพื้นที่ — จะเห็น 0 ราย
+                </span>
+              </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-1">
               <button v-if="!u.active" @click="approve(u)" class="text-xs px-2 py-1 rounded-lg bg-green-600 text-white">อนุมัติ</button>

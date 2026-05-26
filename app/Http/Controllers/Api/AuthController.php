@@ -27,22 +27,49 @@ class AuthController extends Controller
             'position_type'  => ['nullable', 'string', 'max:40'],
             'position_other' => ['nullable', 'string', 'max:100'],
             'email'          => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            // ขอบเขตที่ผู้กำกับติดตามรับผิดชอบ — ต้องระบุก่อนถึงจะ register ได้
+            'village_id'     => ['required', 'integer', 'exists:villages,id'],
         ], [
-            'phone.regex'    => 'เบอร์โทรต้องเป็นตัวเลข 9-10 หลัก',
-            'phone.unique'   => 'เบอร์โทรนี้ลงทะเบียนแล้ว',
-            'password.min'   => 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+            'phone.regex'        => 'เบอร์โทรต้องเป็นตัวเลข 9-10 หลัก',
+            'phone.unique'       => 'เบอร์โทรนี้ลงทะเบียนแล้ว',
+            'password.min'       => 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+            'village_id.required'=> 'กรุณาเลือกหมู่บ้านที่รับผิดชอบ',
+            'village_id.exists'  => 'หมู่บ้านที่เลือกไม่ถูกต้อง',
         ]);
 
-        $user = User::create([
-            'name'           => $data['name'],
-            'phone'          => $data['phone'],
-            'email'          => $data['email'] ?? null,
-            'password'       => Hash::make($data['password']),
-            'position_type'  => $data['position_type'] ?? null,
-            'position_other' => $data['position_other'] ?? null,
-            'active'         => false,   // รออนุมัติ
-        ]);
-        $user->assignRole('tracker');    // default role
+        $user = \DB::transaction(function () use ($data) {
+            $user = User::create([
+                'name'           => $data['name'],
+                'phone'          => $data['phone'],
+                'email'          => $data['email'] ?? null,
+                'password'       => Hash::make($data['password']),
+                'position_type'  => $data['position_type'] ?? null,
+                'position_other' => $data['position_other'] ?? null,
+                'active'         => false,   // รออนุมัติ
+            ]);
+            $user->assignRole('tracker');
+
+            // 1) สร้าง UserScope ผูกกับหมู่บ้านที่เลือก
+            \App\Models\UserScope::create([
+                'user_id'    => $user->id,
+                'scope_type' => 'village',
+                'scope_id'   => (int) $data['village_id'],
+            ]);
+
+            // 2) สร้าง Tracker record (community personnel) ผูกกลับมาที่ user
+            //    เผื่อ Super Admin ใช้หน้า "ผู้กำกับติดตาม" ดูภาพรวมรายหมู่บ้าน
+            \App\Models\Tracker::create([
+                'user_id'        => $user->id,
+                'village_id'     => (int) $data['village_id'],
+                'full_name'      => $data['name'],
+                'position'       => $data['position_type'] ?? 'อื่นๆ',
+                'position_other' => $data['position_other'] ?? null,
+                'phone'          => $data['phone'],
+                'active'         => true,
+            ]);
+
+            return $user;
+        });
 
         // แจ้งเตือน Super Admin ทุกคน
         $superAdmins = User::role('super_admin')->get();

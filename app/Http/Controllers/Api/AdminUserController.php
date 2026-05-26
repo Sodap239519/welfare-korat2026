@@ -148,6 +148,23 @@ class AdminUserController extends Controller
 
     private function present(User $u): array
     {
+        // โหลด scopes + แปลงเป็น human-readable ("ต.X · อ.Y" หรือ "อ.X")
+        $scopes = UserScope::where('user_id', $u->id)->get()->map(function ($s) {
+            $label = null;
+            if ($s->scope_type === 'village') {
+                $v = \App\Models\Village::with('tambon.amphur')->find($s->scope_id);
+                if ($v) $label = sprintf('%s ม.%s · ต.%s · อ.%s',
+                    $v->name, $v->moo ?? '?', $v->tambon?->name, $v->tambon?->amphur?->name);
+            } elseif ($s->scope_type === 'tambon') {
+                $t = \App\Models\Tambon::with('amphur')->find($s->scope_id);
+                if ($t) $label = "ต.{$t->name} · อ.{$t->amphur?->name}";
+            } elseif ($s->scope_type === 'amphur') {
+                $a = \App\Models\Amphur::find($s->scope_id);
+                if ($a) $label = "อ.{$a->name}";
+            }
+            return ['type' => $s->scope_type, 'id' => $s->scope_id, 'label' => $label];
+        })->filter(fn($s) => $s['label'])->values();
+
         return [
             'id'             => $u->id,
             'name'           => $u->name,
@@ -159,6 +176,7 @@ class AdminUserController extends Controller
             'last_login_at'  => $u->last_login_at?->toIso8601String(),
             'created_at'     => $u->created_at?->toIso8601String(),
             'roles'          => $u->roles->pluck('name')->all(),
+            'scopes'         => $scopes,
         ];
     }
 }

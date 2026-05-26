@@ -42,7 +42,11 @@ class TargetController extends Controller
         $user = $request->user();
         if ($user && !$user->hasRole('super_admin') && !$user->hasRole('admin')) {
             $scopes = \App\Models\UserScope::where('user_id', $user->id)->get();
-            if ($scopes->isNotEmpty()) {
+            if ($scopes->isEmpty()) {
+                // 🔒 SECURITY: tracker ที่ไม่มี scope = บล็อกทุกอย่าง
+                // (กันบัญชีที่ super admin ลืม assign scope หลังอนุมัติ ไม่ให้เห็นทั้งจังหวัด)
+                $q->whereRaw('1 = 0');
+            } else {
                 $q->where(function ($w) use ($scopes) {
                     foreach ($scopes as $s) {
                         $col = match ($s->scope_type) {
