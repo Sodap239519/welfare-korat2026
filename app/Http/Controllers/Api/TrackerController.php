@@ -16,7 +16,7 @@ use Illuminate\Validation\Rules\Password;
 
 class TrackerController extends Controller
 {
-    /** GET /api/trackers — list with village + stats */
+    /** GET /api/trackers — list grouped by user_id (1 row per person · multiple villages rolled up) */
     public function index(Request $request): JsonResponse
     {
         $q = Tracker::query()
@@ -34,9 +34,10 @@ class TrackerController extends Controller
             $q->where('village_id', (int) $request->village_id);
         }
 
-        $trackers = $q->orderBy('id')->paginate((int) $request->input('per_page', 50))->withQueryString();
+        $trackers = $q->orderBy('full_name')->orderBy('id')->get();
 
-        $villageIds = $trackers->getCollection()->pluck('village_id')->unique();
+        // Stats per village
+        $villageIds = $trackers->pluck('village_id')->unique();
         $stats = DB::table('targets')
             ->leftJoin('target_current_status as tcs', 'tcs.target_id', '=', 'targets.id')
             ->whereIn('targets.village_id', $villageIds)
@@ -50,32 +51,62 @@ class TrackerController extends Controller
             ->get()
             ->keyBy('village_id');
 
-        $trackers->getCollection()->transform(function ($t) use ($stats) {
-            $s = $stats->get($t->village_id);
-            $total = (int) ($s->total ?? 0);
-            $done  = (int) ($s->done  ?? 0);
+        // Group by user_id (if exists) — ถ้าไม่มี user_id ให้ตัวเองเป็น 1 กลุ่ม
+        $groupKey = fn ($t) => $t->user_id ?? "no-user-{$t->id}";
+        $groups = $trackers->groupBy($groupKey);
+
+        $rows = $groups->map(function ($group) use ($stats) {
+            $first = $group->first();
+            $villages = $group->map(function ($t) use ($stats) {
+                $s = $stats->get($t->village_id);
+                return [
+                    'tracker_id' => $t->id,
+                    'village_id' => $t->village_id,
+                    'name'       => $t->village?->name,
+                    'moo'        => $t->village?->moo,
+                    'tambon'     => $t->village?->tambon?->name,
+                    'amphur'     => $t->village?->tambon?->amphur?->name,
+                    'tambon_id'  => $t->village?->tambon_id,
+                    'amphur_id'  => $t->village?->tambon?->amphur_id,
+                    'total'      => (int) ($s->total ?? 0),
+                    'done'       => (int) ($s->done ?? 0),
+                ];
+            })->sortBy(fn ($v) => sprintf('%s-%05d', $v['name'], (int) ($v['moo'] ?? 0)))->values();
+
+            $total = $villages->sum('total');
+            $done  = $villages->sum('done');
+
             return [
-                'id'             => $t->id,
-                'full_name'      => $t->full_name,
-                'position'       => $t->position,
-                'position_other' => $t->position_other,
-                'phone'          => $t->phone,
-                'village_id'     => $t->village_id,
-                'village'        => $t->village?->name,
-                'moo'            => $t->village?->moo,
-                'tambon'         => $t->village?->tambon?->name,
-                'tambon_id'      => $t->village?->tambon_id,
-                'amphur'         => $t->village?->tambon?->amphur?->name,
-                'amphur_id'      => $t->village?->tambon?->amphur_id,
-                'user_id'        => $t->user_id,
-                'has_account'    => !is_null($t->user_id),
+                'id'             => $first->id,
+                'tracker_ids'    => $group->pluck('id')->values()->all(),
+                'user_id'        => $first->user_id,
+                'has_account'    => !is_null($first->user_id),
+                'full_name'      => $first->full_name,
+                'position'       => $first->position,
+                'position_other' => $first->position_other,
+                'phone'          => $first->phone,
+                'villages'       => $villages,
+                'village_count'  => $villages->count(),
                 'total'          => $total,
                 'done'           => $done,
                 'pct'            => $total > 0 ? round(($done / $total) * 100) : 0,
+                // เผื่อ frontend ยังใช้ field เดิม (backward compat)
+                'village_id'     => $first->village_id,
+                'village'        => $first->village?->name,
+                'moo'            => $first->village?->moo,
+                'tambon'         => $first->village?->tambon?->name,
+                'tambon_id'      => $first->village?->tambon_id,
+                'amphur'         => $first->village?->tambon?->amphur?->name,
+                'amphur_id'      => $first->village?->tambon?->amphur_id,
             ];
-        });
+        })->values();
 
-        return response()->json($trackers);
+        return response()->json([
+            'data'         => $rows,
+            'total'        => $rows->count(),
+            'current_page' => 1,
+            'last_page'    => 1,
+        ]);
     }
 
     /** POST /api/trackers */
@@ -92,7 +123,7 @@ class TrackerController extends Controller
         return response()->json(['data' => $tracker], 201);
     }
 
-    /** PATCH /api/trackers/{id} */
+    /** PATCH /api/trackers/{id} — ถ้ามี user_id จะ cascade ข้อมูลคน (ไม่รวม village_id) ไปทุก record ในกลุ่ม */
     public function update(Request $request, int $id): JsonResponse
     {
         $tracker = Tracker::findOrFail($id);
@@ -104,14 +135,40 @@ class TrackerController extends Controller
             'village_id'     => ['sometimes', 'integer', 'exists:villages,id'],
             'active'         => ['sometimes', 'boolean'],
         ]);
-        $tracker->update($data);
-        return response()->json(['data' => $tracker]);
+
+        // แยก fields: person-level (เกี่ยวกับคน) vs row-level (เฉพาะ record)
+        $personFields = collect($data)->only(['full_name', 'position', 'position_other', 'phone'])->toArray();
+        $rowFields    = collect($data)->only(['village_id', 'active'])->toArray();
+
+        if ($tracker->user_id && !empty($personFields)) {
+            // อัปเดต person-level ทุก tracker ในกลุ่ม + sync User ที่ link อยู่
+            Tracker::where('user_id', $tracker->user_id)->update($personFields);
+            if (isset($personFields['full_name']) || isset($personFields['phone'])) {
+                $userUpdate = [];
+                if (isset($personFields['full_name'])) $userUpdate['name'] = $personFields['full_name'];
+                if (isset($personFields['phone']))     $userUpdate['phone'] = $personFields['phone'];
+                User::where('id', $tracker->user_id)->update($userUpdate);
+            }
+        } elseif (!empty($personFields)) {
+            $tracker->update($personFields);
+        }
+
+        if (!empty($rowFields)) $tracker->update($rowFields);
+
+        return response()->json(['data' => $tracker->fresh()]);
     }
 
-    /** DELETE /api/trackers/{id} (soft = active=false) */
+    /** DELETE /api/trackers/{id} — ถ้ามี user_id ลบทั้งกลุ่ม + UserScope ทั้งหมด */
     public function destroy(int $id): JsonResponse
     {
         $tracker = Tracker::findOrFail($id);
+
+        if ($tracker->user_id) {
+            $count = Tracker::where('user_id', $tracker->user_id)->update(['active' => false]);
+            UserScope::where('user_id', $tracker->user_id)->delete();
+            return response()->json(['message' => "ลบกลุ่มแล้ว ($count หมู่บ้าน)"]);
+        }
+
         $tracker->update(['active' => false]);
         return response()->json(['message' => 'Tracker deactivated']);
     }

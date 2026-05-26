@@ -116,8 +116,12 @@ async function save() {
   } finally { saving.value = false; }
 }
 
-async function remove(id) {
-  if (!confirm('ยืนยันการลบผู้ติดตามนี้?')) return;
+async function remove(t) {
+  const id = typeof t === 'object' ? t.id : t;
+  const msg = (typeof t === 'object' && t.village_count > 1)
+    ? `ลบ ${t.full_name} ทั้งกลุ่ม ${t.village_count} หมู่บ้าน + บัญชี login ?\nการลบไม่สามารถย้อนกลับได้`
+    : 'ยืนยันการลบผู้ติดตามนี้?';
+  if (!confirm(msg)) return;
   await axios.delete(`/api/trackers/${id}`);
   await load();
 }
@@ -158,6 +162,30 @@ function pctClass(n) {
   if (n >= 80) return 'text-green-600';
   if (n >= 50) return 'text-orange-600';
   return 'text-red-600';
+}
+
+// กรุ๊ปหมู่บ้านที่ tracker ดูแล: ชื่อหมู่บ้านเดียวกัน + ตำบลเดียวกัน → รวมเป็น 1 แถว
+function groupVillages(villages) {
+  if (!Array.isArray(villages)) return [];
+  const map = new Map();
+  for (const v of villages) {
+    const key = `${v.amphur_id}|${v.tambon_id}|${v.name}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        name: v.name, tambon: v.tambon, amphur: v.amphur,
+        moos: [], total: 0, done: 0,
+      });
+    }
+    const g = map.get(key);
+    if (v.moo != null && !g.moos.includes(v.moo)) g.moos.push(v.moo);
+    g.total += v.total || 0;
+    g.done  += v.done || 0;
+  }
+  return [...map.values()].map(g => ({
+    ...g,
+    moos_sorted: [...g.moos].sort((a, b) => Number(a) - Number(b)),
+    pct: g.total > 0 ? Math.round((g.done / g.total) * 100) : 0,
+  }));
 }
 </script>
 
@@ -229,21 +257,46 @@ function pctClass(n) {
             </div>
             <div v-if="auth.isSuperAdmin" class="shrink-0 flex items-center gap-0.5">
               <button @click="openEdit(t)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700 dark:text-blue-300" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
-              <button @click="remove(t.id)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
+              <button @click="remove(t)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600" :title="t.village_count > 1 ? `ลบทั้งกลุ่ม ${t.village_count} หมู่บ้าน` : 'ลบ'"><i class="fi-rr-trash text-sm"></i></button>
             </div>
           </div>
-          <div class="mt-3 space-y-1 text-sm min-w-0">
-            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 min-w-0">
-              <i class="fi-rr-marker text-xs shrink-0"></i>
-              <span class="truncate min-w-0 flex-1">{{ t.village }}{{ t.moo ? ' หมู่ '+t.moo : '' }} · {{ t.tambon }}</span>
-            </div>
+          <div class="mt-3 space-y-1.5 text-sm min-w-0">
             <a v-if="t.phone" :href="`tel:${t.phone}`" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline min-w-0">
               <i class="fi-rr-phone-call text-xs shrink-0"></i> <span class="truncate">{{ t.phone }}</span>
             </a>
+
+            <!-- พื้นที่ดูแล (กรุ๊ปตามชื่อหมู่บ้าน + รวม ม.) -->
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+              <i class="fi-rr-marker"></i>
+              ดูแล <b class="text-slate-700 dark:text-slate-200">{{ t.village_count || t.villages?.length || 1 }} หมู่บ้าน</b>
+            </div>
+            <div class="space-y-1">
+              <div v-for="(g, gi) in groupVillages(t.villages)" :key="gi"
+                   class="flex items-start gap-2 text-xs px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 min-w-0">
+                <i class="fi-rr-home text-slate-400 shrink-0 mt-0.5"></i>
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-slate-700 dark:text-slate-200 truncate">
+                    {{ g.name }}
+                    <span v-if="g.moos_sorted.length > 1" class="text-[10px] font-normal text-slate-500">
+                      · ม.{{ g.moos_sorted.join(', ม.') }}
+                    </span>
+                    <span v-else-if="g.moos_sorted.length === 1" class="text-[10px] font-normal text-slate-500">
+                      · ม.{{ g.moos_sorted[0] }}
+                    </span>
+                  </div>
+                  <div class="text-[10px] text-slate-500 truncate">ต.{{ g.tambon }} · อ.{{ g.amphur }}</div>
+                </div>
+                <div class="text-right text-[10px] shrink-0">
+                  <div class="text-slate-500">{{ formatNumber(g.total) }} ราย</div>
+                  <div :class="['font-semibold', pctClass(g.pct)]">{{ g.pct }}%</div>
+                </div>
+              </div>
+            </div>
           </div>
+
           <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-2 text-xs min-w-0">
-            <div class="truncate"><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">{{ formatNumber(t.total) }}</span></div>
-            <div class="truncate text-right"><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span :class="['font-semibold', pctClass(t.pct)]">{{ formatNumber(t.done) }} ({{ t.pct }}%)</span></div>
+            <div class="truncate"><span class="text-slate-500 dark:text-slate-400">รวมเป้า</span> <span class="font-semibold">{{ formatNumber(t.total) }}</span></div>
+            <div class="truncate text-right"><span class="text-slate-500 dark:text-slate-400">อัปเดตรวม</span> <span :class="['font-semibold', pctClass(t.pct)]">{{ formatNumber(t.done) }} ({{ t.pct }}%)</span></div>
           </div>
 
           <!-- Super Admin: ปุ่มเปิดบัญชี (สำหรับคนที่ยังไม่มี user) -->
