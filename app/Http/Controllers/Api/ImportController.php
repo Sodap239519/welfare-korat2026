@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ImportLog;
+use App\Notifications\ImportCompleted;
 use App\Services\XlsxImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,12 @@ class ImportController extends Controller
         $abs        = Storage::disk('local')->path($storedPath);
 
         $result = $this->service->import($abs, commit: true, userId: $request->user()->id, originalName: $file->getClientOriginalName());
+
+        // แจ้งเตือนผู้นำเข้า
+        if ($result['import_log_id']) {
+            $log = ImportLog::find($result['import_log_id']);
+            $request->user()->notify(new ImportCompleted($log));
+        }
 
         return response()->json([
             'mode'           => 'run',

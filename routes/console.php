@@ -29,3 +29,9 @@ Schedule::command('reports:weekly-bottleneck')
     ->weeklyOn(1, '06:00')
     ->timezone('Asia/Bangkok')
     ->withoutOverlapping();
+
+// แจ้งเตือน tracker เมื่อ target ค้างเกิน 7 วัน — รัน 08:00 ทุกวัน
+Schedule::command('reports:notify-stuck --days=7')
+    ->dailyAt('08:00')
+    ->timezone('Asia/Bangkok')
+    ->withoutOverlapping();

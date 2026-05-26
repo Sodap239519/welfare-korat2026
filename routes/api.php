@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\MapController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReferenceController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TargetController;
@@ -45,6 +46,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Map
     Route::get('map/villages', [MapController::class, 'villages']);
+
+    // Notifications
+    Route::get('notifications',                 [NotificationController::class, 'index']);
+    Route::get('notifications/unread-count',    [NotificationController::class, 'unreadCount']);
+    Route::post('notifications/{id}/read',      [NotificationController::class, 'markRead']);
+    Route::post('notifications/read-all',       [NotificationController::class, 'markAllRead']);
 
     // Reports
     Route::get('reports/daily-villages',        [ReportController::class, 'dailyVillages']);

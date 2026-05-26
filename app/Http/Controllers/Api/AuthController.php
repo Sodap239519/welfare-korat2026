@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\UserPendingApproval;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -41,6 +43,10 @@ class AuthController extends Controller
             'active'         => false,   // รออนุมัติ
         ]);
         $user->assignRole('tracker');    // default role
+
+        // แจ้งเตือน Super Admin ทุกคน
+        $superAdmins = User::role('super_admin')->get();
+        Notification::send($superAdmins, new UserPendingApproval($user));
 
         return response()->json([
             'message' => 'ลงทะเบียนสำเร็จ — รอ Super Admin อนุมัติบัญชีก่อนเข้าใช้งาน',
