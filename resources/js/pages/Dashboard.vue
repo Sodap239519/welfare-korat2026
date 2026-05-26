@@ -123,7 +123,7 @@ const statusColorMap = {
 
 // Tint class + accent text per status (สำหรับ KPI card)
 const statusTintMap = {
-  '0':   { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-200', icon: 'fi-rr-question', label: 'ยังไม่อัปเดต' },
+  '0':   { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-200', icon: 'fi-rr-question', label: 'ยังไม่ติดตาม' },
   '4.1': { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-300', icon: 'fi-rr-ban',      label: 'ไม่ประสงค์' },
   '4.2': { tint: 'card-tint-blue',                                                                  accent: 'text-blue-700 dark:text-blue-300',   icon: 'fi-rr-edit',     label: 'ลงทะเบียน' },
   '4.3': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-folder', label: 'เตรียมเอกสาร' },
@@ -279,9 +279,15 @@ const trendOptions = computed(() => ({
 }));
 
 const statusOptions = computed(() => {
-  const ord = ['4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
-  const colorMap = { '4.1':'#94a3b8','4.2':'#2563eb','4.3':'#fb923c','4.4':'#f97316','4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a' };
-  const labels = ord.map(c => STATUS_SHORT[c] || c);
+  // เพิ่ม '0' = ยังไม่ติดตามการลงทะเบียน (target ที่ยังไม่มี record ใน target_current_status)
+  const ord = ['0','4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
+  const colorMap = {
+    '0':'#cbd5e1',   // slate-300 — อ่อนกว่า 4.1 เพื่อแยกชัด
+    '4.1':'#94a3b8','4.2':'#2563eb','4.3':'#fb923c','4.4':'#f97316',
+    '4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a',
+  };
+  const labelMap = { '0': 'ยังไม่ติดตาม', ...STATUS_SHORT };
+  const labels = ord.map(c => labelMap[c] || c);
   const series = ord.map(c => Number(stats.value?.by_status?.[c] ?? 0));
   const colors = ord.map(c => colorMap[c]);
   return {
@@ -624,7 +630,7 @@ function statusSegments(row) {
       <div class="grid lg:grid-cols-2 gap-3">
         <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
           <div class="font-semibold text-sm">สัดส่วนสถานะการลงทะเบียน</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">7 สถานะ</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">8 กลุ่ม · รวม "ยังไม่ติดตาม" ด้วย</div>
           <div class="w-full overflow-hidden">
             <apexchart type="donut" height="280" :options="statusOptions.options" :series="statusOptions.series" />
           </div>
