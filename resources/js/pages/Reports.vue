@@ -157,15 +157,33 @@ function pctClass(n) {
         </div>
 
         <div v-if="reportType === 'daily'" class="grid grid-cols-2 lg:grid-cols-3 gap-2">
-          <input v-model="date" type="date" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-          <select v-model="amphurId" :disabled="level === 'amphur'" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
-            <option value="">ทุกอำเภอ</option>
-            <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
-          </select>
-          <select v-model="tambonId" :disabled="!amphurId || level !== 'village'" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
-            <option value="">ทุกตำบล</option>
-            <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
-          </select>
+          <div class="relative min-w-0">
+            <input v-model="date" type="date" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <button v-if="date" @click="date = ''" title="ล้าง"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+              <i class="fi-rr-cross-small text-[10px]"></i>
+            </button>
+          </div>
+          <div class="relative min-w-0">
+            <select v-model="amphurId" :disabled="level === 'amphur'" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+              <option value="">ทุกอำเภอ</option>
+              <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+            </select>
+            <button v-if="amphurId && level !== 'amphur'" @click="amphurId = ''" title="ล้าง"
+                    class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+              <i class="fi-rr-cross-small text-[10px]"></i>
+            </button>
+          </div>
+          <div class="relative min-w-0">
+            <select v-model="tambonId" :disabled="!amphurId || level !== 'village'" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+              <option value="">ทุกตำบล</option>
+              <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
+            </select>
+            <button v-if="tambonId" @click="tambonId = ''" title="ล้าง"
+                    class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+              <i class="fi-rr-cross-small text-[10px]"></i>
+            </button>
+          </div>
         </div>
       </div>
 

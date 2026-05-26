@@ -533,18 +533,36 @@ function statusSegments(row) {
 
       <!-- Filter — 3 selects + button : แถวเดียวบน desktop, grid 3 + ปุ่มแยกแถวบน mobile -->
       <div class="grid grid-cols-3 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-        <select v-model="filters.amphur_id" @change="loadTambons" class="min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm">
-          <option value="">ทุกอำเภอ</option>
-          <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
-        <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
-          <option value="">ทุกตำบล</option>
-          <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
-        </select>
-        <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
-          <option value="">ทุกหมู่บ้าน</option>
-          <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (หมู่ '+v.moo+')' : '' }}</option>
-        </select>
+        <div class="relative min-w-0">
+          <select v-model="filters.amphur_id" @change="loadTambons" class="w-full min-w-0 pl-2 sm:pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm">
+            <option value="">ทุกอำเภอ</option>
+            <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+          <button v-if="filters.amphur_id" @click="filters.amphur_id = ''; loadTambons()" title="ล้าง"
+                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <i class="fi-rr-cross-small text-[10px]"></i>
+          </button>
+        </div>
+        <div class="relative min-w-0">
+          <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="w-full min-w-0 pl-2 sm:pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
+            <option value="">ทุกตำบล</option>
+            <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+          <button v-if="filters.tambon_id" @click="filters.tambon_id = ''; loadVillages()" title="ล้าง"
+                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <i class="fi-rr-cross-small text-[10px]"></i>
+          </button>
+        </div>
+        <div class="relative min-w-0">
+          <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="w-full min-w-0 pl-2 sm:pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
+            <option value="">ทุกหมู่บ้าน</option>
+            <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (หมู่ '+v.moo+')' : '' }}</option>
+          </select>
+          <button v-if="filters.village_id" @click="filters.village_id = ''" title="ล้าง"
+                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <i class="fi-rr-cross-small text-[10px]"></i>
+          </button>
+        </div>
         <button @click="loadAll" :disabled="refreshing" class="col-span-3 md:col-auto md:justify-self-end btn-primary px-3 py-2 text-xs flex items-center justify-center gap-1.5 disabled:opacity-60 whitespace-nowrap">
           <i :class="['fi-rr-refresh', refreshing && 'animate-spin']"></i> รีเฟรช
         </button>

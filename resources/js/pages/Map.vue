@@ -27,6 +27,66 @@ const stats = ref({ total: 0, done: 0, pct: 0, villages: 0 });
 const editMode = ref(false);
 const editFlash = ref('');
 
+// Undo/Redo history — แต่ละ entry = { villageId, oldLat, oldLng, newLat, newLng }
+const undoStack = ref([]);
+const redoStack = ref([]);
+const undoBusy  = ref(false);
+
+function pushHistory(villageId, oldLat, oldLng, newLat, newLng) {
+  undoStack.value.push({ villageId, oldLat, oldLng, newLat, newLng });
+  redoStack.value = []; // ตัด redo เพราะมีการเปลี่ยนใหม่
+  if (undoStack.value.length > 50) undoStack.value.shift(); // จำกัดที่ 50 step
+}
+
+async function applyCoordsChange(villageId, lat, lng) {
+  await axios.patch(`/api/villages/${villageId}/coords`, { lat, lng });
+  const v = villages.value.find(x => x.id === villageId);
+  if (v) { v.lat = lat; v.lng = lng; }
+  renderMarkers(false);
+}
+
+async function undoCoord() {
+  if (undoStack.value.length === 0 || undoBusy.value) return;
+  undoBusy.value = true;
+  const entry = undoStack.value.pop();
+  try {
+    await applyCoordsChange(entry.villageId, entry.oldLat, entry.oldLng);
+    redoStack.value.push(entry);
+    const v = villages.value.find(x => x.id === entry.villageId);
+    editFlash.value = `ย้อน ${v?.name || '#'+entry.villageId} กลับที่เดิม`;
+    setTimeout(() => { editFlash.value = ''; }, 2000);
+  } catch (e) {
+    undoStack.value.push(entry); // ดันกลับ
+    alert('Undo ล้มเหลว: ' + (e.response?.data?.message || e.message));
+  } finally { undoBusy.value = false; }
+}
+
+async function redoCoord() {
+  if (redoStack.value.length === 0 || undoBusy.value) return;
+  undoBusy.value = true;
+  const entry = redoStack.value.pop();
+  try {
+    await applyCoordsChange(entry.villageId, entry.newLat, entry.newLng);
+    undoStack.value.push(entry);
+    const v = villages.value.find(x => x.id === entry.villageId);
+    editFlash.value = `ทำซ้ำ ${v?.name || '#'+entry.villageId}`;
+    setTimeout(() => { editFlash.value = ''; }, 2000);
+  } catch (e) {
+    redoStack.value.push(entry);
+    alert('Redo ล้มเหลว: ' + (e.response?.data?.message || e.message));
+  } finally { undoBusy.value = false; }
+}
+
+// Keyboard shortcut: Ctrl+Z / Ctrl+Shift+Z (เฉพาะ edit mode)
+function onKeyDown(e) {
+  if (!editMode.value) return;
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+    e.preventDefault(); undoCoord();
+  } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) {
+    e.preventDefault(); redoCoord();
+  }
+}
+
 function colorFor(pct) {
   if (pct >= 80) return '#16a34a'; // green
   if (pct >= 50) return '#f97316'; // orange
@@ -139,9 +199,11 @@ function renderMarkers(fitBounds = true) {
         { permanent: false, direction: 'top', offset: [0, -42] });
       m.on('dragend', async (e) => {
         const { lat, lng } = e.target.getLatLng();
+        const oldLat = v.lat, oldLng = v.lng;
         try {
           await axios.patch(`/api/villages/${v.id}/coords`, { lat, lng });
           v.lat = lat; v.lng = lng;
+          pushHistory(v.id, oldLat, oldLng, lat, lng);  // record for undo
           editFlash.value = `บันทึก ${v.name} ที่ [${lat.toFixed(5)}, ${lng.toFixed(5)}] แล้ว`;
           setTimeout(() => { editFlash.value = ''; }, 2500);
         } catch (err) {
@@ -187,11 +249,13 @@ onMounted(async () => {
       query: { amphur_id: amphurId, tambon_id: tambonId, village_id: villageId },
     });
   };
+  window.addEventListener('keydown', onKeyDown);
 });
 
 onBeforeUnmount(() => {
   if (map) { map.remove(); map = null; }
   delete window.__wkGoVillage;
+  window.removeEventListener('keydown', onKeyDown);
 });
 
 watch(() => filters.amphur_id, async () => { await loadTambons(); await loadVillages(); });
@@ -217,14 +281,26 @@ watch(() => filters.tambon_id, loadVillages);
 
       <!-- Filter -->
       <div class="card p-3 grid grid-cols-2 gap-2">
-        <select v-model="filters.amphur_id" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-          <option value="">ทุกอำเภอ</option>
-          <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
-        </select>
-        <select v-model="filters.tambon_id" :disabled="!filters.amphur_id" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
-          <option value="">ทุกตำบล</option>
-          <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
-        </select>
+        <div class="relative min-w-0">
+          <select v-model="filters.amphur_id" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <option value="">ทุกอำเภอ</option>
+            <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+          <button v-if="filters.amphur_id" @click="filters.amphur_id = ''" title="ล้าง"
+                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <i class="fi-rr-cross-small text-[10px]"></i>
+          </button>
+        </div>
+        <div class="relative min-w-0">
+          <select v-model="filters.tambon_id" :disabled="!filters.amphur_id" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+            <option value="">ทุกตำบล</option>
+            <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+          <button v-if="filters.tambon_id" @click="filters.tambon_id = ''" title="ล้าง"
+                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+            <i class="fi-rr-cross-small text-[10px]"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Legend + Edit mode toggle -->
@@ -245,12 +321,28 @@ watch(() => filters.tambon_id, loadVillages);
         </button>
       </div>
 
-      <!-- Edit mode banner -->
-      <div v-if="editMode" class="card-tint-orange p-3 text-xs flex items-start gap-2">
-        <i class="fi-rr-info mt-0.5 text-orange-700"></i>
-        <div>
-          <b>โหมดแก้พิกัด:</b> ลาก ↔ หมุดบนแผนที่ไปยังตำแหน่งที่ตั้งจริงของหมู่บ้าน → ระบบบันทึกอัตโนมัติเมื่อปล่อย
-          <span class="block mt-1 opacity-80">tip: zoom เข้า + เลื่อนแผนที่ไปหาตำแหน่งจริง แล้วลากหมุดไปวาง</span>
+      <!-- Edit mode banner + Undo/Redo -->
+      <div v-if="editMode" class="card-tint-orange p-3 text-xs flex items-center gap-2 flex-wrap">
+        <i class="fi-rr-info text-orange-700 shrink-0"></i>
+        <div class="flex-1 min-w-0">
+          <b>โหมดแก้พิกัด:</b> ลาก ↔ หมุดไปยังตำแหน่งจริง → ระบบบันทึกอัตโนมัติเมื่อปล่อย
+          <span class="opacity-80"> · zoom เข้าก่อนเพื่อความแม่นยำ · Ctrl+Z / Ctrl+Y ก็ได้</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button @click="undoCoord" :disabled="undoStack.length === 0 || undoBusy"
+                  class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-orange-300 dark:border-slate-600 text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  :title="`Undo (${undoStack.length})`">
+            <i class="fi-rr-undo"></i>
+            <span class="hidden sm:inline">Undo</span>
+            <span v-if="undoStack.length" class="text-[10px] opacity-70">({{ undoStack.length }})</span>
+          </button>
+          <button @click="redoCoord" :disabled="redoStack.length === 0 || undoBusy"
+                  class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-orange-300 dark:border-slate-600 text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                  :title="`Redo (${redoStack.length})`">
+            <i class="fi-rr-redo"></i>
+            <span class="hidden sm:inline">Redo</span>
+            <span v-if="redoStack.length" class="text-[10px] opacity-70">({{ redoStack.length }})</span>
+          </button>
         </div>
       </div>
 

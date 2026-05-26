@@ -53,17 +53,33 @@ const eventIcon = {
           <div class="relative flex-1 min-w-0">
             <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
             <input v-model="filters.q" placeholder="ค้นหาคำในประวัติ"
-              class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+              class="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+            <button v-if="filters.q" @click="filters.q = ''" title="ล้าง"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+              <i class="fi-rr-cross-small text-[10px]"></i>
+            </button>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-2 mt-2">
-          <select v-model="filters.event" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-            <option value="">ทุกประเภท</option>
-            <option value="created">created</option>
-            <option value="updated">updated</option>
-            <option value="deleted">deleted</option>
-          </select>
-          <input v-model="filters.date" type="date" class="w-full min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          <div class="relative min-w-0">
+            <select v-model="filters.event" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              <option value="">ทุกประเภท</option>
+              <option value="created">created</option>
+              <option value="updated">updated</option>
+              <option value="deleted">deleted</option>
+            </select>
+            <button v-if="filters.event" @click="filters.event = ''" title="ล้าง"
+                    class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+              <i class="fi-rr-cross-small text-[10px]"></i>
+            </button>
+          </div>
+          <div class="relative min-w-0">
+            <input v-model="filters.date" type="date" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <button v-if="filters.date" @click="filters.date = ''" title="ล้าง"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+              <i class="fi-rr-cross-small text-[10px]"></i>
+            </button>
+          </div>
         </div>
       </div>
 
