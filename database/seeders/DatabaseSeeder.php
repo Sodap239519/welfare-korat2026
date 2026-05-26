@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
             ChannelSeeder::class,
             RegistrationStatusSeeder::class,
             ProjectPhaseSeeder::class,
+            KoratGeographySeeder::class,
             // accounts
             DemoUserSeeder::class,
             // bulk data
