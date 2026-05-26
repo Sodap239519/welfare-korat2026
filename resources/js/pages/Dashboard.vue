@@ -47,7 +47,7 @@ const asOf = ref('—');
 // SOP details (ตามแผนปฏิบัติการในเอกสารโครงการ)
 const sopDetails = {
   1: {
-    color: 'blue', title: 'วิเคราะห์ สิทธิ์-เกณฑ์ผู้มีสิทธิ์',
+    color: 'blue', title: 'วิเคราะห์เกณฑ์ผู้มีสิทธิ์',
     summary: 'มรก.มม. ส่ง Briefing 1 หน้า · เกณฑ์สิทธิ + เอกสารที่ต้องเตรียม',
     bullets: [
       { icon: 'fi-rr-id-card-clip-alt', text: 'บัตรประชาชน Smart Card' },
@@ -58,7 +58,7 @@ const sopDetails = {
     footer: 'ให้ทุก อปท./รพ.สต./กำนัน ภายใน 10 วัน ผ่านไลน์กลุ่ม "บัตรสวัสดิการแห่งรัฐ โคราช"',
   },
   2: {
-    color: 'sky', title: 'วิเคราะห์ ฐานข้อมูลและรายชื่อ',
+    color: 'sky', title: 'ส่งรายชื่อกลุ่มเป้าหมาย',
     summary: 'มรก.มม. + DSS ส่ง "รายชื่อรายอำเภอ/ตำบล/หมู่บ้าน" พร้อมเลข 13 หลัก',
     bullets: [
       { icon: 'fi-rr-id-card-clip-alt', text: 'เลข 13 หลัก' },
@@ -69,7 +69,7 @@ const sopDetails = {
     footer: 'นำเข้าระบบ NOAH + แบบฟอร์มที่ มรก. ออกแบบให้',
   },
   3: {
-    color: 'orange', title: 'เตรียมความพร้อม กลุ่มเป้าหมายผ่านเวทีชี้แจง',
+    color: 'orange', title: 'จัดเวทีชี้แจงกลุ่มเป้าหมาย',
     summary: 'จัด "เวที 1 ตำบล 1 ครั้ง" ภายใน 10 วันของเดือนมิถุนายน',
     bullets: [
       { icon: 'fi-rr-info',          text: 'ให้ความรู้สิทธิประโยชน์ + ขั้นตอน + เอกสาร' },
@@ -79,7 +79,7 @@ const sopDetails = {
     footer: 'ใช้โค้ชทีมเดินสาย: นักศึกษา · รพ.สต. · อสม. · สภาองค์กรชุมชน',
   },
   4: {
-    color: 'purple', title: 'กลไกชุมชนช่วยลงทะเบียน ดำเนินการ 3 รูปแบบขนานกัน',
+    color: 'purple', title: 'กลไกลงทะเบียน',
     summary: '3 จุดบริการ ครอบคลุมทุกกลุ่ม — ประจำ / เคลื่อนที่ / เยี่ยมบ้าน',
     bullets: [
       { icon: 'fi-rr-building',    text: 'จุดบริการประจำ — เปิดศูนย์ที่ อบต./เทศบาล ทุกวันราชการ' },
@@ -89,7 +89,7 @@ const sopDetails = {
     footer: '',
   },
   5: {
-    color: 'green', title: 'ติดตาม ตรวจสอบและประเมินผล',
+    color: 'green', title: 'ติดตามและประเมินผล',
     summary: 'Dashboard ของ มรก.มม. รายงานสถานะรายบุคคล เรียลไทม์',
     bullets: [
       { icon: 'fi-rr-chart-pie',    text: 'รายงานสรุปยอดรายหมู่บ้าน · ทุกวัน' },
@@ -441,12 +441,12 @@ function statusSegments(row) {
 
             <!-- Header — แสดงเฉพาะ ขั้นที่ + ชื่อขั้น (font 18pt) -->
             <div class="p-4">
-              <div class="flex items-start gap-3">
-                <div :class="['w-12 h-12 shrink-0 rounded-xl text-white flex items-center justify-center text-xl font-bold shadow',
+              <div class="flex items-start gap-2.5">
+                <div :class="['w-8 h-8 shrink-0 rounded-lg text-white flex items-center justify-center text-sm font-bold shadow-sm',
                               idx < currentPhaseIdx ? 'bg-green-600'
                             : p.is_current          ? 'bg-blue-700'
                                                     : 'bg-slate-400 dark:bg-slate-600']">
-                  <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
+                  <i v-if="idx < currentPhaseIdx" class="fi-rr-check text-xs"></i>
                   <span v-else>{{ p.sop_level }}</span>
                 </div>
                 <div class="min-w-0 flex-1">
