@@ -1,9 +1,13 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
 import Modal from '@/components/Modal.vue';
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
+
+const route = useRoute();
+const router = useRouter();
 
 // Tabs / submenu
 const tabs = [
@@ -12,7 +16,19 @@ const tabs = [
   { key: 'banks',    label: 'ธนาคาร',          icon: 'fi-rr-bank' },
   { key: 'sop',      label: 'ขั้นตอน SOP + กระบวนการ', icon: 'fi-rr-list-check' },
 ];
-const tab = ref('channels');
+// Sync tab กับ query string เพื่อให้ submenu sidebar ลิงก์เจาะตรงได้
+const validTabs = ['channels', 'statuses', 'banks', 'sop'];
+const initTab = validTabs.includes(route.query.tab) ? route.query.tab : 'channels';
+const tab = ref(initTab);
+
+// เมื่อ tab เปลี่ยน → อัปเดต query (ไม่ navigate ใหม่)
+watch(tab, (v) => {
+  if (route.query.tab !== v) router.replace({ query: { ...route.query, tab: v } });
+});
+// เมื่อ user คลิก sidebar submenu → query เปลี่ยน → update tab
+watch(() => route.query.tab, (v) => {
+  if (v && validTabs.includes(v) && tab.value !== v) tab.value = v;
+});
 
 // Data
 const channels = ref([]);
