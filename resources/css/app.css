@@ -9,7 +9,8 @@
 @layer base {
   html, body {
     font-size: var(--fz, 16px);
-    overflow-x: hidden;     /* ไม่ให้เลื่อนแนวนอนบน mobile */
+    overflow-x: clip;       /* ไม่ให้เลื่อนแนวนอนบน mobile — ใช้ clip (ไม่ใช่ hidden)
+                               เพราะ hidden จะสร้าง scroll container ทำให้ position:sticky พัง */
     max-width: 100vw;
   }
   body { font-family: 'Prompt', sans-serif; color: #0f172a; background: #ffffff; }

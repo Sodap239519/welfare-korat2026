@@ -138,33 +138,31 @@ function pctClass(n) {
       </div>
 
       <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div v-for="t in data.data" :key="t.id" class="card p-4 hover:border-blue-300 transition">
-          <div class="flex items-start justify-between">
-            <div class="flex gap-3 min-w-0">
+        <div v-for="t in data.data" :key="t.id" class="card p-4 hover:border-blue-300 transition min-w-0 overflow-hidden">
+          <div class="flex items-start justify-between gap-2 min-w-0">
+            <div class="flex gap-3 min-w-0 flex-1">
               <div :class="['w-12 h-12 shrink-0 rounded-2xl text-white flex items-center justify-center font-semibold', positionColor[t.position] || 'bg-slate-500']">
                 {{ initials(t.full_name) }}
               </div>
-              <div class="min-w-0">
+              <div class="min-w-0 flex-1">
                 <div class="font-medium truncate">{{ t.full_name }}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400">{{ t.position }}{{ t.position_other ? ' ('+t.position_other+')' : '' }}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ t.position }}{{ t.position_other ? ' ('+t.position_other+')' : '' }}</div>
               </div>
             </div>
-            <div class="flex">
-              <button @click="remove(t.id)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
-            </div>
+            <button @click="remove(t.id)" class="shrink-0 p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
           </div>
-          <div class="mt-3 space-y-1 text-sm">
-            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 truncate">
+          <div class="mt-3 space-y-1 text-sm min-w-0">
+            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 min-w-0">
               <i class="fi-rr-marker text-xs shrink-0"></i>
-              <span class="truncate">{{ t.village }}{{ t.moo ? ' หมู่ '+t.moo : '' }} · {{ t.tambon }}</span>
+              <span class="truncate min-w-0 flex-1">{{ t.village }}{{ t.moo ? ' หมู่ '+t.moo : '' }} · {{ t.tambon }}</span>
             </div>
-            <a v-if="t.phone" :href="`tel:${t.phone}`" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline">
-              <i class="fi-rr-phone-call text-xs"></i> {{ t.phone }}
+            <a v-if="t.phone" :href="`tel:${t.phone}`" class="flex items-center gap-2 text-blue-700 dark:text-blue-400 hover:underline min-w-0">
+              <i class="fi-rr-phone-call text-xs shrink-0"></i> <span class="truncate">{{ t.phone }}</span>
             </a>
           </div>
-          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between text-xs">
-            <div><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">{{ formatNumber(t.total) }}</span></div>
-            <div><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span :class="['font-semibold', pctClass(t.pct)]">{{ formatNumber(t.done) }} ({{ t.pct }}%)</span></div>
+          <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-2 text-xs min-w-0">
+            <div class="truncate"><span class="text-slate-500 dark:text-slate-400">เป้า</span> <span class="font-semibold">{{ formatNumber(t.total) }}</span></div>
+            <div class="truncate text-right"><span class="text-slate-500 dark:text-slate-400">อัปเดต</span> <span :class="['font-semibold', pctClass(t.pct)]">{{ formatNumber(t.done) }} ({{ t.pct }}%)</span></div>
           </div>
         </div>
 

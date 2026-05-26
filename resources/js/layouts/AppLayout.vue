@@ -9,7 +9,7 @@ const sidebarOpen = ref(false);
 </script>
 
 <template>
-  <div class="min-h-screen overflow-x-hidden">
+  <div class="min-h-screen overflow-x-clip">
     <!-- Sidebar — fixed บนทุก breakpoint (ล็อกตำแหน่ง ไม่เลื่อนตาม scroll) -->
     <Sidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
