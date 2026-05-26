@@ -159,6 +159,92 @@ class TargetController extends Controller
         ]);
     }
 
+    /** POST /api/targets/bulk-status — อัปเดตหลายคนพร้อมกัน */
+    public function bulkUpdateStatus(Request $request): JsonResponse
+    {
+        $statusCodes = RegistrationStatus::pluck('code')->all();
+        $channelIds  = Channel::pluck('id')->all();
+        $bankCodes   = array_keys(config('banks.banks', []));
+
+        $data = $request->validate([
+            'target_ids'   => ['required', 'array', 'min:1', 'max:500'],
+            'target_ids.*' => ['integer', 'exists:targets,id'],
+            'status_code'  => ['required', 'string', 'in:'.implode(',', $statusCodes)],
+            'channel_id'   => ['nullable', 'integer', 'in:'.implode(',', $channelIds)],
+            'sub_channel'  => ['nullable', 'string', 'max:20'],
+            'note'         => ['nullable', 'string', 'max:500'],
+        ], [
+            'target_ids.max' => 'อัปเดตได้สูงสุด 500 รายการต่อครั้ง',
+        ]);
+
+        $rs = RegistrationStatus::where('code', $data['status_code'])->first();
+        if ($rs->requires_note && empty($data['note'])) {
+            return response()->json(['message' => 'สถานะนี้ต้องระบุหมายเหตุ',
+                'errors' => ['note' => ['สถานะ '.$rs->code.' ต้องระบุหมายเหตุ']]], 422);
+        }
+        if ($rs->requires_channel && empty($data['channel_id'])) {
+            return response()->json(['message' => 'สถานะนี้ต้องเลือกช่องทาง',
+                'errors' => ['channel_id' => ['สถานะ '.$rs->code.' ต้องเลือกช่องทาง']]], 422);
+        }
+
+        $selectedChannel = $data['channel_id'] ? Channel::find($data['channel_id']) : null;
+        $isBankChannel = $selectedChannel && $selectedChannel->code === 'bank';
+        if ($isBankChannel) {
+            if (empty($data['sub_channel'])) {
+                return response()->json(['message' => 'ช่องทางธนาคาร ต้องเลือกธนาคารย่อย',
+                    'errors' => ['sub_channel' => ['กรุณาเลือกธนาคารที่ใช้ลงทะเบียน']]], 422);
+            }
+            if (!in_array($data['sub_channel'], $bankCodes, true)) {
+                return response()->json(['message' => 'รหัสธนาคารไม่ถูกต้อง',
+                    'errors' => ['sub_channel' => ['รหัสธนาคารต้องเป็น: '.implode(', ', $bankCodes)]]], 422);
+            }
+        } else {
+            $data['sub_channel'] = null;
+        }
+
+        $userId = $request->user()->id;
+        $now = now();
+        $logsBatch = [];
+        $count = 0;
+
+        DB::transaction(function () use ($data, $userId, $now, &$logsBatch, &$count) {
+            foreach ($data['target_ids'] as $tid) {
+                $logsBatch[] = [
+                    'target_id'   => $tid,
+                    'status_code' => $data['status_code'],
+                    'channel_id'  => $data['channel_id'] ?? null,
+                    'sub_channel' => $data['sub_channel'] ?? null,
+                    'note'        => $data['note'] ?? null,
+                    'user_id'     => $userId,
+                    'changed_at'  => $now,
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ];
+                TargetCurrentStatus::updateOrCreate(
+                    ['target_id' => $tid],
+                    [
+                        'status_code' => $data['status_code'],
+                        'channel_id'  => $data['channel_id'] ?? null,
+                        'sub_channel' => $data['sub_channel'] ?? null,
+                        'note'        => $data['note'] ?? null,
+                        'updated_by'  => $userId,
+                        'updated_at'  => $now,
+                    ]
+                );
+                $count++;
+            }
+            // Bulk insert logs (เร็วกว่า loop create)
+            foreach (array_chunk($logsBatch, 200) as $chunk) {
+                TargetStatusLog::insert($chunk);
+            }
+        });
+
+        return response()->json([
+            'message' => "อัปเดตสถานะ {$count} ราย เป็น \"{$rs->label}\" เรียบร้อย",
+            'updated' => $count,
+        ]);
+    }
+
     /** PATCH /api/targets/{id}/status */
     public function updateStatus(Request $request, int $id): JsonResponse
     {

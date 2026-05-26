@@ -32,6 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Targets
     Route::get('targets',                  [TargetController::class, 'index']);
+    Route::post('targets/bulk-status',     [TargetController::class, 'bulkUpdateStatus']);
     Route::get('targets/{id}',             [TargetController::class, 'show'])->whereNumber('id');
     Route::patch('targets/{id}/status',    [TargetController::class, 'updateStatus'])->whereNumber('id');
 
