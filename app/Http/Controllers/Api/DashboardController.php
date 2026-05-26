@@ -53,10 +53,10 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** GET /api/dashboard/trends?days=14 */
+    /** GET /api/dashboard/trends?days=14  (1, 7, 14, 30) */
     public function trends(Request $request): JsonResponse
     {
-        $days = max(7, min((int) $request->input('days', 14), 60));
+        $days = max(1, min((int) $request->input('days', 14), 60));
 
         $rows = TargetStatusLog::query()
             ->whereDate('changed_at', '>=', now()->subDays($days))
@@ -165,6 +165,83 @@ class DashboardController extends Controller
                     'done'       => (int) $r->done,
                     'pct'        => $pct,
                     'tracker'    => $t ? ['name' => $t->full_name, 'position' => $t->position] : null,
+                ];
+            }),
+        ]);
+    }
+
+    /**
+     * GET /api/dashboard/top?level=amphur|tambon|village&limit=10&amphur_id=&tambon_id=
+     * คืนค่า TOP N แยกตามระดับ พร้อม breakdown 7 สถานะ (4.1-4.7)
+     */
+    public function top(Request $request): JsonResponse
+    {
+        $level = $request->input('level', 'village');
+        $limit = max(1, min((int) $request->input('limit', 10), 50));
+
+        $groupCols = match ($level) {
+            'amphur'  => ['amphurs.id as gid', 'amphurs.name as name', DB::raw('NULL as sub_location')],
+            'tambon'  => ['tambons.id as gid', 'tambons.name as name', 'amphurs.name as sub_location'],
+            default   => ['villages.id as gid', 'villages.name as name', DB::raw("CONCAT(tambons.name, ' · ', amphurs.name) as sub_location"), 'villages.moo'],
+        };
+
+        $q = DB::table('targets')
+            ->join('villages', 'villages.id', '=', 'targets.village_id')
+            ->join('tambons',  'tambons.id',  '=', 'villages.tambon_id')
+            ->join('amphurs',  'amphurs.id',  '=', 'tambons.amphur_id')
+            ->leftJoin('target_current_status as tcs', 'tcs.target_id', '=', 'targets.id')
+            ->where('targets.active', true)
+            ->when($request->filled('amphur_id'),  fn ($x) => $x->where('amphurs.id', (int) $request->amphur_id))
+            ->when($request->filled('tambon_id'),  fn ($x) => $x->where('tambons.id', (int) $request->tambon_id))
+            ->select($groupCols)
+            ->selectRaw('
+                COUNT(DISTINCT targets.id) as total,
+                COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) as done,
+                SUM(CASE WHEN tcs.status_code IS NULL THEN 1 ELSE 0 END) as s_0,
+                SUM(CASE WHEN tcs.status_code = "4.1" THEN 1 ELSE 0 END) as s_41,
+                SUM(CASE WHEN tcs.status_code = "4.2" THEN 1 ELSE 0 END) as s_42,
+                SUM(CASE WHEN tcs.status_code = "4.3" THEN 1 ELSE 0 END) as s_43,
+                SUM(CASE WHEN tcs.status_code = "4.4" THEN 1 ELSE 0 END) as s_44,
+                SUM(CASE WHEN tcs.status_code = "4.5" THEN 1 ELSE 0 END) as s_45,
+                SUM(CASE WHEN tcs.status_code = "4.6" THEN 1 ELSE 0 END) as s_46,
+                SUM(CASE WHEN tcs.status_code = "4.7" THEN 1 ELSE 0 END) as s_47
+            ');
+
+        $q = match ($level) {
+            'amphur'  => $q->groupBy('amphurs.id', 'amphurs.name'),
+            'tambon'  => $q->groupBy('tambons.id', 'tambons.name', 'amphurs.name'),
+            default   => $q->groupBy('villages.id', 'villages.name', 'villages.moo', 'tambons.name', 'amphurs.name'),
+        };
+
+        $rows = $q->orderByRaw('
+                COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END)
+                / GREATEST(COUNT(DISTINCT targets.id), 1) DESC
+            ')
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'level' => $level,
+            'data'  => $rows->map(function ($r) use ($level) {
+                $total = (int) $r->total;
+                $done  = (int) $r->done;
+                return [
+                    'id'       => (int) $r->gid,
+                    'name'     => $r->name . ($level === 'village' && !empty($r->moo) ? ' · หมู่ ' . $r->moo : ''),
+                    'location' => $r->sub_location ?? null,
+                    'total'    => $total,
+                    'done'     => $done,
+                    'pct'      => $total > 0 ? round(($done / $total) * 100) : 0,
+                    'by_status' => [
+                        '0'   => (int) $r->s_0,
+                        '4.1' => (int) $r->s_41,
+                        '4.2' => (int) $r->s_42,
+                        '4.3' => (int) $r->s_43,
+                        '4.4' => (int) $r->s_44,
+                        '4.5' => (int) $r->s_45,
+                        '4.6' => (int) $r->s_46,
+                        '4.7' => (int) $r->s_47,
+                    ],
                 ];
             }),
         ]);

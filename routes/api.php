@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('trends',        'trends');
         Route::get('by-channel',    'byChannel');
         Route::get('top-villages',  'topVillages');
+        Route::get('top',           'top'); // ?level=amphur|tambon|village&limit=10
     });
 
     // Targets

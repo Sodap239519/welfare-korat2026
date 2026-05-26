@@ -13,8 +13,23 @@ const dark = computed(() => theme.isDark);
 const filters = ref({ amphur_id: '', tambon_id: '', village_id: '' });
 const stats = ref(null);
 const trend = ref({ labels: [], series: [{ name: 'ยอดสะสม', data: [] }, { name: 'เป้าหมาย', data: [] }] });
+// trendDays = window ของ chart (1, 7, 14, 30)
+const trendDays = ref(14);
+const trendTabs = [
+  { label: 'วันนี้', days: 1 },
+  { label: '7 วัน',  days: 7 },
+  { label: '14 วัน', days: 14 },
+  { label: '1 เดือน', days: 30 },
+];
 const channel = ref({ labels: [], data: [] });
-const villages = ref([]);
+const topData = ref([]);
+const topLevel = ref('village');         // 'amphur' | 'tambon' | 'village'
+const topLoading = ref(false);
+const topTabs = [
+  { key: 'amphur',  label: 'อำเภอ',   icon: 'fi-rr-marker' },
+  { key: 'tambon',  label: 'ตำบล',    icon: 'fi-rr-marker' },
+  { key: 'village', label: 'หมู่บ้าน', icon: 'fi-rr-home' },
+];
 const phases = ref([]);
 const overview = ref(null);
 const channelsRef = ref([]);
@@ -23,6 +38,83 @@ const tambonOpts = ref([]);
 const villageOpts = ref([]);
 const refreshing = ref(false);
 const asOf = ref('—');
+
+// SOP details (ตามแผนปฏิบัติการในเอกสารโครงการ)
+const sopDetails = {
+  1: {
+    color: 'blue', title: 'วิเคราะห์ สิทธิ์-เกณฑ์ผู้มีสิทธิ์',
+    summary: 'มรก.มม. ส่ง Briefing 1 หน้า · เกณฑ์สิทธิ + เอกสารที่ต้องเตรียม',
+    bullets: [
+      { icon: 'fi-rr-id-card-clip-alt', text: 'บัตรประชาชน Smart Card' },
+      { icon: 'fi-rr-fingerprint',      text: 'Laser ID หลังบัตร' },
+      { icon: 'fi-rr-coins',            text: 'ข้อมูลรายได้ / ทรัพย์สิน' },
+      { icon: 'fi-rr-list-check',       text: 'ข้อมูลตามเกณฑ์ที่กำหนด' },
+    ],
+    footer: 'ให้ทุก อปท./รพ.สต./กำนัน ภายใน 10 วัน ผ่านไลน์กลุ่ม "บัตรสวัสดิการแห่งรัฐ โคราช"',
+  },
+  2: {
+    color: 'sky', title: 'วิเคราะห์ ฐานข้อมูลและรายชื่อ',
+    summary: 'มรก.มม. + DSS ส่ง "รายชื่อรายอำเภอ/ตำบล/หมู่บ้าน" พร้อมเลข 13 หลัก',
+    bullets: [
+      { icon: 'fi-rr-id-card-clip-alt', text: 'เลข 13 หลัก' },
+      { icon: 'fi-rr-marker',           text: 'พิกัด GPS' },
+      { icon: 'fi-rr-phone-call',       text: 'เบอร์ติดต่อ' },
+      { icon: 'fi-rr-chart-pie-alt',    text: 'สถานะ MPI' },
+    ],
+    footer: 'นำเข้าระบบ NOAH + แบบฟอร์มที่ มรก. ออกแบบให้',
+  },
+  3: {
+    color: 'orange', title: 'เตรียมความพร้อม กลุ่มเป้าหมายผ่านเวทีชี้แจง',
+    summary: 'จัด "เวที 1 ตำบล 1 ครั้ง" ภายใน 10 วันของเดือนมิถุนายน',
+    bullets: [
+      { icon: 'fi-rr-info',          text: 'ให้ความรู้สิทธิประโยชน์ + ขั้นตอน + เอกสาร' },
+      { icon: 'fi-rr-comments',      text: 'การให้คำปรึกษาเฉพาะราย' },
+      { icon: 'fi-rr-house-chimney', text: 'เยี่ยมบ้านผู้พิการ/ผู้สูงอายุที่มาเวทีไม่ได้' },
+    ],
+    footer: 'ใช้โค้ชทีมเดินสาย: นักศึกษา · รพ.สต. · อสม. · สภาองค์กรชุมชน',
+  },
+  4: {
+    color: 'purple', title: 'กลไกชุมชนช่วยลงทะเบียน ดำเนินการ 3 รูปแบบขนานกัน',
+    summary: '3 จุดบริการ ครอบคลุมทุกกลุ่ม — ประจำ / เคลื่อนที่ / เยี่ยมบ้าน',
+    bullets: [
+      { icon: 'fi-rr-building',    text: 'จุดบริการประจำ — เปิดศูนย์ที่ อบต./เทศบาล ทุกวันราชการ' },
+      { icon: 'fi-rr-ambulance',   text: 'จุดบริการเคลื่อนที่ — ทีมนักศึกษา + ธนาคารกรุงไทย CRM ลงพื้นที่ "วันลงทะเบียนรวมหมู่บ้าน" สัปดาห์ละ 2 หมู่/ตำบล' },
+      { icon: 'fi-rr-hand-holding-heart', text: 'ทีมพิเศษเยี่ยมบ้าน — สำหรับผู้พิการติดเตียง/ผู้สูงอายุ มีเอกสารมอบอำนาจสำเร็จรูป' },
+    ],
+    footer: '',
+  },
+  5: {
+    color: 'green', title: 'ติดตาม ตรวจสอบและประเมินผล',
+    summary: 'Dashboard ของ มรก.มม. รายงานสถานะรายบุคคล เรียลไทม์',
+    bullets: [
+      { icon: 'fi-rr-chart-pie',    text: 'รายงานสรุปยอดรายหมู่บ้าน · ทุกวัน' },
+      { icon: 'fi-rr-calendar',     text: 'ส่งรายงานให้คลังจังหวัด · ทุกศุกร์ 16:30' },
+      { icon: 'fi-rr-user-headset', text: 'ทีม CRM ตามผู้ที่ลงทะเบียนแล้วแต่ยังไม่ยืนยันตัวตน' },
+      { icon: 'fi-rr-search-alt',   text: 'วิเคราะห์ Bottleneck รายสัปดาห์เพื่อปรับกลไก' },
+    ],
+    footer: '',
+  },
+};
+const sopTintMap = {
+  blue:   'card-tint-blue',
+  sky:    'card-tint-sky',
+  orange: 'card-tint-orange',
+  purple: 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-900',
+  green:  'card-tint-green',
+};
+const sopBadgeMap = {
+  blue:   'bg-blue-700',
+  sky:    'bg-sky-600',
+  orange: 'bg-orange-500',
+  purple: 'bg-purple-600',
+  green:  'bg-green-600',
+};
+
+// 7 status colors (เดียวกับ donut chart)
+const statusColorMap = {
+  '4.1':'#94a3b8','4.2':'#2563eb','4.3':'#fb923c','4.4':'#f97316',
+  '4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a',
+};
 
 async function loadOpts() {
   const [a, p, c] = await Promise.all([
@@ -50,20 +142,44 @@ async function loadAll() {
   refreshing.value = true;
   const params = { ...filters.value };
   Object.keys(params).forEach(k => params[k] === '' && delete params[k]);
-  const [s, t, c, v, ov] = await Promise.all([
-    axios.get('/api/dashboard/stats',        { params }),
-    axios.get('/api/dashboard/trends',       { params: { ...params, days: 14 } }),
-    axios.get('/api/dashboard/by-channel',   { params }),
-    axios.get('/api/dashboard/top-villages', { params: { ...params, limit: 5 } }),
+  const [s, t, c, ov] = await Promise.all([
+    axios.get('/api/dashboard/stats',      { params }),
+    axios.get('/api/dashboard/trends',     { params: { ...params, days: trendDays.value } }),
+    axios.get('/api/dashboard/by-channel', { params }),
     axios.get('/api/ref/overview-metrics'),
   ]);
   stats.value = s.data;
   trend.value = t.data;
   channel.value = c.data;
-  villages.value = v.data.data;
   overview.value = ov.data;
   asOf.value = new Date(s.data.as_of).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  await loadTop();
   refreshing.value = false;
+}
+
+async function loadTop() {
+  topLoading.value = true;
+  const params = { level: topLevel.value, limit: 10 };
+  if (filters.value.amphur_id) params.amphur_id = filters.value.amphur_id;
+  if (filters.value.tambon_id) params.tambon_id = filters.value.tambon_id;
+  try {
+    const { data } = await axios.get('/api/dashboard/top', { params });
+    topData.value = data.data;
+  } finally { topLoading.value = false; }
+}
+
+async function reloadTrend(days) {
+  trendDays.value = days;
+  const params = { ...filters.value, days };
+  Object.keys(params).forEach(k => params[k] === '' && delete params[k]);
+  const { data } = await axios.get('/api/dashboard/trends', { params });
+  trend.value = data;
+}
+
+function selectTopLevel(level) {
+  if (topLevel.value === level) return;
+  topLevel.value = level;
+  loadTop();
 }
 
 onMounted(async () => {
@@ -145,6 +261,19 @@ function pctBar(n) {
   if (n >= 50) return 'bg-orange-500';
   return 'bg-red-500';
 }
+
+// แตกแถบสีตาม by_status เป็น segments
+function statusSegments(row) {
+  const order = ['4.2','4.3','4.4','4.5','4.6','4.7']; // ไม่นับ 4.1 (ไม่ประสงค์) + 0 (ยังไม่อัปเดต)
+  const total = row.total || 1;
+  return order.map(code => ({
+    code,
+    label: STATUS_SHORT[code] || code,
+    color: statusColorMap[code],
+    count: row.by_status?.[code] || 0,
+    width: ((row.by_status?.[code] || 0) / total) * 100,
+  })).filter(s => s.count > 0);
+}
 </script>
 
 <template>
@@ -173,21 +302,21 @@ function pctBar(n) {
         </div>
       </div>
 
-      <!-- Filter — grid on mobile, flex on desktop -->
-      <div class="grid grid-cols-3 sm:flex sm:flex-wrap sm:items-center gap-2">
-        <select v-model="filters.amphur_id" @change="loadTambons" class="w-full min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm">
+      <!-- Filter — 3 selects + button : แถวเดียวบน desktop, grid 3 + ปุ่มแยกแถวบน mobile -->
+      <div class="grid grid-cols-3 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+        <select v-model="filters.amphur_id" @change="loadTambons" class="min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm">
           <option value="">ทุกอำเภอ</option>
           <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
         </select>
-        <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="w-full min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
+        <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
           <option value="">ทุกตำบล</option>
           <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
         </select>
-        <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="w-full min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
+        <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="min-w-0 px-2 sm:px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
           <option value="">ทุกหมู่บ้าน</option>
           <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (หมู่ '+v.moo+')' : '' }}</option>
         </select>
-        <button @click="loadAll" :disabled="refreshing" class="col-span-3 sm:col-auto sm:ml-auto btn-primary px-3 py-2 text-xs flex items-center justify-center gap-1.5 disabled:opacity-60">
+        <button @click="loadAll" :disabled="refreshing" class="col-span-3 md:col-auto md:justify-self-end btn-primary px-3 py-2 text-xs flex items-center justify-center gap-1.5 disabled:opacity-60 whitespace-nowrap">
           <i :class="['fi-rr-refresh', refreshing && 'animate-spin']"></i> รีเฟรช
         </button>
       </div>
@@ -214,48 +343,62 @@ function pctBar(n) {
         </div>
       </div>
 
-      <!-- SOP stepper (ย้ายมาจาก Overview) -->
-      <div v-if="phases.length" class="card p-5">
-        <div class="flex items-center justify-between mb-4">
+      <!-- SOP 5 ขั้น แบบมีรายละเอียดตามแผนปฏิบัติการ -->
+      <div v-if="phases.length" class="card p-4 lg:p-5">
+        <div class="flex items-center justify-between gap-2 mb-4 flex-wrap">
           <div>
-            <div class="font-semibold">SOP 5 ชั้น</div>
+            <div class="font-semibold">SOP 5 ขั้น · Onboard คนจน 1 คน ใช้กับทั้ง {{ formatNumber(stats?.total || 61743) }} คน</div>
             <div class="text-xs text-slate-500 dark:text-slate-400">
-              ขั้นปัจจุบัน: ชั้น {{ phases.find(p => p.is_current)?.sop_level || '—' }} — {{ phases.find(p => p.is_current)?.name }}
+              Demand → Supply → เตรียมกลุ่มเป้าหมาย → กลไกชุมชน → ติดตาม
             </div>
           </div>
-          <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium">ดำเนินการอยู่</span>
+          <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium whitespace-nowrap">
+            ขั้นปัจจุบัน: ชั้น {{ phases.find(p => p.is_current)?.sop_level || '—' }}
+          </span>
         </div>
 
-        <!-- Desktop horizontal stepper -->
-        <div class="hidden md:flex items-start mt-2">
+        <!-- เลื่อนแนวนอนบน mobile · grid 5 คอลัมน์บน desktop -->
+        <div class="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto -mx-1 px-1 pb-1 snap-x">
           <div v-for="(p, idx) in phases" :key="p.id"
-               :class="['sop-step', p.is_current ? 'current' : (idx < currentPhaseIdx ? 'done' : '')]">
-            <div class="sop-circle">
-              <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
-              <i v-else-if="p.is_current" :class="phaseIconMap[p.sop_level] || 'fi-rr-circle'"></i>
-              <span v-else>{{ p.sop_level }}</span>
-            </div>
-            <div :class="['mt-2 text-sm font-medium', p.is_current ? 'text-blue-700 dark:text-blue-400' : '']">ชั้น {{ p.sop_level }}</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">{{ p.name }}</div>
-          </div>
-        </div>
-
-        <!-- Mobile vertical -->
-        <div class="md:hidden space-y-2 mt-1">
-          <div v-for="(p, idx) in phases" :key="p.id"
-               :class="['flex gap-3 items-start', p.is_current ? 'card-tint-blue p-3 rounded-2xl' : '']">
-            <div :class="['w-9 h-9 shrink-0 rounded-full flex items-center justify-center',
-                         idx < currentPhaseIdx ? 'bg-green-600 text-white' :
-                         (p.is_current ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500')]">
-              <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
-              <span v-else class="font-bold">{{ p.sop_level }}</span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div :class="['font-medium text-sm', p.is_current ? 'text-blue-700 dark:text-blue-300' : '']">
-                ชั้น {{ p.sop_level }} · {{ p.name }} <span v-if="p.is_current">⟵ ปัจจุบัน</span>
+               :class="['shrink-0 w-72 sm:w-80 lg:w-auto snap-start rounded-2xl p-4 border min-w-0 relative',
+                        sopTintMap[sopDetails[p.sop_level]?.color || 'blue'],
+                        p.is_current ? 'ring-2 ring-blue-500' : '']">
+            <!-- Header step number + name -->
+            <div class="flex items-start gap-3 mb-3">
+              <div :class="['w-11 h-11 shrink-0 rounded-xl text-white flex items-center justify-center text-lg font-bold shadow-md',
+                            sopBadgeMap[sopDetails[p.sop_level]?.color || 'blue']]">
+                <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
+                <span v-else>{{ p.sop_level }}</span>
               </div>
-              <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ p.description }}</div>
+              <div class="min-w-0 flex-1">
+                <div class="text-[10px] uppercase tracking-wider opacity-70">ขั้นที่ {{ p.sop_level }}</div>
+                <div class="font-semibold text-sm leading-tight">{{ sopDetails[p.sop_level]?.title || p.name }}</div>
+              </div>
             </div>
+
+            <!-- Summary line -->
+            <div class="text-xs opacity-80 leading-snug mb-3">
+              {{ sopDetails[p.sop_level]?.summary || p.description }}
+            </div>
+
+            <!-- Bullets -->
+            <ul class="space-y-1.5">
+              <li v-for="(b, i) in (sopDetails[p.sop_level]?.bullets || [])" :key="i"
+                  class="flex items-start gap-2 text-xs leading-snug">
+                <i :class="[b.icon, 'mt-0.5 shrink-0 opacity-80']"></i>
+                <span>{{ b.text }}</span>
+              </li>
+            </ul>
+
+            <!-- Footer note -->
+            <div v-if="sopDetails[p.sop_level]?.footer"
+                 class="mt-3 pt-3 border-t border-current/15 text-[11px] opacity-70 leading-snug">
+              {{ sopDetails[p.sop_level].footer }}
+            </div>
+
+            <!-- ลูกศรเชื่อม (desktop เท่านั้น) -->
+            <i v-if="idx < phases.length - 1"
+               class="fi-rr-angle-right hidden lg:block absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 text-slate-400 dark:text-slate-600"></i>
           </div>
         </div>
       </div>
@@ -288,10 +431,24 @@ function pctBar(n) {
         </div>
       </div>
 
-      <!-- Trend -->
+      <!-- Trend with day-range tabs -->
       <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
-        <div class="font-semibold text-sm">แนวโน้มการลงทะเบียน 14 วันล่าสุด</div>
-        <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">ยอดสะสมรายวัน · เทียบเป้าหมาย</div>
+        <div class="flex items-start justify-between gap-2 flex-wrap mb-2">
+          <div class="min-w-0">
+            <div class="font-semibold text-sm">แนวโน้มการลงทะเบียน</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">ยอดสะสมรายวัน · เทียบเป้าหมาย</div>
+          </div>
+          <!-- Day range tabs -->
+          <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 shrink-0">
+            <button v-for="t in trendTabs" :key="t.days" @click="reloadTrend(t.days)"
+                    :class="['px-3 py-1.5 rounded-lg text-xs font-medium transition',
+                             trendDays === t.days
+                               ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
+                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200']">
+              {{ t.label }}
+            </button>
+          </div>
+        </div>
         <div class="w-full overflow-hidden">
           <apexchart type="area" height="280" :options="trendOptions" :series="trend.series" />
         </div>
@@ -345,31 +502,66 @@ function pctBar(n) {
         </div>
       </div>
 
-      <!-- Top villages -->
+      <!-- TOP 10 สรุปยอด — สลับระดับ อำเภอ/ตำบล/หมู่บ้าน · breakdown 7 สถานะ -->
       <div class="card p-4 lg:p-5">
-        <div class="flex items-center justify-between mb-3">
-          <div class="font-semibold text-sm">สรุปยอดรายหมู่บ้าน · 5 อันดับ</div>
-          <RouterLink to="/targets" class="text-xs text-blue-700 dark:text-blue-400 hover:underline">ดูทั้งหมด →</RouterLink>
+        <div class="flex items-start justify-between gap-2 flex-wrap mb-3">
+          <div>
+            <div class="font-semibold text-sm">TOP 10 สรุปยอด · เรียงตาม % ลงทะเบียน</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">แสดงสัดส่วน 7 สถานะการลงทะเบียน (4.1-4.7)</div>
+          </div>
+          <RouterLink to="/targets" class="text-xs text-blue-700 dark:text-blue-400 hover:underline shrink-0">ดูทั้งหมด →</RouterLink>
         </div>
 
-        <div class="space-y-2">
-          <div v-for="v in villages" :key="v.village_id" class="border border-slate-100 dark:border-slate-800 rounded-xl p-3">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0 flex-1">
-                <div class="font-medium text-sm truncate">{{ v.village }}{{ v.moo ? ' · หมู่ '+v.moo : '' }}</div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                  {{ v.location }}
-                  <span v-if="v.tracker"> · {{ v.tracker.name }} ({{ v.tracker.position }})</span>
+        <!-- Level tabs -->
+        <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 mb-3 w-full sm:w-fit">
+          <button v-for="t in topTabs" :key="t.key" @click="selectTopLevel(t.key)"
+                  :class="['flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5',
+                           topLevel === t.key
+                             ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
+                             : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200']">
+            <i :class="t.icon"></i> {{ t.label }}
+          </button>
+        </div>
+
+        <!-- Legend (status colors) -->
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+          <span v-for="(c, code) in statusColorMap" :key="code" class="flex items-center gap-1 whitespace-nowrap">
+            <span class="w-2.5 h-2.5 rounded-sm" :style="{ background: c }"></span>
+            {{ code }} {{ STATUS_SHORT[code] }}
+          </span>
+        </div>
+
+        <div v-if="topLoading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-xl"></i></div>
+        <div v-else-if="topData.length === 0" class="text-center text-sm text-slate-500 py-6">ไม่พบข้อมูล</div>
+
+        <div v-else class="space-y-2">
+          <div v-for="(row, idx) in topData" :key="row.id"
+               class="border border-slate-100 dark:border-slate-800 rounded-xl p-3 hover:border-blue-200 dark:hover:border-slate-700 transition min-w-0">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                <div :class="['w-7 h-7 shrink-0 rounded-lg text-white text-xs font-bold flex items-center justify-center',
+                              idx < 3 ? 'bg-blue-700' : 'bg-slate-400']">
+                  {{ idx + 1 }}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="font-medium text-sm truncate">{{ row.name }}</div>
+                  <div v-if="row.location" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ row.location }}</div>
                 </div>
               </div>
-              <span :class="['font-semibold text-sm', pctColor(v.pct)]">{{ v.pct }}%</span>
+              <div class="text-right shrink-0">
+                <div :class="['font-semibold text-sm', pctColor(row.pct)]">{{ row.pct }}%</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ formatNumber(row.done) }} / {{ formatNumber(row.total) }}</div>
+              </div>
             </div>
-            <div class="mt-2 h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-              <div :class="['h-full', pctBar(v.pct)]" :style="{ width: v.pct + '%' }"></div>
+
+            <!-- Stacked status bar -->
+            <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+              <div v-for="seg in statusSegments(row)" :key="seg.code"
+                   :style="{ width: seg.width + '%', background: seg.color }"
+                   :title="`${seg.label} · ${formatNumber(seg.count)} ราย`"
+                   class="h-full first:rounded-l-full last:rounded-r-full"></div>
             </div>
-            <div class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{{ formatNumber(v.done) }} / {{ formatNumber(v.total) }}</div>
           </div>
-          <div v-if="villages.length === 0" class="text-center text-sm text-slate-500 py-6">ไม่พบข้อมูลหมู่บ้าน</div>
         </div>
       </div>
     </div>
