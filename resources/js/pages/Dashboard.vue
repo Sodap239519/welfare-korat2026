@@ -912,9 +912,10 @@ function statusSegments(row) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <!-- บังคับให้อยู่ในแถวเดียว · ถ้ารวมแล้วเกิน จะ scroll แนวนอน -->
+        <div class="flex gap-3 overflow-x-auto -mx-1 px-1 pb-2 snap-x scroll-chart">
           <div v-for="(b, i) in phases.find(p => p.is_current).details.bullets" :key="i"
-               class="card-tint-blue p-4">
+               class="card-tint-blue p-4 shrink-0 snap-start flex-1 min-w-[260px]">
             <div class="flex items-center gap-3 mb-2">
               <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center shrink-0">
                 <i :class="b.icon || 'fi-rr-circle'"></i>
