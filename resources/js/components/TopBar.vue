@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, RouterLink } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
@@ -224,7 +224,8 @@ onBeforeUnmount(() => {
                 <i class="fi-rr-bell-slash text-2xl text-slate-300"></i>
                 <div class="mt-2">ยังไม่มีการแจ้งเตือน</div>
               </div>
-              <button v-for="n in notif.items" :key="n.id" @click="clickNotif(n)"
+              <!-- จำกัด 5 รายการล่าสุดใน dropdown -->
+              <button v-for="n in notif.items.slice(0, 5)" :key="n.id" @click="clickNotif(n)"
                       :class="['w-full text-left px-4 py-3 border-b border-slate-50 dark:border-slate-800/60 hover:bg-blue-50/40 dark:hover:bg-slate-800/40 flex gap-3',
                                !n.read_at && 'bg-blue-50/30 dark:bg-blue-900/10']">
                 <div :class="['w-9 h-9 shrink-0 rounded-xl flex items-center justify-center', (colorMap[n.data?.color] || colorMap.blue).bg, (colorMap[n.data?.color] || colorMap.blue).text]">
@@ -240,6 +241,13 @@ onBeforeUnmount(() => {
                 <span v-if="!n.read_at" class="w-2 h-2 mt-1.5 shrink-0 rounded-full bg-blue-600"></span>
               </button>
             </div>
+
+            <!-- ดูทั้งหมด → ไปหน้ารวมการแจ้งเตือน -->
+            <RouterLink v-if="notif.items.length > 0" :to="{ name: 'notifications' }"
+              @click="showNotif = false"
+              class="block px-4 py-3 text-center text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800">
+              ดูการแจ้งเตือนทั้งหมด <i class="fi-rr-angle-small-right text-xs"></i>
+            </RouterLink>
           </div>
         </div>
 

@@ -16,6 +16,7 @@ const routes = [
   { path: '/admin/users',    name: 'admin-users',    component: () => import('@/pages/AdminUsers.vue'),    meta: { auth: true, roles: ['super_admin'] } },
   { path: '/admin/activity', name: 'admin-activity', component: () => import('@/pages/AdminActivity.vue'), meta: { auth: true, roles: ['super_admin'] } },
   { path: '/admin/settings', name: 'admin-settings', component: () => import('@/pages/AdminSettings.vue'), meta: { auth: true, roles: ['super_admin'] } },
+  { path: '/notifications',  name: 'notifications',  component: () => import('@/pages/Notifications.vue'),  meta: { auth: true } }, // ซ่อนจาก sidebar — เข้าจากไอคอนแจ้งเตือน
 
   { path: '/:pathMatch(.*)*', component: () => import('@/pages/NotFound.vue') },
 ];
