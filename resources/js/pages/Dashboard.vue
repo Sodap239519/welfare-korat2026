@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
-import { computed, onMounted, ref, watch } from 'vue';
+import Modal from '@/components/Modal.vue';
+import { computed, onMounted, ref, reactive, watch } from 'vue';
 import axios from 'axios';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
@@ -249,8 +250,62 @@ async function setSopCurrent(phase) {
   if (!auth.isSuperAdmin) return;
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
   await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  // reload phases
   phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+}
+
+// SOP Phase CRUD (Super Admin)
+const showSopEdit = ref(false);
+const sopForm = reactive({ id: null, name: '', description: '', sop_level: 1 });
+const sopErr = ref({});
+const sopSaving = ref(false);
+
+function openSopAdd() {
+  if (!auth.isSuperAdmin) return;
+  const maxLvl = phases.value.length ? Math.max(...phases.value.map(p => p.sop_level)) : 0;
+  Object.assign(sopForm, { id: null, name: '', description: '', sop_level: maxLvl + 1 });
+  sopErr.value = {};
+  showSopEdit.value = true;
+}
+
+function openSopEdit(phase) {
+  if (!auth.isSuperAdmin) return;
+  Object.assign(sopForm, {
+    id: phase.id, name: phase.name || '',
+    description: phase.description || '', sop_level: phase.sop_level || 1,
+  });
+  sopErr.value = {};
+  showSopEdit.value = true;
+}
+
+async function saveSopPhase() {
+  sopSaving.value = true; sopErr.value = {};
+  try {
+    if (sopForm.id) {
+      await axios.patch(`/api/admin/phases/${sopForm.id}`, {
+        name: sopForm.name, description: sopForm.description, sop_level: sopForm.sop_level,
+      });
+    } else {
+      await axios.post('/api/admin/phases', {
+        name: sopForm.name, description: sopForm.description, sop_level: sopForm.sop_level,
+      });
+    }
+    showSopEdit.value = false;
+    phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+  } catch (e) {
+    sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { sopSaving.value = false; }
+}
+
+async function deleteSopPhase(phase) {
+  if (!auth.isSuperAdmin) return;
+  if (phase.is_current) { alert('ลบขั้นที่เป็นปัจจุบันไม่ได้ — กรุณาตั้งขั้นอื่นเป็นปัจจุบันก่อน'); return; }
+  if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?\nการลบไม่สามารถย้อนกลับได้`)) return;
+  try {
+    await axios.delete(`/api/admin/phases/${phase.id}`);
+    phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+  } catch (e) {
+    alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
+  }
 }
 
 function toggleSop(level) {
@@ -644,8 +699,18 @@ function statusSegments(row) {
                     }}
                   </div>
                   <div class="font-semibold leading-snug" style="font-size: 1.125rem;">
-                    {{ sopDetails[p.sop_level]?.title || p.name }}
+                    {{ p.name || sopDetails[p.sop_level]?.title }}
                   </div>
+                </div>
+                <!-- Edit/Delete (Super Admin) -->
+                <div v-if="auth.isSuperAdmin" class="shrink-0 flex items-center gap-0.5 -mr-1 -mt-1">
+                  <button @click.stop="openSopEdit(p)" class="p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300" title="แก้ไข">
+                    <i class="fi-rr-edit text-xs"></i>
+                  </button>
+                  <button @click.stop="deleteSopPhase(p)" :disabled="p.is_current"
+                          class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 disabled:opacity-30 disabled:cursor-not-allowed" title="ลบ">
+                    <i class="fi-rr-trash text-xs"></i>
+                  </button>
                 </div>
               </div>
 
@@ -688,8 +753,58 @@ function statusSegments(row) {
             <i v-if="idx < phases.length - 1"
                class="fi-rr-angle-right hidden lg:block absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 text-slate-300 dark:text-slate-600 text-lg"></i>
           </div>
+
+          <!-- + เพิ่มขั้นใหม่ (Super Admin) -->
+          <button v-if="auth.isSuperAdmin" @click="openSopAdd"
+                  class="shrink-0 w-72 sm:w-80 lg:w-auto snap-start rounded-2xl border-2 border-dashed border-blue-300 dark:border-slate-600 bg-blue-50/30 dark:bg-slate-800/30 hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700 dark:text-blue-300 flex flex-col items-center justify-center gap-2 min-h-[180px] p-4 transition">
+            <i class="fi-rr-add text-2xl"></i>
+            <span class="text-sm font-medium">เพิ่มขั้น SOP ใหม่</span>
+          </button>
         </div>
       </div>
+
+      <!-- Modal: เพิ่ม / แก้ไข ขั้น SOP -->
+      <Modal :show="showSopEdit" max-width="max-w-md" @close="showSopEdit = false">
+        <div class="flex items-center justify-between mb-3">
+          <div class="font-semibold flex items-center gap-2">
+            <i :class="sopForm.id ? 'fi-rr-edit' : 'fi-rr-add'" class="text-blue-700"></i>
+            {{ sopForm.id ? 'แก้ไขขั้น SOP' : 'เพิ่มขั้น SOP ใหม่' }}
+          </div>
+          <button @click="showSopEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+        </div>
+
+        <div v-if="sopErr?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ sopErr.general[0] }}</div>
+
+        <form @submit.prevent="saveSopPhase" class="space-y-3">
+          <div class="grid grid-cols-[80px_1fr] gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชั้นที่ <span class="text-red-600">*</span></label>
+              <input v-model.number="sopForm.sop_level" type="number" min="1" max="99" required
+                     class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชื่อขั้นตอน <span class="text-red-600">*</span></label>
+              <input v-model="sopForm.name" required maxlength="150"
+                     placeholder="เช่น วิเคราะห์เกณฑ์ผู้มีสิทธิ์"
+                     class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              <div v-if="sopErr.name" class="text-[11px] text-red-600 mt-1">{{ sopErr.name[0] }}</div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">คำอธิบายขั้นตอน</label>
+            <textarea v-model="sopForm.description" rows="3" maxlength="500"
+                      placeholder="เช่น มรก.มม. ส่ง Briefing 1 หน้า · เกณฑ์สิทธิ + เอกสารที่ต้องเตรียม"
+                      class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm resize-y"></textarea>
+            <div v-if="sopErr.description" class="text-[11px] text-red-600 mt-1">{{ sopErr.description[0] }}</div>
+          </div>
+          <div class="flex gap-2 justify-end pt-1">
+            <button type="button" @click="showSopEdit = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+            <button type="submit" :disabled="sopSaving" class="btn-primary px-4 py-2 text-sm flex items-center gap-1.5">
+              <i :class="['fi-rr-disk', sopSaving && 'animate-spin']"></i> บันทึก
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <!-- ชั้น 4 — 3 ฝ่าย (จาก Overview) -->
       <div v-if="overview">

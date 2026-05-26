@@ -88,6 +88,73 @@ class ReferenceController extends Controller
         ]);
     }
 
+    /** POST /api/admin/phases — สร้างขั้น SOP ใหม่ */
+    public function storePhase(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'        => ['required', 'string', 'max:150'],
+            'description' => ['nullable', 'string', 'max:500'],
+            'sop_level'   => ['nullable', 'integer', 'min:1', 'max:99'],
+            'icon'        => ['nullable', 'string', 'max:80'],
+        ]);
+
+        // auto increment sop_level + sort_order ถ้าไม่ระบุ
+        $maxLevel = (int) ProjectPhase::max('sop_level');
+        $maxSort  = (int) ProjectPhase::max('sort_order');
+
+        $phase = ProjectPhase::create([
+            'name'        => $data['name'],
+            'description' => $data['description'] ?? null,
+            'sop_level'   => $data['sop_level'] ?? ($maxLevel + 1),
+            'icon'        => $data['icon'] ?? 'fi-rr-circle',
+            'sort_order'  => $maxSort + 1,
+            'is_current'  => false,
+        ]);
+
+        activity('sop_phase')->causedBy(auth()->user())->performedOn($phase)
+            ->log("เพิ่มขั้น SOP ใหม่: ชั้น {$phase->sop_level} — {$phase->name}");
+
+        return response()->json(['data' => $phase], 201);
+    }
+
+    /** PATCH /api/admin/phases/{id} — แก้ไขชื่อ/รายละเอียด/sop_level */
+    public function updatePhase(Request $request, int $id): JsonResponse
+    {
+        $phase = ProjectPhase::findOrFail($id);
+        $data = $request->validate([
+            'name'        => ['sometimes', 'string', 'max:150'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'sop_level'   => ['sometimes', 'integer', 'min:1', 'max:99'],
+            'icon'        => ['sometimes', 'nullable', 'string', 'max:80'],
+        ]);
+        $phase->update($data);
+
+        activity('sop_phase')->causedBy(auth()->user())->performedOn($phase)
+            ->log("แก้ไขขั้น SOP: ชั้น {$phase->sop_level} — {$phase->name}");
+
+        return response()->json(['data' => $phase->fresh()]);
+    }
+
+    /** DELETE /api/admin/phases/{id} — ลบขั้น SOP (ไม่ลบขั้นที่กำลังเป็นปัจจุบัน) */
+    public function destroyPhase(int $id): JsonResponse
+    {
+        $phase = ProjectPhase::findOrFail($id);
+
+        if ($phase->is_current) {
+            return response()->json([
+                'message' => 'ลบขั้นที่กำลังเป็นปัจจุบันไม่ได้ — โปรดตั้งขั้นอื่นเป็นปัจจุบันก่อน',
+            ], 422);
+        }
+
+        $info = "ชั้น {$phase->sop_level} — {$phase->name}";
+        $phase->delete();
+
+        activity('sop_phase')->causedBy(auth()->user())
+            ->log("ลบขั้น SOP: $info");
+
+        return response()->json(['message' => "ลบ $info เรียบร้อย"]);
+    }
+
     /** Quick aggregate for Overview page — รับ filter ?amphur_id=&tambon_id=&village_id= */
     public function overviewMetrics(Request $request): JsonResponse
     {

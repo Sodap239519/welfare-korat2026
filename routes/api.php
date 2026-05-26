@@ -81,7 +81,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('activity',       [ActivityLogController::class, 'index']);
         Route::get('activity/stats', [ActivityLogController::class, 'stats']);
 
-        // SOP phase — Super Admin ตั้งขั้นปัจจุบัน
+        // SOP phase — Super Admin CRUD + set-current
+        Route::post('phases',                  [ReferenceController::class, 'storePhase']);
+        Route::patch('phases/{id}',            [ReferenceController::class, 'updatePhase'])->whereNumber('id');
+        Route::delete('phases/{id}',           [ReferenceController::class, 'destroyPhase'])->whereNumber('id');
         Route::post('phases/{id}/set-current', [ReferenceController::class, 'setCurrentPhase'])->whereNumber('id');
     });
 
