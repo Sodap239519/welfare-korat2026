@@ -26,6 +26,12 @@ const cuSaving = ref(false);
 const cuError = ref('');
 const cuFlash = ref('');
 
+// Collapsed state per tracker — default ปิด ถ้ามีหมู่บ้าน > 1
+const expandedTrackers = ref({});
+function toggleExpand(id) {
+  expandedTrackers.value[id] = !expandedTrackers.value[id];
+}
+
 const amphurOpts = ref([]);
 const tambonOpts = ref([]);
 const villageOpts = ref([]);
@@ -265,14 +271,18 @@ function groupVillages(villages) {
               <i class="fi-rr-phone-call text-xs shrink-0"></i> <span class="truncate">{{ t.phone }}</span>
             </a>
 
-            <!-- พื้นที่ดูแล (กรุ๊ปตามชื่อหมู่บ้าน + รวม ม.) -->
-            <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
-              <i class="fi-rr-marker"></i>
-              ดูแล <b class="text-slate-700 dark:text-slate-200">{{ t.village_count || t.villages?.length || 1 }} หมู่บ้าน</b>
-            </div>
-            <div class="space-y-1">
+            <!-- พื้นที่ดูแล (กรุ๊ปตามชื่อหมู่บ้าน + รวม ม.) — collapsible ถ้า > 1 หมู่บ้าน -->
+            <button type="button" @click="toggleExpand(t.id)"
+                    class="mt-2 w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs text-slate-600 dark:text-slate-300">
+              <span class="flex items-center gap-1.5">
+                <i class="fi-rr-marker text-slate-400"></i>
+                <span>ดูแล <b class="text-slate-800 dark:text-slate-100">{{ t.village_count || t.villages?.length || 1 }} หมู่บ้าน</b></span>
+              </span>
+              <i :class="(expandedTrackers[t.id] || t.village_count <= 1) ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down'" class="text-slate-400"></i>
+            </button>
+            <div v-show="t.village_count <= 1 || expandedTrackers[t.id]" class="space-y-1 mt-1">
               <div v-for="(g, gi) in groupVillages(t.villages)" :key="gi"
-                   class="flex items-start gap-2 text-xs px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 min-w-0">
+                   class="flex items-start gap-2 text-xs px-2 py-1.5 rounded-lg bg-white dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 min-w-0">
                 <i class="fi-rr-home text-slate-400 shrink-0 mt-0.5"></i>
                 <div class="flex-1 min-w-0">
                   <div class="font-medium text-slate-700 dark:text-slate-200 truncate">

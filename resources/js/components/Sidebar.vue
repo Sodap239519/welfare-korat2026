@@ -38,15 +38,11 @@ const isActive = (n) => computed(() => route.name === n);
     :class="['fixed top-0 left-0 z-50 lg:z-40 w-72 lg:w-60 h-screen bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 transition-transform flex flex-col',
              open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0']">
     <div class="flex items-center justify-between gap-2 px-4 h-16 border-b border-slate-100 dark:border-slate-800 shrink-0">
-      <RouterLink to="/" class="flex items-center gap-2.5">
-        <div class="w-10 h-10 rounded-xl text-white flex items-center justify-center shadow-md shadow-blue-500/30"
-             style="background: linear-gradient(135deg,#1d4ed8,#0ea5e9);">
-          <i class="fi-sr-shield-check"></i>
+      <RouterLink to="/" class="flex flex-col leading-tight">
+        <div class="text-base font-bold bg-gradient-to-r from-blue-700 to-sky-500 bg-clip-text text-transparent">
+          Welfare Korat 2026
         </div>
-        <div class="leading-tight">
-          <div class="text-sm font-semibold">Welfare Korat</div>
-          <div class="text-[10px] text-slate-500 dark:text-slate-400">บัตรสวัสดิการ 2569</div>
-        </div>
+        <div class="text-[10px] text-slate-500 dark:text-slate-400">บัตรสวัสดิการแห่งรัฐ 2569</div>
       </RouterLink>
       <button class="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" @click="$emit('close')">
         <i class="fi-rr-cross-small"></i>

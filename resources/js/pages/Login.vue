@@ -89,14 +89,9 @@ async function submitRegister() {
         </button>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center">
-          <i class="fi-sr-shield-check text-xl"></i>
-        </div>
-        <div class="leading-tight">
-          <div class="font-semibold">Welfare Korat</div>
-          <div class="text-xs opacity-80">บัตรสวัสดิการแห่งรัฐ 2569</div>
-        </div>
+      <div class="leading-tight">
+        <div class="text-xl font-bold tracking-tight">Welfare Korat 2026</div>
+        <div class="text-xs opacity-80 mt-0.5">บัตรสวัสดิการแห่งรัฐ 2569</div>
       </div>
 
       <div class="flex-1 flex flex-col justify-center py-8 lg:py-0">

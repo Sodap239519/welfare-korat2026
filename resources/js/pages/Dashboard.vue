@@ -627,7 +627,7 @@ function statusSegments(row) {
 </script>
 
 <template>
-  <AppLayout :greeting="`สวัสดี, ${auth.user?.name || 'ผู้ใช้'} 👋`" title="Dashboard · ภาพรวมโครงการ">
+  <AppLayout :greeting="`สวัสดี, ${auth.user?.name || 'ผู้ใช้'}`" title="Dashboard · ภาพรวมโครงการ">
     <div class="space-y-4">
 
       <!-- HERO -->
@@ -726,7 +726,7 @@ function statusSegments(row) {
       <div v-if="phases.length" class="card p-4 lg:p-5">
         <div class="flex items-center justify-between gap-2 mb-4 flex-wrap">
           <div>
-            <div class="font-semibold">SOP 5 ขั้น · Onboard คนจน 1 คน ใช้กับทั้ง {{ formatNumber(stats?.total || 0) }} คน</div>
+            <div class="font-semibold">SOP {{ phases.length }} ขั้น · กลุ่มเป้าหมาย {{ formatNumber(stats?.total || 0) }} คน</div>
             <div class="text-xs text-slate-500 dark:text-slate-400">Demand → Supply → เตรียมกลุ่มเป้าหมาย → กลไกชุมชน → ติดตาม</div>
           </div>
           <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium whitespace-nowrap">
@@ -921,9 +921,37 @@ function statusSegments(row) {
         </form>
       </Modal>
 
-      <!-- ชั้น 4 — 3 ฝ่าย (จาก Overview) -->
-      <div v-if="overview">
-        <div class="text-sm font-semibold mb-2">ชั้น 4 — ดำเนินการ 3 ฝ่าย</div>
+      <!-- ใต้ SOP — รายละเอียดของขั้นปัจจุบัน + 3 ฝ่ายภาพรวม -->
+      <div v-if="overview && phases.length">
+        <div class="flex items-end justify-between mb-2 flex-wrap gap-2">
+          <div class="text-sm font-semibold">
+            <span v-if="phases.find(p => p.is_current)">
+              ชั้น {{ phases.find(p => p.is_current).sop_level }} —
+              {{ phases.find(p => p.is_current).name }}
+            </span>
+            <span v-else class="text-slate-500">ยังไม่ได้ตั้งขั้นปัจจุบัน · แสดงภาพรวม 3 ฝ่าย</span>
+          </div>
+          <div v-if="phases.find(p => p.is_current)?.description"
+               class="text-[11px] text-slate-500 dark:text-slate-400 flex-1 sm:text-right">
+            {{ phases.find(p => p.is_current).description }}
+          </div>
+        </div>
+
+        <!-- Bullets ของขั้นปัจจุบัน — ถ้าผู้ใช้ตั้งค่าไว้ใน DB จะแสดงเป็น cards -->
+        <div v-if="(phases.find(p => p.is_current)?.details?.bullets || []).length"
+             class="grid md:grid-cols-3 gap-3 mb-3">
+          <div v-for="(b, i) in phases.find(p => p.is_current).details.bullets" :key="i"
+               class="card-tint-blue p-4">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center">
+                <i :class="b.icon || 'fi-rr-circle'"></i>
+              </div>
+              <div class="font-medium text-sm leading-snug">{{ b.text }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 ฝ่าย (จาก Overview) — ตัวเลขจริงในระบบ — แสดงเสมอ -->
         <div class="grid md:grid-cols-3 gap-3">
           <div class="card-tint-blue p-4">
             <div class="flex items-center gap-3 mb-3">
