@@ -10,14 +10,17 @@ const sidebarOpen = ref(false);
 
 <template>
   <div class="min-h-screen overflow-x-hidden">
-    <!-- Sidebar — fixed บน desktop (lg) เพื่อล็อกตำแหน่ง ไม่เลื่อนตาม scroll -->
+    <!-- Sidebar — fixed บนทุก breakpoint (ล็อกตำแหน่ง ไม่เลื่อนตาม scroll) -->
     <Sidebar :open="sidebarOpen" @close="sidebarOpen = false" />
 
-    <!-- Content wrapper — เผื่อ margin ขวาของ sidebar บน desktop -->
-    <div class="lg:ml-60 min-w-0 w-full max-w-full">
-      <!-- TopBar — sticky top บนทุก device (มี z-index สูงกว่า content) -->
+    <!-- Content wrapper:
+         lg:pl-60  → padding-left 240px (เผื่อพื้นที่ sidebar) แทน ml-60 + w-full
+                     (เพราะ ml-60 + w-full ทำให้ overflow ขวา 240px → avatar ถูก clip)
+         min-w-0 + min-h-screen — ให้ flex shrink ได้ + ความสูงเต็ม
+    -->
+    <div class="lg:pl-60 min-w-0 min-h-screen">
       <TopBar :title="title" :subtitle="subtitle" :greeting="greeting" @open-sidebar="sidebarOpen = true" />
-      <main class="p-4 lg:p-6 max-w-7xl mx-auto pb-24 lg:pb-6 min-w-0 w-full">
+      <main class="p-4 lg:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
         <slot />
       </main>
     </div>
