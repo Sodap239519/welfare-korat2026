@@ -9,7 +9,7 @@ const theme = useThemeStore();
 const dark = computed(() => theme.isDark);
 
 const reportType = ref('daily');         // 'daily' | 'bottleneck'
-const level = ref('village');            // amphur | tambon | village
+const level = ref('amphur');             // default = รายอำเภอ (amphur | tambon | village)
 const amphurOpts = ref([]);
 const tambonOpts = ref([]);
 const amphurId = ref('');
