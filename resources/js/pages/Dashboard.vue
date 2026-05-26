@@ -378,7 +378,19 @@ function makeStackedOverviewChart(rows, levelName) {
       plotOptions: {
         bar: { horizontal: false, borderRadius: 4, columnWidth: '75%', borderRadiusApplication: 'end' },
       },
-      dataLabels: { enabled: false },
+      dataLabels: {
+        enabled: true,
+        formatter: (val, opts) => {
+          // val คือค่า % ของชิ้นในโหมด stacked 100%
+          // ดึงจำนวนจริงจาก series[s][i] มาแสดง
+          const count = opts.w.config.series[opts.seriesIndex].data[opts.dataPointIndex];
+          if (!count) return '';
+          // ซ่อน label ถ้าชิ้นเล็กเกินไป (< 7% ของแท่ง) — กันชนกัน
+          return val >= 7 ? formatNumber(count) : '';
+        },
+        style: { fontSize: '10px', fontWeight: 700, colors: ['#1e293b', '#ffffff', '#ffffff', '#ffffff'] },
+        dropShadow: { enabled: false },
+      },
       legend: {
         position: 'top', horizontalAlign: 'center', fontSize: '11px',
         markers: { width: 12, height: 12, radius: 3 },
