@@ -5,6 +5,7 @@ import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { useNotificationStore } from '@/stores/notifications';
 import { shortDate } from '@/composables/useApi';
+import Modal from '@/components/Modal.vue';
 
 const theme = useThemeStore();
 const auth = useAuthStore();
@@ -192,8 +193,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Profile edit modal -->
-    <div v-if="showProfile" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showProfile = false">
-      <div class="card w-full sm:max-w-md p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+    <Modal :show="showProfile" max-width="max-w-md" @close="showProfile = false">
         <div class="flex items-center justify-between mb-3">
           <div>
             <div class="font-semibold">แก้ไขข้อมูลส่วนตัว</div>
@@ -255,7 +255,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   </header>
 </template>

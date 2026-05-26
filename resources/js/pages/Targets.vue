@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
+import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { useRouter, useRoute } from 'vue-router';
@@ -473,8 +474,7 @@ async function submitAdd() {
       </div>
 
       <!-- Bulk modal -->
-      <div v-if="showBulkModal" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showBulkModal = false">
-        <div class="card w-full sm:max-w-lg p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+      <Modal :show="showBulkModal" max-width="max-w-lg" @close="showBulkModal = false">
           <div class="flex items-center justify-between mb-3">
             <div>
               <div class="font-semibold">อัปเดตสถานะรายกลุ่ม</div>
@@ -551,12 +551,10 @@ async function submitAdd() {
               </button>
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
 
       <!-- Add Target modal -->
-      <div v-if="showAddModal" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showAddModal = false">
-        <div class="card w-full sm:max-w-xl p-5 rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto">
+      <Modal :show="showAddModal" max-width="max-w-xl" @close="showAddModal = false">
           <div class="flex items-center justify-between mb-3">
             <div>
               <div class="font-semibold">เพิ่มรายชื่อเป้าหมายใหม่</div>
@@ -672,8 +670,7 @@ async function submitAdd() {
               </button>
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
 
     </div>
   </AppLayout>

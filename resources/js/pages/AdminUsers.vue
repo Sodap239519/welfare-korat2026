@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
+import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate } from '@/composables/useApi';
@@ -157,8 +158,7 @@ function initials(name) {
         @go="load" />
 
       <!-- Edit modal -->
-      <div v-if="showEdit" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showEdit = false">
-        <div class="card w-full sm:max-w-md p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+      <Modal :show="showEdit" max-width="max-w-md" @close="showEdit = false">
           <div class="flex items-center justify-between mb-3">
             <div class="font-semibold">แก้ไขผู้ใช้</div>
             <button @click="showEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
@@ -204,8 +204,7 @@ function initials(name) {
               </button>
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
     </div>
   </AppLayout>
 </template>

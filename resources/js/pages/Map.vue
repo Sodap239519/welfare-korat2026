@@ -205,9 +205,9 @@ watch(() => filters.tambon_id, loadVillages);
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#dc2626"></span> &lt; 50% ต้องเร่งรัด</span>
       </div>
 
-      <!-- Map container -->
-      <div class="card p-0 overflow-hidden relative">
-        <div ref="mapEl" class="w-full" style="height: 70vh; min-height: 400px; z-index: 0;"></div>
+      <!-- Map container — isolate stacking context กัน leaflet panes แทรกขึ้น Modal -->
+      <div class="card p-0 overflow-hidden relative" style="isolation: isolate;">
+        <div ref="mapEl" class="w-full relative" style="height: 70vh; min-height: 400px; z-index: 0;"></div>
         <div v-if="loading" class="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm flex items-center justify-center">
           <i class="fi-rr-spinner animate-spin text-3xl text-blue-700"></i>
         </div>

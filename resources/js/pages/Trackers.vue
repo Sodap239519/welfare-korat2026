@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
@@ -174,8 +175,7 @@ function pctClass(n) {
       </div>
 
       <!-- Modal -->
-      <div v-if="showForm" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center p-0 sm:p-4" @click.self="showForm = false">
-        <div class="card w-full sm:max-w-md p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+      <Modal :show="showForm" max-width="max-w-md" @close="showForm = false">
           <div class="flex items-center justify-between mb-3">
             <div class="font-semibold">{{ editing ? 'แก้ไขผู้ติดตาม' : 'เพิ่มผู้กำกับติดตาม' }}</div>
             <button @click="showForm = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
@@ -232,8 +232,7 @@ function pctClass(n) {
               </button>
             </div>
           </form>
-        </div>
-      </div>
+      </Modal>
     </div>
   </AppLayout>
 </template>
