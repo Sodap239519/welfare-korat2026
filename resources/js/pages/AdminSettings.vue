@@ -163,6 +163,12 @@ async function saveSop() {
       name: sopForm.name, description: sopForm.description,
       sop_level: sopForm.sop_level, details,
     };
+    // Optimistic update for edit
+    if (sopForm.id) {
+      phases.value = phases.value.map(p => p.id === sopForm.id
+        ? { ...p, name: payload.name, description: payload.description, sop_level: payload.sop_level, details: payload.details }
+        : p);
+    }
     const { data } = sopForm.id
       ? await axios.patch(`/api/admin/phases/${sopForm.id}`, payload)
       : await axios.post('/api/admin/phases', payload);
@@ -176,19 +182,33 @@ async function saveSop() {
 
 async function setSopCurrentInSettings(phase) {
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
-  const { data } = await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  if (data?.phases) phases.value = data.phases;
-  else await refetchPhases();
+  // 1) OPTIMISTIC: เปลี่ยน UI ทันที ก่อน API ตอบกลับ — guarantee real-time feedback
+  const snapshot = phases.value.map(p => ({ ...p }));
+  phases.value = phases.value.map(p => ({ ...p, is_current: p.id === phase.id }));
+  try {
+    // 2) ส่ง request ไป server (เผื่อมี details ที่อัปเดต ก็ sync ตามจริง)
+    const { data } = await axios.post(`/api/admin/phases/${phase.id}/set-current`);
+    if (data?.phases) phases.value = data.phases;
+  } catch (e) {
+    // 3) ผิดพลาด → revert
+    phases.value = snapshot;
+    alert('เกิดข้อผิดพลาด: ' + (e.response?.data?.message || e.message));
+  }
 }
 
 async function deleteSop(phase) {
   if (phase.is_current) { alert('ลบขั้นที่เป็นปัจจุบันไม่ได้ — กรุณาตั้งขั้นอื่นเป็นปัจจุบันก่อน'); return; }
   if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
+  // optimistic delete
+  const snapshot = phases.value.map(p => ({ ...p }));
+  phases.value = phases.value.filter(p => p.id !== phase.id);
   try {
     const { data } = await axios.delete(`/api/admin/phases/${phase.id}`);
     if (data?.phases) phases.value = data.phases;
-    else await refetchPhases();
-  } catch (e) { alert(e.response?.data?.message || 'ลบไม่สำเร็จ'); }
+  } catch (e) {
+    phases.value = snapshot;
+    alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
+  }
 }
 
 const sortedPhases = computed(() => [...phases.value].sort((a, b) => (a.sop_level - b.sop_level)));

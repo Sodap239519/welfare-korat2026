@@ -249,9 +249,16 @@ async function applyCustomRange() {
 async function setSopCurrent(phase) {
   if (!auth.isSuperAdmin) return;
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
-  // Backend คืน phases สดมาใน response — ใช้ตรงไม่ต้อง GET ตาม (เลี่ยง cache 100%)
-  const { data } = await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  if (data?.phases) phases.value = data.phases;
+  // OPTIMISTIC: เปลี่ยน UI ทันทีก่อน API ตอบ — สีและ section ใต้ SOP เปลี่ยนทันที
+  const snapshot = phases.value.map(p => ({ ...p }));
+  phases.value = phases.value.map(p => ({ ...p, is_current: p.id === phase.id }));
+  try {
+    const { data } = await axios.post(`/api/admin/phases/${phase.id}/set-current`);
+    if (data?.phases) phases.value = data.phases;
+  } catch (e) {
+    phases.value = snapshot;
+    alert('เกิดข้อผิดพลาด: ' + (e.response?.data?.message || e.message));
+  }
 }
 
 // Icon options (curated) สำหรับ bullet picker
@@ -356,6 +363,12 @@ async function saveSopPhase() {
       sop_level: sopForm.sop_level,
       details,
     };
+    // Optimistic update for edit
+    if (sopForm.id) {
+      phases.value = phases.value.map(p => p.id === sopForm.id
+        ? { ...p, name: payload.name, description: payload.description, sop_level: payload.sop_level, details: payload.details }
+        : p);
+    }
     const { data } = sopForm.id
       ? await axios.patch(`/api/admin/phases/${sopForm.id}`, payload)
       : await axios.post('/api/admin/phases', payload);
@@ -370,10 +383,14 @@ async function deleteSopPhase(phase) {
   if (!auth.isSuperAdmin) return;
   if (phase.is_current) { alert('ลบขั้นที่เป็นปัจจุบันไม่ได้ — กรุณาตั้งขั้นอื่นเป็นปัจจุบันก่อน'); return; }
   if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?\nการลบไม่สามารถย้อนกลับได้`)) return;
+  // optimistic delete
+  const snapshot = phases.value.map(p => ({ ...p }));
+  phases.value = phases.value.filter(p => p.id !== phase.id);
   try {
     const { data } = await axios.delete(`/api/admin/phases/${phase.id}`);
     if (data?.phases) phases.value = data.phases;
   } catch (e) {
+    phases.value = snapshot;
     alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
   }
 }
