@@ -208,6 +208,78 @@ function clearScope() {
 
 function goDetail(id) { router.push({ name: 'target-detail', params: { id } }); }
 function selectStatus(code) { filters.status = filters.status === code ? '' : code; }
+
+// === Add new target (manual form) ===
+const showAddModal = ref(false);
+const addForm = reactive({
+  prefix: 'นาย', first_name: '', last_name: '',
+  address_no: '', amphur_id: '', tambon_id: '', village_id: '',
+  poverty_level: '', has_old_welfare: false, annual_income: '', year: '',
+});
+const addTambonOpts = ref([]);
+const addVillageOpts = ref([]);
+const addErrors = ref({});
+const addSaving = ref(false);
+
+const prefixOpts = ['นาย', 'นาง', 'นางสาว', 'เด็กชาย', 'เด็กหญิง', 'อื่น ๆ'];
+const povertyOpts = ['อยู่ยาก', 'อยู่ลำบาก', 'ยากจน', 'อื่น ๆ'];
+
+async function loadAddTambons() {
+  addForm.tambon_id = ''; addForm.village_id = ''; addTambonOpts.value = []; addVillageOpts.value = [];
+  if (!addForm.amphur_id) return;
+  addTambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: addForm.amphur_id } })).data.data;
+}
+async function loadAddVillages() {
+  addForm.village_id = ''; addVillageOpts.value = [];
+  if (!addForm.tambon_id) return;
+  addVillageOpts.value = (await axios.get('/api/ref/villages', { params: { tambon_id: addForm.tambon_id } })).data.data;
+}
+
+async function openAddModal() {
+  // Pre-fill scope ตาม filter ปัจจุบัน
+  Object.assign(addForm, {
+    prefix: 'นาย', first_name: '', last_name: '',
+    address_no: '',
+    amphur_id: filters.amphur_id || '',
+    tambon_id: filters.tambon_id || '',
+    village_id: filters.village_id || '',
+    poverty_level: '', has_old_welfare: false, annual_income: '', year: '',
+  });
+  addErrors.value = {};
+  // Load cascade if pre-filled
+  if (addForm.amphur_id) {
+    addTambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: addForm.amphur_id } })).data.data;
+  }
+  if (addForm.tambon_id) {
+    addVillageOpts.value = (await axios.get('/api/ref/villages', { params: { tambon_id: addForm.tambon_id } })).data.data;
+  }
+  showAddModal.value = true;
+}
+
+async function submitAdd() {
+  addSaving.value = true;
+  addErrors.value = {};
+  try {
+    const payload = {
+      village_id: addForm.village_id,
+      address_no: addForm.address_no,
+      prefix: addForm.prefix || null,
+      first_name: addForm.first_name,
+      last_name: addForm.last_name || null,
+      poverty_level: addForm.poverty_level || null,
+      has_old_welfare: addForm.has_old_welfare ? 1 : 0,
+      annual_income: addForm.annual_income !== '' ? Number(addForm.annual_income) : null,
+      year: addForm.year !== '' ? Number(addForm.year) : null,
+    };
+    const { data: res } = await axios.post('/api/targets', payload);
+    flashOk.value = res.message;
+    setTimeout(() => (flashOk.value = ''), 4000);
+    showAddModal.value = false;
+    await load(1);
+  } catch (e) {
+    addErrors.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { addSaving.value = false; }
+}
 </script>
 
 <template>
@@ -246,6 +318,9 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
           <button @click="filtersOpen = !filtersOpen" class="btn-outline shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-filter"></i> <span class="hidden sm:inline">ตัวกรอง</span>
             <span v-if="activeFilterCount" class="bg-blue-700 text-white text-[10px] rounded-full px-1.5 py-0.5 ml-1">{{ activeFilterCount }}</span>
+          </button>
+          <button @click="openAddModal" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มรายชื่อ</span>
           </button>
         </div>
 
@@ -448,6 +523,111 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
               <button type="button" @click="showBulkModal = false" class="btn-outline px-4 py-2.5 text-sm">ยกเลิก</button>
               <button type="submit" :disabled="bulkSaving || !bulkForm.status_code" class="btn-green px-4 py-2.5 text-sm flex items-center gap-1.5 disabled:opacity-50">
                 <i :class="['fi-rr-check', bulkSaving && 'animate-spin']"></i> ยืนยันอัปเดต {{ selectedCount }} ราย
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Add Target modal -->
+      <div v-if="showAddModal" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showAddModal = false">
+        <div class="card w-full sm:max-w-xl p-5 rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="font-semibold">เพิ่มรายชื่อเป้าหมายใหม่</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">กรอกข้อมูลด้านล่าง · ระบบจะรวมเป็นบ้านเดียวกันอัตโนมัติถ้าบ้านเลขที่ + หมู่บ้านตรงกัน</div>
+            </div>
+            <button @click="showAddModal = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          </div>
+
+          <div v-if="addErrors.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ addErrors.general[0] }}</div>
+
+          <form @submit.prevent="submitAdd" class="space-y-3">
+            <!-- ชื่อ -->
+            <div class="grid grid-cols-[100px_1fr_1fr] gap-2">
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">คำนำหน้า</label>
+                <select v-model="addForm.prefix" class="w-full min-w-0 px-2 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                  <option v-for="p in prefixOpts" :key="p" :value="p">{{ p }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">ชื่อ <span class="text-red-600">*</span></label>
+                <input v-model="addForm.first_name" required class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                <div v-if="addErrors.first_name" class="text-[11px] text-red-600 mt-1">{{ addErrors.first_name[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">นามสกุล</label>
+                <input v-model="addForm.last_name" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+            </div>
+
+            <!-- ที่อยู่ — อำเภอ/ตำบล/หมู่บ้าน + บ้านเลขที่ -->
+            <div class="card-tint-blue p-3 rounded-2xl space-y-2">
+              <div class="text-xs font-medium"><i class="fi-rr-marker"></i> ที่อยู่</div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label class="block text-[11px] mb-1">อำเภอ <span class="text-red-600">*</span></label>
+                  <select v-model="addForm.amphur_id" @change="loadAddTambons" class="w-full min-w-0 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                    <option value="">เลือก</option>
+                    <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] mb-1">ตำบล <span class="text-red-600">*</span></label>
+                  <select v-model="addForm.tambon_id" @change="loadAddVillages" :disabled="!addForm.amphur_id" class="w-full min-w-0 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+                    <option value="">เลือก</option>
+                    <option v-for="t in addTambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] mb-1">หมู่บ้าน <span class="text-red-600">*</span></label>
+                  <select v-model="addForm.village_id" :disabled="!addForm.tambon_id" class="w-full min-w-0 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
+                    <option value="">เลือก</option>
+                    <option v-for="v in addVillageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (ม.'+v.moo+')' : '' }}</option>
+                  </select>
+                </div>
+              </div>
+              <div v-if="addErrors.village_id" class="text-[11px] text-red-600">{{ addErrors.village_id[0] }}</div>
+              <div>
+                <label class="block text-[11px] mb-1">บ้านเลขที่ <span class="text-red-600">*</span> <span class="text-slate-500">เช่น 27/1, 229/55</span></label>
+                <input v-model="addForm.address_no" required placeholder="27/1" class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                <div v-if="addErrors.address_no" class="text-[11px] text-red-600 mt-1">{{ addErrors.address_no[0] }}</div>
+              </div>
+            </div>
+
+            <!-- ข้อมูลครัวเรือน -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">สถานะความยากจน</label>
+                <select v-model="addForm.poverty_level" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                  <option value="">— ไม่ระบุ —</option>
+                  <option v-for="p in povertyOpts" :key="p" :value="p">{{ p }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">รายได้เฉลี่ย (บาท/ปี)</label>
+                <input v-model="addForm.annual_income" type="number" min="0" placeholder="0" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                <div v-if="addErrors.annual_income" class="text-[11px] text-red-600 mt-1">{{ addErrors.annual_income[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">ปีข้อมูล (พ.ศ.)</label>
+                <input v-model="addForm.year" type="number" min="2500" max="2700" placeholder="2569" class="w-full min-w-0 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+              <label class="flex items-end gap-2 text-sm pb-2">
+                <input v-model="addForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> มีบัตรสวัสดิการเดิม
+              </label>
+            </div>
+
+            <div class="card-tint-orange text-xs p-3 flex items-start gap-2">
+              <i class="fi-rr-info mt-0.5"></i>
+              <div>หลังเพิ่มแล้ว สามารถอัปเดตสถานะการลงทะเบียน 4.1-4.7 ได้ที่หน้ารายละเอียดบุคคล</div>
+            </div>
+
+            <div class="flex gap-2 justify-end">
+              <button type="button" @click="showAddModal = false" class="btn-outline px-4 py-2.5 text-sm">ยกเลิก</button>
+              <button type="submit" :disabled="addSaving || !addForm.first_name || !addForm.village_id || !addForm.address_no" class="btn-green px-4 py-2.5 text-sm flex items-center gap-1.5 disabled:opacity-50">
+                <i :class="['fi-rr-disk', addSaving && 'animate-spin']"></i> เพิ่มรายชื่อ
               </button>
             </div>
           </form>

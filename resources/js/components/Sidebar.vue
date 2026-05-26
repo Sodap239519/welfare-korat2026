@@ -14,16 +14,20 @@ async function doLogout() {
   await auth.logout();
   router.push({ name: 'login' });
 }
-const items = [
-  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม' },
-  { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย' },
-  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน' },
-  { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม' },
-  { name: 'import',         icon: 'fi-rr-cloud-upload-alt', label: 'นำเข้าข้อมูล' },
-  { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน' },
-  { name: 'admin-users',    icon: 'fi-rr-user-shield',      label: 'จัดการผู้ใช้' },
-  { name: 'admin-activity', icon: 'fi-rr-time-past',        label: 'ประวัติการใช้งาน' },
+const allItems = [
+  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม',  roles: ['*'] },
+  { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย',     roles: ['*'] },
+  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: ['*'] },
+  { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม',     roles: ['*'] },
+  { name: 'import',         icon: 'fi-rr-cloud-upload-alt', label: 'นำเข้าข้อมูล',       roles: ['super_admin'] },
+  { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: ['*'] },
+  { name: 'admin-users',    icon: 'fi-rr-user-shield',      label: 'จัดการผู้ใช้',       roles: ['super_admin'] },
+  { name: 'admin-activity', icon: 'fi-rr-time-past',        label: 'ประวัติการใช้งาน',   roles: ['super_admin'] },
 ];
+
+const items = computed(() => allItems.filter(i =>
+  i.roles.includes('*') || i.roles.some(r => auth.roles.includes(r))
+));
 
 const isActive = (n) => computed(() => route.name === n);
 </script>
