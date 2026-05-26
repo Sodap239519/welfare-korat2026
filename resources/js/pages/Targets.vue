@@ -372,6 +372,12 @@ async function submitAdd() {
                          !filters.status ? 'bg-blue-700 text-white' : 'border border-slate-100 dark:border-slate-800']">
           ทั้งหมด · {{ formatNumber(statusCounts._total || 0) }}
         </button>
+        <button @click="selectStatus('0')"
+                :class="['shrink-0 snap-start whitespace-nowrap px-3 py-1.5 rounded-full text-xs',
+                         'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+                         filters.status === '0' ? 'ring-2 ring-blue-500' : '']">
+          ยังไม่ถูกติดตาม · {{ formatNumber(statusCounts['0'] || 0) }}
+        </button>
         <button v-for="s in statuses" :key="s.code" @click="selectStatus(s.code)"
                 :class="['shrink-0 snap-start whitespace-nowrap px-3 py-1.5 rounded-full text-xs',
                          s.color, filters.status === s.code ? 'ring-2 ring-blue-500' : '']">

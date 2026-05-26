@@ -374,14 +374,16 @@ const statusCards = computed(() => {
   });
 });
 
-// แตกแถบสีตาม by_status เป็น segments
+// แตกแถบสีตาม by_status เป็น segments — ครบทั้ง 8 กลุ่ม (รวม ยังไม่ถูกติดตาม + ไม่ประสงค์)
 function statusSegments(row) {
-  const order = ['4.2','4.3','4.4','4.5','4.6','4.7']; // ไม่นับ 4.1 (ไม่ประสงค์) + 0 (ยังไม่อัปเดต)
+  const order = ['0','4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
+  const labelMap = { '0': 'ยังไม่ถูกติดตาม', ...STATUS_SHORT };
+  const colorAll = { '0': '#cbd5e1', ...statusColorMap };
   const total = row.total || 1;
   return order.map(code => ({
     code,
-    label: STATUS_SHORT[code] || code,
-    color: statusColorMap[code],
+    label: labelMap[code] || code,
+    color: colorAll[code],
     count: row.by_status?.[code] || 0,
     width: ((row.by_status?.[code] || 0) / total) * 100,
   })).filter(s => s.count > 0);
@@ -695,8 +697,12 @@ function statusSegments(row) {
           </button>
         </div>
 
-        <!-- Legend (status colors) -->
+        <!-- Legend (status colors) — รวม "ยังไม่ถูกติดตาม" -->
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 dark:text-slate-400 mb-3">
+          <span class="flex items-center gap-1 whitespace-nowrap">
+            <span class="w-2.5 h-2.5 rounded-sm" style="background:#cbd5e1"></span>
+            — ยังไม่ถูกติดตาม
+          </span>
           <span v-for="(c, code) in statusColorMap" :key="code" class="flex items-center gap-1 whitespace-nowrap">
             <span class="w-2.5 h-2.5 rounded-sm" :style="{ background: c }"></span>
             {{ code }} {{ STATUS_SHORT[code] }}

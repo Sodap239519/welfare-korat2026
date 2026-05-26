@@ -40,7 +40,7 @@ class ReportController extends Controller
             ->map(fn ($r) => $this->mapRow($r, $level));
 
         $labelName = $level === 'amphur' ? 'อำเภอ' : ($level === 'tambon' ? 'ตำบล' : 'หมู่บ้าน');
-        $headings = [$labelName, 'อำเภอ', 'ตำบล', 'เป้า', '4.7 ใช้สิทธิ', '4.6 รอยืนยัน', 'รวม', '%', 'สถานะ'];
+        $headings = [$labelName, 'อำเภอ', 'ตำบล', 'เป้า', 'ยังไม่ถูกติดตาม', '4.7 ใช้สิทธิ', '4.6 รอยืนยัน', 'รวม', '%', 'สถานะ'];
         $filename = "รายงานสรุปยอด_{$level}_".now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
@@ -52,7 +52,9 @@ class ReportController extends Controller
                     $r['name'],
                     $r['amphur'] ?? '—',
                     $r['tambon'] ?? '—',
-                    $r['total'], $r['kyc_done'], $r['kyc_waiting'],
+                    $r['total'],
+                    $r['untracked'] ?? 0,
+                    $r['kyc_done'], $r['kyc_waiting'],
                     $r['done'], $r['pct'].'%', $r['level'],
                 ];
             }
@@ -152,6 +154,7 @@ class ReportController extends Controller
             COUNT(DISTINCT targets.id) as total,
             COUNT(DISTINCT CASE WHEN tcs.status_code = "4.7" THEN targets.id END) as kyc_done,
             COUNT(DISTINCT CASE WHEN tcs.status_code = "4.6" THEN targets.id END) as kyc_waiting,
+            COUNT(DISTINCT CASE WHEN tcs.status_code IS NULL THEN targets.id END) as untracked,
             COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) as done
         ';
         $orderBy = 'COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) / GREATEST(COUNT(DISTINCT targets.id), 1) DESC';
@@ -182,6 +185,7 @@ class ReportController extends Controller
             'total'       => (int) $r->total,
             'kyc_done'    => (int) $r->kyc_done,
             'kyc_waiting' => (int) $r->kyc_waiting,
+            'untracked'   => (int) $r->untracked,
             'done'        => (int) $r->done,
             'pct'         => $pct,
             'level'       => $pct >= 80 ? 'ดีเยี่ยม' : ($pct >= 50 ? 'ปานกลาง' : 'ต้องเร่งรัด'),

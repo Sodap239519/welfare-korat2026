@@ -211,6 +211,7 @@ function pctClass(n) {
                 <th class="text-left py-2 px-4">{{ levelLabel }}</th>
                 <th v-if="level !== 'amphur'" class="text-left">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
                 <th class="text-right">เป้า</th>
+                <th class="text-right text-slate-500" title="ยังไม่ถูกติดตาม (ยังไม่มี record สถานะ)">ยังไม่ถูกติดตาม</th>
                 <th class="text-right">{{ statusShort('4.7') }}</th>
                 <th class="text-right">{{ statusShort('4.6') }}</th>
                 <th class="text-right">รวม</th>
@@ -224,13 +225,14 @@ function pctClass(n) {
                 <td v-if="level === 'village'" class="text-xs text-slate-500 dark:text-slate-400">{{ r.tambon }} · {{ r.amphur }}</td>
                 <td v-else-if="level === 'tambon'" class="text-xs text-slate-500 dark:text-slate-400">{{ r.amphur }}</td>
                 <td class="text-right">{{ formatNumber(r.total) }}</td>
+                <td class="text-right text-slate-500">{{ formatNumber(r.untracked || 0) }}</td>
                 <td class="text-right">{{ formatNumber(r.kyc_done) }}</td>
                 <td class="text-right">{{ formatNumber(r.kyc_waiting) }}</td>
                 <td class="text-right font-medium">{{ formatNumber(r.done) }}</td>
                 <td :class="['text-right font-semibold', pctClass(r.pct)]">{{ r.pct }}%</td>
                 <td class="pl-4 pr-3"><span :class="['text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap', levelClass(r.level)]">{{ r.level }}</span></td>
               </tr>
-              <tr v-if="dailyRows.length === 0"><td :colspan="level === 'village' ? 8 : (level === 'tambon' ? 8 : 7)" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
+              <tr v-if="dailyRows.length === 0"><td :colspan="level === 'village' ? 9 : (level === 'tambon' ? 9 : 8)" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
             </tbody>
           </table>
         </div>
