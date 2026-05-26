@@ -23,6 +23,7 @@ const allItems = [
   { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: ['*'] },
   { name: 'admin-users',    icon: 'fi-rr-user-shield',      label: 'จัดการผู้ใช้',       roles: ['super_admin'] },
   { name: 'admin-activity', icon: 'fi-rr-time-past',        label: 'ประวัติการใช้งาน',   roles: ['super_admin'] },
+  { name: 'admin-settings', icon: 'fi-rr-settings',         label: 'ตั้งค่าข้อมูล',       roles: ['super_admin'] },
 ];
 
 const items = computed(() => allItems.filter(i =>

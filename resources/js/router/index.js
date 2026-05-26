@@ -15,6 +15,7 @@ const routes = [
   { path: '/reports',       name: 'reports',       component: () => import('@/pages/Reports.vue'),       meta: { auth: true } },
   { path: '/admin/users',    name: 'admin-users',    component: () => import('@/pages/AdminUsers.vue'),    meta: { auth: true, roles: ['super_admin'] } },
   { path: '/admin/activity', name: 'admin-activity', component: () => import('@/pages/AdminActivity.vue'), meta: { auth: true, roles: ['super_admin'] } },
+  { path: '/admin/settings', name: 'admin-settings', component: () => import('@/pages/AdminSettings.vue'), meta: { auth: true, roles: ['super_admin'] } },
 
   { path: '/:pathMatch(.*)*', component: () => import('@/pages/NotFound.vue') },
 ];

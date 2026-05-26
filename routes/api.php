@@ -87,6 +87,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('phases/{id}',            [ReferenceController::class, 'updatePhase'])->whereNumber('id');
         Route::delete('phases/{id}',           [ReferenceController::class, 'destroyPhase'])->whereNumber('id');
         Route::post('phases/{id}/set-current', [ReferenceController::class, 'setCurrentPhase'])->whereNumber('id');
+
+        // Settings — Channels / Statuses / Banks (Super Admin)
+        Route::controller(\App\Http\Controllers\Api\SettingsController::class)->group(function () {
+            Route::get('channels',          'listChannels');
+            Route::post('channels',         'storeChannel');
+            Route::patch('channels/{id}',   'updateChannel')->whereNumber('id');
+            Route::delete('channels/{id}',  'destroyChannel')->whereNumber('id');
+
+            Route::get('statuses',          'listStatuses');
+            Route::post('statuses',         'storeStatus');
+            Route::patch('statuses/{id}',   'updateStatus')->whereNumber('id');
+            Route::delete('statuses/{id}',  'destroyStatus')->whereNumber('id');
+
+            Route::get('banks',             'listBanks');
+            Route::post('banks',            'storeBank');
+            Route::patch('banks/{id}',      'updateBank')->whereNumber('id');
+            Route::delete('banks/{id}',     'destroyBank')->whereNumber('id');
+        });
     });
 
     // Trackers — อ่านได้ทุก role · เขียน/แก้ไข/ลบ + เปิดบัญชี เฉพาะ super_admin

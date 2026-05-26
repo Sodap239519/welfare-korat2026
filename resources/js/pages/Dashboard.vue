@@ -250,8 +250,8 @@ async function setSopCurrent(phase) {
   if (!auth.isSuperAdmin) return;
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
   await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  // Reload หน้าเต็มเพื่ออัปเดต SOP + KPIs + chart ทั้งหมด
-  window.location.reload();
+  // Refetch phases — Vue reactivity จะ re-render สีของ cards ทันที (ไม่ต้อง hard reload)
+  phases.value = (await axios.get('/api/ref/project-phases')).data.data;
 }
 
 // Icon options (curated) สำหรับ bullet picker
@@ -355,8 +355,8 @@ async function saveSopPhase() {
       await axios.post('/api/admin/phases', payload);
     }
     showSopEdit.value = false;
-    // reload หน้าเพื่ออัปเดต SOP cards + sopDetails fallback ให้แน่ใจ
-    window.location.reload();
+    // refetch — Vue reactivity จะ re-render cards พร้อม details ใหม่ทันที
+    phases.value = (await axios.get('/api/ref/project-phases')).data.data;
   } catch (e) {
     sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
   } finally { sopSaving.value = false; }
@@ -373,6 +373,7 @@ async function deleteSopPhase(phase) {
     alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
   }
 }
+
 
 function toggleSop(level) {
   sopExpanded.value[level] = !sopExpanded.value[level];

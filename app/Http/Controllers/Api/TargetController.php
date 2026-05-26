@@ -78,7 +78,7 @@ class TargetController extends Controller
         $ids = collect($page->items())->pluck('id');
         $statuses = TargetCurrentStatus::whereIn('target_id', $ids)->get()->keyBy('target_id');
 
-        $banks = config('banks.banks', []);
+        $banks = \App\Models\Bank::optionsMap();
         $channelNames = Channel::pluck('name', 'id');
 
         $page->getCollection()->transform(function ($t) use ($statuses, $banks, $channelNames) {
@@ -124,7 +124,7 @@ class TargetController extends Controller
             ])
             ->findOrFail($id);
 
-        $banks = config('banks.banks', []);
+        $banks = \App\Models\Bank::optionsMap();
 
         $logs = TargetStatusLog::with(['channel:id,name'])
             ->where('target_id', $id)
@@ -272,7 +272,7 @@ class TargetController extends Controller
     {
         $statusCodes = RegistrationStatus::pluck('code')->all();
         $channelIds  = Channel::pluck('id')->all();
-        $bankCodes   = array_keys(config('banks.banks', []));
+        $bankCodes   = array_keys(\App\Models\Bank::optionsMap());
 
         $data = $request->validate([
             'target_ids'   => ['required', 'array', 'min:1', 'max:500'],
@@ -362,7 +362,7 @@ class TargetController extends Controller
     {
         $statusCodes = RegistrationStatus::pluck('code')->all();
         $channelIds  = Channel::pluck('id')->all();
-        $bankCodes   = array_keys(config('banks.banks', []));
+        $bankCodes   = array_keys(\App\Models\Bank::optionsMap());
 
         $data = $request->validate([
             'status_code' => ['required', 'string', 'in:'.implode(',', $statusCodes)],

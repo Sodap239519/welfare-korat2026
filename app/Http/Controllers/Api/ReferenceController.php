@@ -32,7 +32,7 @@ class ReferenceController extends Controller
     public function banks(): JsonResponse
     {
         return response()->json([
-            'data' => collect(config('banks.banks', []))->map(fn ($name, $code) => [
+            'data' => collect(\App\Models\Bank::optionsMap())->map(fn ($name, $code) => [
                 'code' => $code,
                 'name' => $name,
             ])->values(),
@@ -256,7 +256,7 @@ class ReferenceController extends Controller
             ->groupBy('tcs.sub_channel')
             ->pluck(DB::raw('COUNT(*)'), 'tcs.sub_channel');
 
-        $banks = config('banks.banks', []);
+        $banks = \App\Models\Bank::optionsMap();
         $result = [];
         foreach ($banks as $code => $name) {
             $result[] = [
