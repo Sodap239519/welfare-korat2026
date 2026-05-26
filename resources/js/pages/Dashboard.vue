@@ -249,13 +249,9 @@ async function applyCustomRange() {
 async function setSopCurrent(phase) {
   if (!auth.isSuperAdmin) return;
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
-  await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  // Cache-bust + reload data ทั้งหมดเผื่อมี side-effect ที่อื่น
-  phases.value = (await axios.get('/api/ref/project-phases', {
-    params: { _: Date.now() },
-    headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-  })).data.data;
-  await loadAll();  // refresh KPIs / charts / overview ด้วย
+  // Backend คืน phases สดมาใน response — ใช้ตรงไม่ต้อง GET ตาม (เลี่ยง cache 100%)
+  const { data } = await axios.post(`/api/admin/phases/${phase.id}/set-current`);
+  if (data?.phases) phases.value = data.phases;
 }
 
 // Icon options (curated) สำหรับ bullet picker
@@ -317,14 +313,16 @@ function openSopEdit(phase) {
     description: phase.description || '', sop_level: phase.sop_level || 1,
     detailsSummary: d.summary || '',
     detailsFooter:  d.footer  || '',
-    detailsBullets: Array.isArray(d.bullets) ? d.bullets.map(b => ({ ...b })) : [],
+    detailsBullets: Array.isArray(d.bullets)
+      ? d.bullets.map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text || '', subtitle: b.subtitle || '', count: b.count ?? null }))
+      : [],
   });
   sopErr.value = {};
   showSopEdit.value = true;
 }
 
 function addBullet() {
-  sopForm.detailsBullets.push({ icon: 'fi-rr-circle', text: '' });
+  sopForm.detailsBullets.push({ icon: 'fi-rr-circle', text: '', subtitle: '', count: null });
 }
 function removeBullet(idx) {
   sopForm.detailsBullets.splice(idx, 1);
@@ -342,7 +340,12 @@ async function saveSopPhase() {
   try {
     const bullets = sopForm.detailsBullets
       .filter(b => b.text && b.text.trim())
-      .map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text.trim() }));
+      .map(b => {
+        const out = { icon: b.icon || 'fi-rr-circle', text: b.text.trim() };
+        if (b.subtitle && b.subtitle.trim()) out.subtitle = b.subtitle.trim();
+        if (b.count !== null && b.count !== '' && !isNaN(Number(b.count))) out.count = Number(b.count);
+        return out;
+      });
     const details = (sopForm.detailsSummary || sopForm.detailsFooter || bullets.length)
       ? { summary: sopForm.detailsSummary || null, footer: sopForm.detailsFooter || null, bullets }
       : null;
@@ -353,17 +356,11 @@ async function saveSopPhase() {
       sop_level: sopForm.sop_level,
       details,
     };
-    if (sopForm.id) {
-      await axios.patch(`/api/admin/phases/${sopForm.id}`, payload);
-    } else {
-      await axios.post('/api/admin/phases', payload);
-    }
+    const { data } = sopForm.id
+      ? await axios.patch(`/api/admin/phases/${sopForm.id}`, payload)
+      : await axios.post('/api/admin/phases', payload);
     showSopEdit.value = false;
-    // refetch + cache-bust
-    phases.value = (await axios.get('/api/ref/project-phases', {
-      params: { _: Date.now() },
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-    })).data.data;
+    if (data?.phases) phases.value = data.phases;
   } catch (e) {
     sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
   } finally { sopSaving.value = false; }
@@ -374,11 +371,8 @@ async function deleteSopPhase(phase) {
   if (phase.is_current) { alert('ลบขั้นที่เป็นปัจจุบันไม่ได้ — กรุณาตั้งขั้นอื่นเป็นปัจจุบันก่อน'); return; }
   if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?\nการลบไม่สามารถย้อนกลับได้`)) return;
   try {
-    await axios.delete(`/api/admin/phases/${phase.id}`);
-    phases.value = (await axios.get('/api/ref/project-phases', {
-      params: { _: Date.now() },
-      headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' },
-    })).data.data;
+    const { data } = await axios.delete(`/api/admin/phases/${phase.id}`);
+    if (data?.phases) phases.value = data.phases;
   } catch (e) {
     alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
   }
@@ -896,23 +890,31 @@ function statusSegments(row) {
                 ยังไม่มีหัวข้อย่อย — กด "เพิ่มหัวข้อ" เพื่อสร้าง
               </div>
               <div v-for="(b, i) in sopForm.detailsBullets" :key="i"
-                   class="flex items-center gap-1.5 mb-1.5 group">
-                <select v-model="b.icon"
-                        class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-32 shrink-0">
-                  <option v-for="opt in ICON_OPTIONS" :key="opt.i" :value="opt.i">{{ opt.l }}</option>
-                </select>
-                <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
-                <input v-model="b.text" maxlength="300" placeholder="ข้อความหัวข้อย่อย"
-                       class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-                <button type="button" @click="moveBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
-                  <i class="fi-rr-angle-up text-xs"></i>
-                </button>
-                <button type="button" @click="moveBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
-                  <i class="fi-rr-angle-down text-xs"></i>
-                </button>
-                <button type="button" @click="removeBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
-                  <i class="fi-rr-cross-small text-xs"></i>
-                </button>
+                   class="border border-slate-100 dark:border-slate-700 rounded-lg p-2 mb-2 space-y-1.5">
+                <div class="flex items-center gap-1.5">
+                  <select v-model="b.icon"
+                          class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-32 shrink-0">
+                    <option v-for="opt in ICON_OPTIONS" :key="opt.i" :value="opt.i">{{ opt.l }}</option>
+                  </select>
+                  <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
+                  <input v-model="b.text" maxlength="300" placeholder="ข้อความหัวข้อ (เช่น ตรวจสอบสิทธิ์)"
+                         class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+                  <button type="button" @click="moveBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                    <i class="fi-rr-angle-up text-xs"></i>
+                  </button>
+                  <button type="button" @click="moveBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                    <i class="fi-rr-angle-down text-xs"></i>
+                  </button>
+                  <button type="button" @click="removeBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
+                    <i class="fi-rr-cross-small text-xs"></i>
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pl-[8.5rem] pr-[6rem]">
+                  <input v-model="b.subtitle" maxlength="200" placeholder="หมายเหตุย่อย (เช่น กรมบัญชีกลาง) — ไม่บังคับ"
+                         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] text-slate-500">
+                  <input v-model="b.count" type="number" min="0" placeholder="จำนวน (ไม่บังคับ)"
+                         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px]">
+                </div>
               </div>
             </div>
             <div class="mt-3">
@@ -932,60 +934,45 @@ function statusSegments(row) {
         </form>
       </Modal>
 
-      <!-- ใต้ SOP — รายละเอียดของขั้นปัจจุบัน + 3 ฝ่ายภาพรวม -->
-      <div v-if="overview && phases.length">
+      <!-- ใต้ SOP — แสดง bullets ของขั้นปัจจุบัน (ถ้ามี count แสดงเลขด้วย) -->
+      <div v-if="phases.find(p => p.is_current)?.details?.bullets?.length">
         <div class="flex items-end justify-between mb-2 flex-wrap gap-2">
           <div class="text-sm font-semibold">
-            <span v-if="phases.find(p => p.is_current)">
-              ชั้น {{ phases.find(p => p.is_current).sop_level }} —
-              {{ phases.find(p => p.is_current).name }}
-            </span>
-            <span v-else class="text-slate-500">ยังไม่ได้ตั้งขั้นปัจจุบัน · แสดงภาพรวม 3 ฝ่าย</span>
+            ชั้น {{ phases.find(p => p.is_current).sop_level }} —
+            {{ phases.find(p => p.is_current).name }}
           </div>
-          <div v-if="phases.find(p => p.is_current)?.description"
+          <div v-if="phases.find(p => p.is_current)?.details?.summary || phases.find(p => p.is_current)?.description"
                class="text-[11px] text-slate-500 dark:text-slate-400 flex-1 sm:text-right">
-            {{ phases.find(p => p.is_current).description }}
+            {{ phases.find(p => p.is_current)?.details?.summary || phases.find(p => p.is_current)?.description }}
           </div>
         </div>
 
-        <!-- Bullets ของขั้นปัจจุบัน — ถ้าผู้ใช้ตั้งค่าไว้ใน DB จะแสดงเป็น cards -->
-        <div v-if="(phases.find(p => p.is_current)?.details?.bullets || []).length"
-             class="grid md:grid-cols-3 gap-3 mb-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div v-for="(b, i) in phases.find(p => p.is_current).details.bullets" :key="i"
                class="card-tint-blue p-4">
             <div class="flex items-center gap-3 mb-2">
-              <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center">
+              <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center shrink-0">
                 <i :class="b.icon || 'fi-rr-circle'"></i>
               </div>
-              <div class="font-medium text-sm leading-snug">{{ b.text }}</div>
+              <div class="min-w-0">
+                <div class="font-medium text-sm leading-snug">{{ b.text }}</div>
+                <div v-if="b.subtitle" class="text-[11px] opacity-70 truncate">{{ b.subtitle }}</div>
+              </div>
+            </div>
+            <!-- ตัวเลข — แสดงเฉพาะเมื่อมี count -->
+            <div v-if="b.count != null && b.count !== ''"
+                 class="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+              {{ formatNumber(b.count) }}
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- 3 ฝ่าย (จาก Overview) — ตัวเลขจริงในระบบ — แสดงเสมอ -->
-        <div class="grid md:grid-cols-3 gap-3">
-          <div class="card-tint-blue p-4">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center"><i class="fi-rr-search"></i></div>
-              <div><div class="font-medium">ตรวจสอบสิทธิ์</div><div class="text-xs opacity-70">กรมบัญชีกลาง</div></div>
-            </div>
-            <div class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ formatNumber(overview.level_4.check_rights) }}</div>
-          </div>
-          <div class="card-tint-orange p-4">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center"><i class="fi-rr-paper-plane"></i></div>
-              <div><div class="font-medium">ส่งเอกสารเพิ่มเติม</div><div class="text-xs opacity-70">ผ่าน 13 ธนาคาร</div></div>
-            </div>
-            <div class="text-2xl font-bold text-orange-700 dark:text-orange-300">{{ formatNumber(overview.level_4.extra_docs) }}</div>
-          </div>
-          <div class="card-tint-sky p-4">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center"><i class="fi-rr-fingerprint"></i></div>
-              <div><div class="font-medium">ยืนยันตัวตน / ใช้สิทธิ</div><div class="text-xs opacity-70">e-KYC</div></div>
-            </div>
-            <div class="text-2xl font-bold text-sky-900 dark:text-sky-100">{{ formatNumber(overview.level_4.kyc_waiting + overview.level_4.kyc_done) }}</div>
-          </div>
-        </div>
+      <!-- Empty state: ยังไม่ตั้งขั้นปัจจุบัน หรือยังไม่มี bullets -->
+      <div v-else-if="phases.length && !phases.find(p => p.is_current)"
+           class="card-tint-orange p-4 text-sm flex items-center gap-2">
+        <i class="fi-rr-info text-orange-700"></i>
+        ยังไม่ได้ตั้งขั้นปัจจุบัน — กดปุ่ม "ตั้งเป็นขั้นปัจจุบัน" บนการ์ดข้างต้น
       </div>
 
       <!-- Trend with day-range tabs + custom date range -->

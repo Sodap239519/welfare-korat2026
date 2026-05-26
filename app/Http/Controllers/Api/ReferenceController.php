@@ -96,7 +96,7 @@ class ReferenceController extends Controller
                     ->header('Pragma', 'no-cache');
     }
 
-    /** POST /api/admin/phases/{id}/set-current — Super Admin only (route middleware) */
+    /** POST /api/admin/phases/{id}/set-current — Super Admin only · คืน phases ทั้งหมดใน response เลย (เลี่ยง cache GET ที่ตามมา) */
     public function setCurrentPhase(int $id): JsonResponse
     {
         $phase = ProjectPhase::findOrFail($id);
@@ -114,7 +114,9 @@ class ReferenceController extends Controller
         return response()->json([
             'message' => "ตั้งขั้นปัจจุบันเป็น ชั้น {$phase->sop_level} เรียบร้อย",
             'phase'   => $phase->fresh(['id', 'sop_level', 'name', 'is_current']),
-        ]);
+            // ส่ง phases สดทุกตัวกลับ — frontend จะแทน phases.value ทันที ไม่ต้อง GET ตามมา
+            'phases'  => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
     }
 
     private static function detailsRules(): array
@@ -155,7 +157,10 @@ class ReferenceController extends Controller
         activity('sop_phase')->causedBy(auth()->user())->performedOn($phase)
             ->log("เพิ่มขั้น SOP ใหม่: ชั้น {$phase->sop_level} — {$phase->name}");
 
-        return response()->json(['data' => $phase], 201);
+        return response()->json([
+            'data'   => $phase,
+            'phases' => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
+        ], 201)->header('Cache-Control', 'no-store');
     }
 
     /** PATCH /api/admin/phases/{id} — แก้ไขชื่อ/รายละเอียด/sop_level/details */
@@ -173,7 +178,10 @@ class ReferenceController extends Controller
         activity('sop_phase')->causedBy(auth()->user())->performedOn($phase)
             ->log("แก้ไขขั้น SOP: ชั้น {$phase->sop_level} — {$phase->name}");
 
-        return response()->json(['data' => $phase->fresh()]);
+        return response()->json([
+            'data'   => $phase->fresh(),
+            'phases' => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
+        ])->header('Cache-Control', 'no-store');
     }
 
     /** DELETE /api/admin/phases/{id} — ลบขั้น SOP (ไม่ลบขั้นที่กำลังเป็นปัจจุบัน) */
@@ -193,7 +201,10 @@ class ReferenceController extends Controller
         activity('sop_phase')->causedBy(auth()->user())
             ->log("ลบขั้น SOP: $info");
 
-        return response()->json(['message' => "ลบ $info เรียบร้อย"]);
+        return response()->json([
+            'message' => "ลบ $info เรียบร้อย",
+            'phases'  => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
+        ])->header('Cache-Control', 'no-store');
     }
 
     /** Quick aggregate for Overview page — รับ filter ?amphur_id=&tambon_id=&village_id= */

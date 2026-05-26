@@ -129,13 +129,15 @@ function openSopEdit(phase) {
     description: phase.description || '', sop_level: phase.sop_level || 1,
     detailsSummary: d.summary || '',
     detailsFooter:  d.footer  || '',
-    detailsBullets: Array.isArray(d.bullets) ? d.bullets.map(b => ({ ...b })) : [],
+    detailsBullets: Array.isArray(d.bullets)
+      ? d.bullets.map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text || '', subtitle: b.subtitle || '', count: b.count ?? null }))
+      : [],
   });
   sopErr.value = {};
   showSopEdit.value = true;
 }
 
-function addSopBullet() { sopForm.detailsBullets.push({ icon: 'fi-rr-circle', text: '' }); }
+function addSopBullet() { sopForm.detailsBullets.push({ icon: 'fi-rr-circle', text: '', subtitle: '', count: null }); }
 function removeSopBullet(i) { sopForm.detailsBullets.splice(i, 1); }
 function moveSopBullet(i, dir) {
   const j = i + dir;
@@ -148,7 +150,12 @@ async function saveSop() {
   try {
     const bullets = sopForm.detailsBullets
       .filter(b => b.text?.trim())
-      .map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text.trim() }));
+      .map(b => {
+        const out = { icon: b.icon || 'fi-rr-circle', text: b.text.trim() };
+        if (b.subtitle?.trim()) out.subtitle = b.subtitle.trim();
+        if (b.count !== null && b.count !== '' && !isNaN(Number(b.count))) out.count = Number(b.count);
+        return out;
+      });
     const details = (sopForm.detailsSummary || sopForm.detailsFooter || bullets.length)
       ? { summary: sopForm.detailsSummary || null, footer: sopForm.detailsFooter || null, bullets }
       : null;
@@ -156,10 +163,12 @@ async function saveSop() {
       name: sopForm.name, description: sopForm.description,
       sop_level: sopForm.sop_level, details,
     };
-    if (sopForm.id) await axios.patch(`/api/admin/phases/${sopForm.id}`, payload);
-    else            await axios.post('/api/admin/phases', payload);
+    const { data } = sopForm.id
+      ? await axios.patch(`/api/admin/phases/${sopForm.id}`, payload)
+      : await axios.post('/api/admin/phases', payload);
     showSopEdit.value = false;
-    await refetchPhases();
+    if (data?.phases) phases.value = data.phases;
+    else await refetchPhases();
   } catch (e) {
     sopErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
   } finally { sopSaving.value = false; }
@@ -167,16 +176,18 @@ async function saveSop() {
 
 async function setSopCurrentInSettings(phase) {
   if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
-  await axios.post(`/api/admin/phases/${phase.id}/set-current`);
-  await refetchPhases();
+  const { data } = await axios.post(`/api/admin/phases/${phase.id}/set-current`);
+  if (data?.phases) phases.value = data.phases;
+  else await refetchPhases();
 }
 
 async function deleteSop(phase) {
   if (phase.is_current) { alert('ลบขั้นที่เป็นปัจจุบันไม่ได้ — กรุณาตั้งขั้นอื่นเป็นปัจจุบันก่อน'); return; }
   if (!confirm(`ลบ "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
   try {
-    await axios.delete(`/api/admin/phases/${phase.id}`);
-    await refetchPhases();
+    const { data } = await axios.delete(`/api/admin/phases/${phase.id}`);
+    if (data?.phases) phases.value = data.phases;
+    else await refetchPhases();
   } catch (e) { alert(e.response?.data?.message || 'ลบไม่สำเร็จ'); }
 }
 
@@ -466,23 +477,31 @@ const ICON_OPTIONS = [
                 ยังไม่มีขั้นตอนย่อย
               </div>
               <div v-for="(b, i) in sopForm.detailsBullets" :key="i"
-                   class="flex items-center gap-1.5 mb-1.5">
-                <select v-model="b.icon"
-                        class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-32 shrink-0">
-                  <option v-for="o in ICON_BULLET_OPTIONS" :key="o.i" :value="o.i">{{ o.l }}</option>
-                </select>
-                <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
-                <input v-model="b.text" maxlength="300" placeholder="ข้อความขั้นตอน"
-                       class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-                <button type="button" @click="moveSopBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
-                  <i class="fi-rr-angle-up text-xs"></i>
-                </button>
-                <button type="button" @click="moveSopBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
-                  <i class="fi-rr-angle-down text-xs"></i>
-                </button>
-                <button type="button" @click="removeSopBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
-                  <i class="fi-rr-cross-small text-xs"></i>
-                </button>
+                   class="border border-slate-100 dark:border-slate-700 rounded-lg p-2 mb-2 space-y-1.5">
+                <div class="flex items-center gap-1.5">
+                  <select v-model="b.icon"
+                          class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs w-32 shrink-0">
+                    <option v-for="o in ICON_BULLET_OPTIONS" :key="o.i" :value="o.i">{{ o.l }}</option>
+                  </select>
+                  <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
+                  <input v-model="b.text" maxlength="300" placeholder="ข้อความขั้นตอน (เช่น ตรวจสอบสิทธิ์)"
+                         class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+                  <button type="button" @click="moveSopBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                    <i class="fi-rr-angle-up text-xs"></i>
+                  </button>
+                  <button type="button" @click="moveSopBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                    <i class="fi-rr-angle-down text-xs"></i>
+                  </button>
+                  <button type="button" @click="removeSopBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
+                    <i class="fi-rr-cross-small text-xs"></i>
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 pl-[8.5rem] pr-[6rem]">
+                  <input v-model="b.subtitle" maxlength="200" placeholder="หมายเหตุย่อย (เช่น กรมบัญชีกลาง) — ไม่บังคับ"
+                         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] text-slate-500">
+                  <input v-model="b.count" type="number" min="0" placeholder="จำนวน (ไม่บังคับ)"
+                         class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px]">
+                </div>
               </div>
             </div>
             <div class="mt-3">
