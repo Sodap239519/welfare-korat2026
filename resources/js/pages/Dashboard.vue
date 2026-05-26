@@ -27,6 +27,11 @@ const channel = ref({ labels: [], data: [] });
 const topData = ref([]);
 const topLevel = ref('amphur');          // เริ่มที่อำเภอเป็น default
 const topLoading = ref(false);
+
+// ภาพรวมทุกอำเภอ (32) + ทุกตำบล (~312) สำหรับ chart scroll horizontal
+const allAmphurs = ref([]);
+const allTambons = ref([]);
+const allLoading = ref(false);
 const topTabs = [
   { key: 'amphur',  label: 'อำเภอ',   icon: 'fi-rr-marker' },
   { key: 'tambon',  label: 'ตำบล',    icon: 'fi-rr-marker' },
@@ -171,8 +176,23 @@ async function loadAll() {
   channel.value = c.data;
   overview.value = ov.data;
   asOf.value = new Date(s.data.as_of).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-  await loadTop();
+  await Promise.all([loadTop(), loadAllLevels()]);
   refreshing.value = false;
+}
+
+async function loadAllLevels() {
+  allLoading.value = true;
+  const baseParams = {};
+  if (filters.value.amphur_id) baseParams.amphur_id = filters.value.amphur_id;
+  if (filters.value.tambon_id) baseParams.tambon_id = filters.value.tambon_id;
+  try {
+    const [a, t] = await Promise.all([
+      axios.get('/api/dashboard/top', { params: { level: 'amphur', limit: 100, ...baseParams } }),
+      axios.get('/api/dashboard/top', { params: { level: 'tambon', limit: 500, ...baseParams } }),
+    ]);
+    allAmphurs.value = a.data.data;
+    allTambons.value = t.data.data;
+  } finally { allLoading.value = false; }
 }
 
 function buildTrendParams(filterParams) {
@@ -340,6 +360,68 @@ const channelCountMap = computed(() => {
   channel.value.labels?.forEach((label, i) => { map[label] = channel.value.data[i] || 0; });
   return map;
 });
+
+// Column chart factory — % ลงทะเบียน รายอำเภอ/ตำบล (รองรับ scroll horizontal)
+function makeOverviewChart(rows, levelName) {
+  return {
+    options: {
+      chart: { type: 'bar', height: 320, fontFamily: 'Prompt, sans-serif', toolbar: { show: false }, animations: { enabled: false } },
+      plotOptions: {
+        bar: {
+          horizontal: false,
+          borderRadius: 6,
+          columnWidth: '70%',
+          distributed: true,            // แต่ละแท่งใช้สีจาก colors array
+          dataLabels: { position: 'top' },
+          colors: {
+            ranges: [
+              { from: 0,  to: 49,  color: '#dc2626' },   // แดง — ต้องเร่งรัด
+              { from: 50, to: 79,  color: '#f97316' },   // ส้ม — ปานกลาง
+              { from: 80, to: 100, color: '#16a34a' },   // เขียว — ดีเยี่ยม
+            ],
+          },
+        },
+      },
+      dataLabels: {
+        enabled: true,
+        formatter: v => v + '%',
+        offsetY: -18,
+        style: { fontSize: '10px', colors: ['#0f172a'], fontWeight: 600 },
+      },
+      legend: { show: false },
+      xaxis: {
+        categories: rows.map(r => r.name),
+        labels: {
+          rotate: -55, rotateAlways: true, hideOverlappingLabels: false, trim: false,
+          style: { fontSize: '10px', fontFamily: 'Prompt, sans-serif' },
+        },
+        axisBorder: { show: false }, axisTicks: { show: false },
+      },
+      yaxis: {
+        min: 0, max: 100,
+        labels: { formatter: v => v + '%' },
+        title: { text: '% ลงทะเบียน', style: { fontSize: '10px', fontWeight: 500 } },
+      },
+      grid: { borderColor: dark.value ? '#1f2937' : '#eef2f7', strokeDashArray: 3 },
+      tooltip: {
+        theme: dark.value ? 'dark' : 'light',
+        y: { formatter: (v, opts) => {
+          const r = rows[opts.dataPointIndex];
+          return `${v}% (${formatNumber(r.done)} / ${formatNumber(r.total)} ราย)`;
+        }},
+        x: { formatter: (val, opts) => {
+          const r = rows[opts.dataPointIndex];
+          return `${levelName}: ${r.name}` + (r.location ? ` · ${r.location}` : '');
+        }},
+      },
+      theme: { mode: dark.value ? 'dark' : 'light' },
+    },
+    series: [{ name: '% ลงทะเบียน', data: rows.map(r => r.pct) }],
+  };
+}
+
+const amphurChart = computed(() => makeOverviewChart(allAmphurs.value, 'อำเภอ'));
+const tambonChart = computed(() => makeOverviewChart(allTambons.value, 'ตำบล'));
 
 const phaseIconMap = { 1:'fi-rr-megaphone', 2:'fi-rr-edit', 3:'fi-rr-folder', 4:'fi-rr-search', 5:'fi-rr-chart-pie' };
 const currentPhaseIdx = computed(() => phases.value.findIndex(p => p.is_current));
@@ -750,6 +832,74 @@ function statusSegments(row) {
           </div>
         </div>
       </div>
+
+      <!-- ภาพรวมทุกอำเภอ + ทุกตำบล (column chart, scroll horizontal) -->
+      <div class="grid lg:grid-cols-2 gap-3">
+        <!-- Card 1: ทุกอำเภอ -->
+        <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
+          <div class="flex items-start justify-between mb-3 gap-2">
+            <div class="min-w-0">
+              <div class="font-semibold text-sm flex items-center gap-1.5">
+                <i class="fi-rr-marker text-blue-700"></i> ภาพรวมทุกอำเภอ
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                {{ allAmphurs.length }} อำเภอ · เลื่อนซ้าย-ขวาเพื่อดูทั้งหมด
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400 shrink-0 self-end whitespace-nowrap">
+              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-red-600"></span>&lt;50%</span>
+              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-orange-500"></span>50-79%</span>
+              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-green-600"></span>≥80%</span>
+            </div>
+          </div>
+          <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+          <div v-else-if="allAmphurs.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
+          <div v-else class="overflow-x-auto scroll-chart">
+            <div :style="{ minWidth: Math.max(allAmphurs.length * 60, 400) + 'px' }">
+              <apexchart type="bar" height="320" :options="amphurChart.options" :series="amphurChart.series" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: ทุกตำบล -->
+        <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
+          <div class="flex items-start justify-between mb-3 gap-2">
+            <div class="min-w-0">
+              <div class="font-semibold text-sm flex items-center gap-1.5">
+                <i class="fi-rr-marker text-sky-700"></i> ภาพรวมทุกตำบล
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400">
+                {{ allTambons.length }} ตำบล · เลื่อนซ้าย-ขวาเพื่อดูทั้งหมด
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-500 dark:text-slate-400 shrink-0 self-end whitespace-nowrap">
+              <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-sm bg-red-600"></span>&lt;50%</span>
+              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-orange-500"></span>50-79%</span>
+              <span class="inline-flex items-center gap-1 ml-2"><span class="w-2 h-2 rounded-sm bg-green-600"></span>≥80%</span>
+            </div>
+          </div>
+          <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+          <div v-else-if="allTambons.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
+          <div v-else class="overflow-x-auto scroll-chart">
+            <div :style="{ minWidth: Math.max(allTambons.length * 55, 400) + 'px' }">
+              <apexchart type="bar" height="320" :options="tambonChart.options" :series="tambonChart.series" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </AppLayout>
 </template>
+
+<style scoped>
+/* Scrollbar บางๆ สำหรับ chart ที่เลื่อนได้ */
+.scroll-chart {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+.scroll-chart::-webkit-scrollbar { height: 6px; }
+.scroll-chart::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+.scroll-chart::-webkit-scrollbar-track { background: transparent; }
+:global(.dark) .scroll-chart { scrollbar-color: #475569 transparent; }
+:global(.dark) .scroll-chart::-webkit-scrollbar-thumb { background: #475569; }
+</style>

@@ -207,7 +207,8 @@ class DashboardController extends Controller
     public function top(Request $request): JsonResponse
     {
         $level = $request->input('level', 'village');
-        $limit = max(1, min((int) $request->input('limit', 10), 50));
+        // cap 1000 — รองรับ "ทุกอำเภอ" (32) และ "ทุกตำบล" (~312) บน chart ภาพรวม
+        $limit = max(1, min((int) $request->input('limit', 10), 1000));
 
         $groupCols = match ($level) {
             'amphur'  => ['amphurs.id as gid', 'amphurs.name as name', DB::raw('NULL as sub_location')],
