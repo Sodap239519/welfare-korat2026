@@ -77,7 +77,7 @@ function popupHtml(v) {
         </div>
       </div>
       <button
-        onclick="window.__wkGoVillage(${v.id})"
+        onclick="window.__wkGoVillage(${v.id}, ${v.tambon_id}, ${v.amphur_id})"
         style="margin-top: 10px; width: 100%; padding: 6px 10px; background: #1d4ed8; color: white; border: 0; border-radius: 8px; cursor: pointer; font-size: 12px; font-family: 'Prompt', sans-serif;">
         ดูรายชื่อในหมู่บ้านนี้ →
       </button>
@@ -151,8 +151,11 @@ onMounted(async () => {
   initMap();
   await loadVillages();
   // Make popup button navigate
-  window.__wkGoVillage = (id) => {
-    router.push({ name: 'targets', query: { village_id: id } });
+  window.__wkGoVillage = (villageId, tambonId, amphurId) => {
+    router.push({
+      name: 'targets',
+      query: { amphur_id: amphurId, tambon_id: tambonId, village_id: villageId },
+    });
   };
 });
 

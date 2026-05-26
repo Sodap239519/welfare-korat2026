@@ -25,28 +25,31 @@ class MapController extends Controller
             ->when($request->filled('tambon_id'),  fn ($q) => $q->where('tambons.id', (int) $request->tambon_id))
             ->selectRaw('
                 villages.id, villages.name, villages.moo, villages.lat, villages.lng,
-                tambons.name as tambon, amphurs.name as amphur,
+                tambons.id as tambon_id, tambons.name as tambon,
+                amphurs.id as amphur_id, amphurs.name as amphur,
                 COUNT(DISTINCT targets.id) as total,
                 COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) as done,
                 COUNT(DISTINCT CASE WHEN tcs.status_code = "4.7" THEN targets.id END) as kyc_done
             ')
-            ->groupBy('villages.id', 'villages.name', 'villages.moo', 'villages.lat', 'villages.lng', 'tambons.name', 'amphurs.name')
+            ->groupBy('villages.id', 'villages.name', 'villages.moo', 'villages.lat', 'villages.lng', 'tambons.id', 'tambons.name', 'amphurs.id', 'amphurs.name')
             ->get();
 
         return response()->json([
             'data' => $rows->map(function ($r) {
                 $pct = $r->total > 0 ? round(($r->done / $r->total) * 100) : 0;
                 return [
-                    'id'        => (int) $r->id,
-                    'name'      => $r->name . ($r->moo ? ' (ม.'.$r->moo.')' : ''),
-                    'tambon'    => $r->tambon,
-                    'amphur'    => $r->amphur,
-                    'lat'       => (float) $r->lat,
-                    'lng'       => (float) $r->lng,
-                    'total'     => (int) $r->total,
-                    'done'      => (int) $r->done,
-                    'kyc_done'  => (int) $r->kyc_done,
-                    'pct'       => $pct,
+                    'id'         => (int) $r->id,
+                    'name'       => $r->name . ($r->moo ? ' (ม.'.$r->moo.')' : ''),
+                    'tambon_id'  => (int) $r->tambon_id,
+                    'tambon'     => $r->tambon,
+                    'amphur_id'  => (int) $r->amphur_id,
+                    'amphur'     => $r->amphur,
+                    'lat'        => (float) $r->lat,
+                    'lng'        => (float) $r->lng,
+                    'total'      => (int) $r->total,
+                    'done'       => (int) $r->done,
+                    'kyc_done'   => (int) $r->kyc_done,
+                    'pct'        => $pct,
                 ];
             }),
         ]);

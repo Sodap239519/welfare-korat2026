@@ -3,10 +3,12 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { formatNumber, shortDate, statusColorClass, statusShort } from '@/composables/useApi';
 
 const router = useRouter();
+const route = useRoute();
+const bootstrapping = ref(true);
 
 const statuses = ref([]);
 const channels = ref([]);
@@ -127,18 +129,82 @@ async function load(page = 1) {
   }
 }
 
-onMounted(async () => { await loadOpts(); await load(); });
+onMounted(async () => {
+  await loadOpts();
+
+  // Sync filters from URL query (e.g. ?village_id=12&tambon_id=3&amphur_id=1 from Map popup)
+  const q = route.query;
+  if (q.amphur_id) {
+    filters.amphur_id = String(q.amphur_id);
+    tambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: q.amphur_id } })).data.data;
+  }
+  if (q.tambon_id) {
+    filters.tambon_id = String(q.tambon_id);
+    villageOpts.value = (await axios.get('/api/ref/villages', { params: { tambon_id: q.tambon_id } })).data.data;
+  }
+  if (q.village_id) filters.village_id = String(q.village_id);
+  if (q.status) filters.status = String(q.status);
+
+  // เปิด filter panel อัตโนมัติเมื่อเข้ามาจาก Map / link มี query
+  if (q.amphur_id || q.tambon_id || q.village_id || q.status) {
+    filtersOpen.value = true;
+  }
+
+  bootstrapping.value = false;
+  await load();
+});
 
 let searchTimer;
 watch(() => filters.q, () => {
+  if (bootstrapping.value) return;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => load(1), 300);
 });
-watch(() => [filters.status, filters.amphur_id, filters.tambon_id, filters.village_id], () => load(1));
+watch(() => [filters.status, filters.amphur_id, filters.tambon_id, filters.village_id], () => {
+  if (bootstrapping.value) return;
+  load(1);
+});
+
+// React to URL change (e.g. Map popup clicked while already on /targets)
+watch(() => route.query, async (newQ) => {
+  if (route.name !== 'targets') return;
+  bootstrapping.value = true;
+  if (newQ.amphur_id && newQ.amphur_id !== filters.amphur_id) {
+    filters.amphur_id = String(newQ.amphur_id);
+    tambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: newQ.amphur_id } })).data.data;
+  }
+  if (newQ.tambon_id && newQ.tambon_id !== filters.tambon_id) {
+    filters.tambon_id = String(newQ.tambon_id);
+    villageOpts.value = (await axios.get('/api/ref/villages', { params: { tambon_id: newQ.tambon_id } })).data.data;
+  }
+  if (newQ.village_id) filters.village_id = String(newQ.village_id);
+  bootstrapping.value = false;
+  await load(1);
+}, { deep: true });
 
 const activeFilterCount = computed(() => {
   return ['amphur_id','tambon_id','village_id','status'].filter(k => filters[k]).length;
 });
+
+const scopeLabel = computed(() => {
+  const parts = [];
+  const v = villageOpts.value.find(x => String(x.id) === String(filters.village_id));
+  if (v) parts.push(v.name + (v.moo ? ' (ม.'+v.moo+')' : ''));
+  const t = tambonOpts.value.find(x => String(x.id) === String(filters.tambon_id));
+  if (t) parts.push('ต.'+t.name);
+  const a = amphurOpts.value.find(x => String(x.id) === String(filters.amphur_id));
+  if (a) parts.push('อ.'+a.name);
+  return parts.join(' · ');
+});
+
+function clearScope() {
+  filters.amphur_id = '';
+  filters.tambon_id = '';
+  filters.village_id = '';
+  tambonOpts.value = [];
+  villageOpts.value = [];
+  router.replace({ name: 'targets' });
+}
 
 function goDetail(id) { router.push({ name: 'target-detail', params: { id } }); }
 function selectStatus(code) { filters.status = filters.status === code ? '' : code; }
@@ -152,10 +218,16 @@ function selectStatus(code) { filters.status = filters.status === code ? '' : co
         <i class="fi-rr-check-circle"></i> {{ flashOk }}
       </div>
 
-      <div class="card-hero p-4 flex items-center justify-between">
-        <div>
-          <div class="text-xs opacity-80">เป้าหมายในขอบเขตที่เลือก</div>
+      <div class="card-hero p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div class="min-w-0">
+          <div class="text-xs opacity-80">
+            <span v-if="scopeLabel">กำลังดูเฉพาะ: <strong class="opacity-100">{{ scopeLabel }}</strong></span>
+            <span v-else>เป้าหมายในขอบเขตที่เลือก</span>
+          </div>
           <div class="text-2xl lg:text-3xl font-bold mt-0.5">{{ formatNumber(statusCounts._total || 0) }} <span class="text-sm font-normal opacity-80">คน</span></div>
+          <button v-if="scopeLabel" @click="clearScope" class="text-xs mt-1 opacity-80 hover:opacity-100 underline">
+            <i class="fi-rr-cross-small"></i> ล้างตัวกรองทั้งหมด · ดูทั้งจังหวัด
+          </button>
         </div>
         <div class="text-right text-xs opacity-90">
           <div>ลงทะเบียนแล้ว <strong class="text-base">{{ formatNumber(Object.entries(statusCounts).filter(([k]) => !['0','4.1','_total'].includes(k)).reduce((a,[,n]) => a + Number(n||0), 0)) }}</strong> ราย</div>
