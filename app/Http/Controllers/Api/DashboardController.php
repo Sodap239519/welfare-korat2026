@@ -53,38 +53,68 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** GET /api/dashboard/trends?days=14  (1, 7, 14, 30) */
+    /** GET /api/dashboard/trends?days=14 | from=YYYY-MM-DD&to=YYYY-MM-DD  (optional amphur_id/tambon_id/village_id) */
     public function trends(Request $request): JsonResponse
     {
-        $days = max(1, min((int) $request->input('days', 14), 60));
+        // 1) Resolve date window (from/to override days)
+        if ($request->filled('from') && $request->filled('to')) {
+            $from = \Carbon\Carbon::parse($request->input('from'))->startOfDay();
+            $to   = \Carbon\Carbon::parse($request->input('to'))->endOfDay();
+            if ($to->lt($from)) [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+            $days = max(1, $from->diffInDays($to) + 1);
+        } else {
+            $days = max(1, min((int) $request->input('days', 14), 365));
+            $from = now()->subDays($days - 1)->startOfDay();
+            $to   = now()->endOfDay();
+        }
 
-        $rows = TargetStatusLog::query()
-            ->whereDate('changed_at', '>=', now()->subDays($days))
-            ->whereNotIn('status_code', ['4.1'])
-            ->selectRaw('DATE(changed_at) as d, COUNT(*) as n')
+        // 2) Scope: filter status logs to targets in selected amphur/tambon/village
+        $scopedTargetIds = Target::query()->where('active', true)
+            ->when($request->filled('amphur_id'),  fn ($q) => $q->where('amphur_id',  (int) $request->amphur_id))
+            ->when($request->filled('tambon_id'),  fn ($q) => $q->where('tambon_id',  (int) $request->tambon_id))
+            ->when($request->filled('village_id'), fn ($q) => $q->where('village_id', (int) $request->village_id))
+            ->pluck('id');
+
+        $hasScope = $request->filled('amphur_id') || $request->filled('tambon_id') || $request->filled('village_id');
+
+        $logsQ = TargetStatusLog::query()
+            ->whereBetween('changed_at', [$from, $to])
+            ->whereNotIn('status_code', ['4.1']);
+        if ($hasScope) $logsQ->whereIn('target_id', $scopedTargetIds);
+
+        $rows = $logsQ->selectRaw('DATE(changed_at) as d, COUNT(*) as n')
             ->groupBy('d')
             ->pluck('n', 'd');
 
-        $registered = (int) TargetCurrentStatus::whereNotIn('status_code', ['4.1'])->count();
+        // 3) Baseline = ลทบ.ก่อนช่วงนี้ (scoped)
+        $registeredQ = TargetCurrentStatus::query()->whereNotIn('status_code', ['4.1']);
+        if ($hasScope) $registeredQ->whereIn('target_id', $scopedTargetIds);
+        $registered = (int) $registeredQ->count();
         $baseline   = max(0, $registered - $rows->sum());
-        $totalForTarget = (int) Target::where('active', true)->count();
-        $dailyGoal  = $totalForTarget > 0 ? (int) round($totalForTarget * 0.75 / $days) : 0;
+
+        $totalForTarget = $hasScope ? $scopedTargetIds->count() : (int) Target::where('active', true)->count();
+        $dailyGoal  = $totalForTarget > 0 ? (int) round($totalForTarget * 0.75 / max($days, 1)) : 0;
 
         $labels = $cumSeries = $tgtSeries = [];
         $cum = $baseline;
         $tCum = $baseline;
 
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $date = now()->subDays($i)->toDateString();
+        $cursor = $from->copy();
+        for ($i = 0; $i < $days; $i++) {
+            $date = $cursor->toDateString();
             $cum += (int) ($rows[$date] ?? 0);
             $tCum += $dailyGoal;
-            $labels[]    = now()->subDays($i)->format('d');
+            $labels[]    = $cursor->format('d/m');
             $cumSeries[] = $cum;
             $tgtSeries[] = $tCum;
+            $cursor->addDay();
         }
 
         return response()->json([
             'labels' => $labels,
+            'from'   => $from->toDateString(),
+            'to'     => $to->toDateString(),
+            'days'   => $days,
             'series' => [
                 ['name' => 'ยอดสะสม',  'data' => $cumSeries],
                 ['name' => 'เป้าหมาย', 'data' => $tgtSeries],

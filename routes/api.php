@@ -74,6 +74,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('activity',       [ActivityLogController::class, 'index']);
         Route::get('activity/stats', [ActivityLogController::class, 'stats']);
+
+        // SOP phase — Super Admin ตั้งขั้นปัจจุบัน
+        Route::post('phases/{id}/set-current', [ReferenceController::class, 'setCurrentPhase'])->whereNumber('id');
     });
 
     // Trackers

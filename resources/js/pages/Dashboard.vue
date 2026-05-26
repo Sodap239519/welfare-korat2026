@@ -13,23 +13,28 @@ const dark = computed(() => theme.isDark);
 const filters = ref({ amphur_id: '', tambon_id: '', village_id: '' });
 const stats = ref(null);
 const trend = ref({ labels: [], series: [{ name: 'ยอดสะสม', data: [] }, { name: 'เป้าหมาย', data: [] }] });
-// trendDays = window ของ chart (1, 7, 14, 30)
+// trendDays = 1 | 7 | 14 | 30 | 'custom'
 const trendDays = ref(14);
+const customRange = ref({ from: '', to: '' });
 const trendTabs = [
-  { label: 'วันนี้', days: 1 },
-  { label: '7 วัน',  days: 7 },
-  { label: '14 วัน', days: 14 },
-  { label: '1 เดือน', days: 30 },
+  { label: 'วันนี้',    value: 1 },
+  { label: '7 วัน',     value: 7 },
+  { label: '14 วัน',    value: 14 },
+  { label: '1 เดือน',   value: 30 },
+  { label: 'กำหนดเอง', value: 'custom' },
 ];
 const channel = ref({ labels: [], data: [] });
 const topData = ref([]);
-const topLevel = ref('village');         // 'amphur' | 'tambon' | 'village'
+const topLevel = ref('amphur');          // เริ่มที่อำเภอเป็น default
 const topLoading = ref(false);
 const topTabs = [
   { key: 'amphur',  label: 'อำเภอ',   icon: 'fi-rr-marker' },
   { key: 'tambon',  label: 'ตำบล',    icon: 'fi-rr-marker' },
   { key: 'village', label: 'หมู่บ้าน', icon: 'fi-rr-home' },
 ];
+
+// SOP card collapsed state — key=sop_level, value=true/false
+const sopExpanded = ref({});
 const phases = ref([]);
 const overview = ref(null);
 const channelsRef = ref([]);
@@ -142,11 +147,12 @@ async function loadAll() {
   refreshing.value = true;
   const params = { ...filters.value };
   Object.keys(params).forEach(k => params[k] === '' && delete params[k]);
+  const trendParams = buildTrendParams(params);
   const [s, t, c, ov] = await Promise.all([
-    axios.get('/api/dashboard/stats',      { params }),
-    axios.get('/api/dashboard/trends',     { params: { ...params, days: trendDays.value } }),
-    axios.get('/api/dashboard/by-channel', { params }),
-    axios.get('/api/ref/overview-metrics'),
+    axios.get('/api/dashboard/stats',        { params }),
+    axios.get('/api/dashboard/trends',       { params: trendParams }),
+    axios.get('/api/dashboard/by-channel',   { params }),
+    axios.get('/api/ref/overview-metrics',   { params }),  // ← respect filter
   ]);
   stats.value = s.data;
   trend.value = t.data;
@@ -157,9 +163,20 @@ async function loadAll() {
   refreshing.value = false;
 }
 
+function buildTrendParams(filterParams) {
+  const p = { ...filterParams };
+  if (trendDays.value === 'custom' && customRange.value.from && customRange.value.to) {
+    p.from = customRange.value.from;
+    p.to   = customRange.value.to;
+  } else {
+    p.days = trendDays.value;
+  }
+  return p;
+}
+
 async function loadTop() {
   topLoading.value = true;
-  const params = { level: topLevel.value, limit: 10 };
+  const params = { level: topLevel.value, limit: 5 };
   if (filters.value.amphur_id) params.amphur_id = filters.value.amphur_id;
   if (filters.value.tambon_id) params.tambon_id = filters.value.tambon_id;
   try {
@@ -168,12 +185,44 @@ async function loadTop() {
   } finally { topLoading.value = false; }
 }
 
-async function reloadTrend(days) {
-  trendDays.value = days;
-  const params = { ...filters.value, days };
+async function reloadTrend(daysOrCustom) {
+  trendDays.value = daysOrCustom;
+  if (daysOrCustom === 'custom') {
+    // Init range to last 30 days if not set
+    if (!customRange.value.from) {
+      const today = new Date();
+      const past  = new Date(); past.setDate(past.getDate() - 30);
+      customRange.value.from = past.toISOString().slice(0, 10);
+      customRange.value.to   = today.toISOString().slice(0, 10);
+    }
+    return; // wait for user to apply
+  }
+  await fetchTrend();
+}
+
+async function fetchTrend() {
+  const params = { ...filters.value };
   Object.keys(params).forEach(k => params[k] === '' && delete params[k]);
-  const { data } = await axios.get('/api/dashboard/trends', { params });
+  const trendParams = buildTrendParams(params);
+  const { data } = await axios.get('/api/dashboard/trends', { params: trendParams });
   trend.value = data;
+}
+
+async function applyCustomRange() {
+  if (!customRange.value.from || !customRange.value.to) return;
+  await fetchTrend();
+}
+
+async function setSopCurrent(phase) {
+  if (!auth.isSuperAdmin) return;
+  if (!confirm(`ตั้งขั้นปัจจุบันเป็น "ชั้น ${phase.sop_level} — ${phase.name}" ?`)) return;
+  await axios.post(`/api/admin/phases/${phase.id}/set-current`);
+  // reload phases
+  phases.value = (await axios.get('/api/ref/project-phases')).data.data;
+}
+
+function toggleSop(level) {
+  sopExpanded.value[level] = !sopExpanded.value[level];
 }
 
 function selectTopLevel(level) {
@@ -193,12 +242,27 @@ const trendOptions = computed(() => ({
   colors: ['#2563eb', '#94a3b8'],
   stroke: { curve: 'smooth', width: [3, 2], dashArray: [0, 5] },
   fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 90, 100] } },
-  dataLabels: { enabled: false },
+  dataLabels: {
+    enabled: true,
+    enabledOnSeries: [0], // เฉพาะ "ยอดสะสม"
+    background: { enabled: true, foreColor: '#1d4ed8', padding: 4, borderRadius: 4, borderWidth: 1, borderColor: '#2563eb', opacity: 0.95 },
+    style: { fontSize: '10px', fontWeight: 600 },
+    formatter: (val, opts) => {
+      const series = opts.w.config.series[opts.seriesIndex].data;
+      const last = series.length - 1;
+      // แสดงแค่ จุดแรก / จุดกลาง / จุดสุดท้าย เพื่อลดความรก
+      if (opts.dataPointIndex === 0 || opts.dataPointIndex === last || opts.dataPointIndex === Math.floor(last / 2)) {
+        return formatNumber(val);
+      }
+      return '';
+    },
+  },
+  markers: { size: [4, 0], strokeWidth: 0, hover: { size: 6 } },
   grid: { borderColor: dark.value ? '#1f2937' : '#eef2f7', strokeDashArray: 3 },
   xaxis: { categories: trend.value.labels, axisBorder: { show: false }, axisTicks: { show: false } },
   yaxis: { labels: { formatter: v => (v >= 1000 ? (v/1000).toFixed(1)+'k' : String(v)) } },
   legend: { position: 'top', horizontalAlign: 'right' },
-  tooltip: { theme: dark.value ? 'dark' : 'light' },
+  tooltip: { theme: dark.value ? 'dark' : 'light', y: { formatter: v => formatNumber(v) } },
   theme: { mode: dark.value ? 'dark' : 'light' },
 }));
 
@@ -213,13 +277,24 @@ const statusOptions = computed(() => {
       chart: { type: 'donut', height: 280, fontFamily: 'Prompt, sans-serif' },
       colors,
       labels,
-      dataLabels: { enabled: false },
+      dataLabels: {
+        enabled: true,
+        style: { fontSize: '11px', fontWeight: 600 },
+        dropShadow: { enabled: true, blur: 2, opacity: 0.6 },
+        formatter: (val, opts) => {
+          const n = opts.w.globals.seriesTotals[opts.seriesIndex];
+          return n > 0 ? formatNumber(n) : '';
+        },
+      },
       legend: { position: 'bottom', fontSize: '11px' },
       stroke: { width: 2, colors: [dark.value ? '#0f172a' : '#ffffff'] },
-      plotOptions: { pie: { donut: { size: '68%', labels: { show: true, total: {
-        show: true, label: 'รวม',
-        formatter: () => formatNumber(series.reduce((a,b) => a+b, 0))
-      } } } } },
+      plotOptions: { pie: { donut: { size: '68%', labels: { show: true,
+        value: { show: true, fontSize: '20px', fontWeight: 700, formatter: v => formatNumber(v) },
+        total: {
+          show: true, label: 'รวม', fontSize: '12px',
+          formatter: (w) => formatNumber(w.globals.seriesTotals.reduce((a, b) => a + b, 0)),
+        }
+      } } } },
       tooltip: { theme: dark.value ? 'dark' : 'light', y: { formatter: v => formatNumber(v) + ' ราย' } },
       theme: { mode: dark.value ? 'dark' : 'light' },
     },
@@ -343,62 +418,92 @@ function statusSegments(row) {
         </div>
       </div>
 
-      <!-- SOP 5 ขั้น แบบมีรายละเอียดตามแผนปฏิบัติการ -->
+      <!-- SOP 5 ขั้น — minimal header + collapsible details + color by status -->
       <div v-if="phases.length" class="card p-4 lg:p-5">
         <div class="flex items-center justify-between gap-2 mb-4 flex-wrap">
           <div>
-            <div class="font-semibold">SOP 5 ขั้น · Onboard คนจน 1 คน ใช้กับทั้ง {{ formatNumber(stats?.total || 61743) }} คน</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">
-              Demand → Supply → เตรียมกลุ่มเป้าหมาย → กลไกชุมชน → ติดตาม
-            </div>
+            <div class="font-semibold">SOP 5 ขั้น · Onboard คนจน 1 คน ใช้กับทั้ง {{ formatNumber(stats?.total || 0) }} คน</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">Demand → Supply → เตรียมกลุ่มเป้าหมาย → กลไกชุมชน → ติดตาม</div>
           </div>
           <span class="text-xs px-2.5 py-1 rounded-full card-tint-blue font-medium whitespace-nowrap">
             ขั้นปัจจุบัน: ชั้น {{ phases.find(p => p.is_current)?.sop_level || '—' }}
           </span>
         </div>
 
-        <!-- เลื่อนแนวนอนบน mobile · grid 5 คอลัมน์บน desktop -->
         <div class="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto -mx-1 px-1 pb-1 snap-x">
           <div v-for="(p, idx) in phases" :key="p.id"
-               :class="['shrink-0 w-72 sm:w-80 lg:w-auto snap-start rounded-2xl p-4 border min-w-0 relative',
-                        sopTintMap[sopDetails[p.sop_level]?.color || 'blue'],
-                        p.is_current ? 'ring-2 ring-blue-500' : '']">
-            <!-- Header step number + name -->
-            <div class="flex items-start gap-3 mb-3">
-              <div :class="['w-11 h-11 shrink-0 rounded-xl text-white flex items-center justify-center text-lg font-bold shadow-md',
-                            sopBadgeMap[sopDetails[p.sop_level]?.color || 'blue']]">
-                <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
-                <span v-else>{{ p.sop_level }}</span>
+               :class="['shrink-0 w-72 sm:w-80 lg:w-auto snap-start rounded-2xl border-2 min-w-0 relative transition flex flex-col',
+                        idx < currentPhaseIdx
+                          ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+                        : p.is_current
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-500 shadow-md'
+                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700']">
+
+            <!-- Header — แสดงเฉพาะ ขั้นที่ + ชื่อขั้น (font 18pt) -->
+            <div class="p-4">
+              <div class="flex items-start gap-3">
+                <div :class="['w-12 h-12 shrink-0 rounded-xl text-white flex items-center justify-center text-xl font-bold shadow',
+                              idx < currentPhaseIdx ? 'bg-green-600'
+                            : p.is_current          ? 'bg-blue-700'
+                                                    : 'bg-slate-400 dark:bg-slate-600']">
+                  <i v-if="idx < currentPhaseIdx" class="fi-rr-check"></i>
+                  <span v-else>{{ p.sop_level }}</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div :class="['text-[10px] uppercase tracking-wider font-medium',
+                                idx < currentPhaseIdx ? 'text-green-700 dark:text-green-300'
+                              : p.is_current          ? 'text-blue-700 dark:text-blue-300'
+                                                      : 'text-slate-500 dark:text-slate-400']">
+                    ขั้นที่ {{ p.sop_level }} · {{
+                      idx < currentPhaseIdx ? 'สำเร็จแล้ว'
+                      : p.is_current        ? 'กำลังดำเนินการ'
+                                            : 'ยังไม่ถึง'
+                    }}
+                  </div>
+                  <div class="font-semibold leading-snug" style="font-size: 1.125rem;">
+                    {{ sopDetails[p.sop_level]?.title || p.name }}
+                  </div>
+                </div>
               </div>
-              <div class="min-w-0 flex-1">
-                <div class="text-[10px] uppercase tracking-wider opacity-70">ขั้นที่ {{ p.sop_level }}</div>
-                <div class="font-semibold text-sm leading-tight">{{ sopDetails[p.sop_level]?.title || p.name }}</div>
+
+              <!-- Toggle button — เปิดดูรายละเอียด -->
+              <button @click="toggleSop(p.sop_level)"
+                      class="mt-3 w-full text-xs flex items-center justify-center gap-1.5 py-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-800/60 text-slate-600 dark:text-slate-400">
+                <span>{{ sopExpanded[p.sop_level] ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด' }}</span>
+                <i :class="sopExpanded[p.sop_level] ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down'"></i>
+              </button>
+            </div>
+
+            <!-- Collapsible details -->
+            <div v-if="sopExpanded[p.sop_level]"
+                 class="px-4 pb-4 border-t border-current/10 bg-white/40 dark:bg-slate-900/30 rounded-b-2xl">
+              <div class="text-xs leading-snug mt-3 mb-2 text-slate-600 dark:text-slate-300">
+                {{ sopDetails[p.sop_level]?.summary || p.description }}
+              </div>
+              <ul class="space-y-1.5">
+                <li v-for="(b, i) in (sopDetails[p.sop_level]?.bullets || [])" :key="i"
+                    class="flex items-start gap-2 text-xs leading-snug">
+                  <i :class="[b.icon, 'mt-0.5 shrink-0 opacity-70']"></i>
+                  <span>{{ b.text }}</span>
+                </li>
+              </ul>
+              <div v-if="sopDetails[p.sop_level]?.footer"
+                   class="mt-3 pt-2 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                {{ sopDetails[p.sop_level].footer }}
               </div>
             </div>
 
-            <!-- Summary line -->
-            <div class="text-xs opacity-80 leading-snug mb-3">
-              {{ sopDetails[p.sop_level]?.summary || p.description }}
+            <!-- Super Admin: ตั้งเป็นขั้นปัจจุบัน -->
+            <div v-if="auth.isSuperAdmin && !p.is_current" class="px-4 pb-4 mt-auto">
+              <button @click="setSopCurrent(p)"
+                      class="w-full text-[11px] py-1.5 px-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-slate-500 flex items-center justify-center gap-1">
+                <i class="fi-rr-pin"></i> ตั้งเป็นขั้นปัจจุบัน
+              </button>
             </div>
 
-            <!-- Bullets -->
-            <ul class="space-y-1.5">
-              <li v-for="(b, i) in (sopDetails[p.sop_level]?.bullets || [])" :key="i"
-                  class="flex items-start gap-2 text-xs leading-snug">
-                <i :class="[b.icon, 'mt-0.5 shrink-0 opacity-80']"></i>
-                <span>{{ b.text }}</span>
-              </li>
-            </ul>
-
-            <!-- Footer note -->
-            <div v-if="sopDetails[p.sop_level]?.footer"
-                 class="mt-3 pt-3 border-t border-current/15 text-[11px] opacity-70 leading-snug">
-              {{ sopDetails[p.sop_level].footer }}
-            </div>
-
-            <!-- ลูกศรเชื่อม (desktop เท่านั้น) -->
+            <!-- ลูกศรเชื่อม (desktop) -->
             <i v-if="idx < phases.length - 1"
-               class="fi-rr-angle-right hidden lg:block absolute -right-2.5 top-1/2 -translate-y-1/2 z-10 text-slate-400 dark:text-slate-600"></i>
+               class="fi-rr-angle-right hidden lg:block absolute -right-3.5 top-1/2 -translate-y-1/2 z-10 text-slate-300 dark:text-slate-600 text-lg"></i>
           </div>
         </div>
       </div>
@@ -431,24 +536,43 @@ function statusSegments(row) {
         </div>
       </div>
 
-      <!-- Trend with day-range tabs -->
+      <!-- Trend with day-range tabs + custom date range -->
       <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
         <div class="flex items-start justify-between gap-2 flex-wrap mb-2">
           <div class="min-w-0">
             <div class="font-semibold text-sm">แนวโน้มการลงทะเบียน</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">ยอดสะสมรายวัน · เทียบเป้าหมาย</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">
+              ยอดสะสมรายวัน · เทียบเป้าหมาย
+              <span v-if="trend.from && trend.to"> · {{ trend.from }} → {{ trend.to }}</span>
+            </div>
           </div>
           <!-- Day range tabs -->
-          <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 shrink-0">
-            <button v-for="t in trendTabs" :key="t.days" @click="reloadTrend(t.days)"
-                    :class="['px-3 py-1.5 rounded-lg text-xs font-medium transition',
-                             trendDays === t.days
+          <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 shrink-0 overflow-x-auto">
+            <button v-for="t in trendTabs" :key="t.value" @click="reloadTrend(t.value)"
+                    :class="['shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition',
+                             trendDays === t.value
                                ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200']">
               {{ t.label }}
             </button>
           </div>
         </div>
+
+        <!-- Custom date range inputs — แสดงเฉพาะตอนเลือก 'กำหนดเอง' -->
+        <div v-if="trendDays === 'custom'" class="card-tint-blue p-3 rounded-xl mb-3 flex items-center gap-2 flex-wrap text-xs">
+          <i class="fi-rr-calendar text-blue-700"></i>
+          <span class="font-medium">ช่วงวันที่:</span>
+          <input v-model="customRange.from" type="date"
+                 class="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+          <span>ถึง</span>
+          <input v-model="customRange.to" type="date"
+                 class="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
+          <button @click="applyCustomRange" :disabled="!customRange.from || !customRange.to"
+                  class="btn-primary px-3 py-1.5 text-xs flex items-center gap-1 disabled:opacity-50">
+            <i class="fi-rr-check"></i> แสดงผล
+          </button>
+        </div>
+
         <div class="w-full overflow-hidden">
           <apexchart type="area" height="280" :options="trendOptions" :series="trend.series" />
         </div>
@@ -502,11 +626,11 @@ function statusSegments(row) {
         </div>
       </div>
 
-      <!-- TOP 10 สรุปยอด — สลับระดับ อำเภอ/ตำบล/หมู่บ้าน · breakdown 7 สถานะ -->
+      <!-- TOP 5 สรุปยอด — สลับระดับ อำเภอ/ตำบล/หมู่บ้าน · breakdown 7 สถานะ -->
       <div class="card p-4 lg:p-5">
         <div class="flex items-start justify-between gap-2 flex-wrap mb-3">
           <div>
-            <div class="font-semibold text-sm">TOP 10 สรุปยอด · เรียงตาม % ลงทะเบียน</div>
+            <div class="font-semibold text-sm">TOP 5 สรุปยอด · เรียงตาม % ลงทะเบียน</div>
             <div class="text-xs text-slate-500 dark:text-slate-400">แสดงสัดส่วน 7 สถานะการลงทะเบียน (4.1-4.7)</div>
           </div>
           <RouterLink to="/targets" class="text-xs text-blue-700 dark:text-blue-400 hover:underline shrink-0">ดูทั้งหมด →</RouterLink>
@@ -555,11 +679,19 @@ function statusSegments(row) {
             </div>
 
             <!-- Stacked status bar -->
-            <div class="mt-2 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+            <div class="mt-2 h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
               <div v-for="seg in statusSegments(row)" :key="seg.code"
                    :style="{ width: seg.width + '%', background: seg.color }"
                    :title="`${seg.label} · ${formatNumber(seg.count)} ราย`"
                    class="h-full first:rounded-l-full last:rounded-r-full"></div>
+            </div>
+            <!-- Inline status counts -->
+            <div class="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px]">
+              <span v-for="seg in statusSegments(row)" :key="seg.code"
+                    class="flex items-center gap-1 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                <span class="w-1.5 h-1.5 rounded-sm" :style="{ background: seg.color }"></span>
+                {{ seg.label }} <b class="text-slate-800 dark:text-slate-200">{{ formatNumber(seg.count) }}</b>
+              </span>
             </div>
           </div>
         </div>
