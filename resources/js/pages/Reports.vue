@@ -25,9 +25,18 @@ const perPage = 35;
 const bottleneck = ref(null);
 const loading = ref(false);
 
-// Export dropdown
-const showExport = ref(false);
-const exportRef = ref(null);
+// Report topic tab (5 ชนิดรายงาน) — แทน dropdown export เดิม
+// 'summary'        = สรุปยอดทุกสถานะ (default)
+// 'targets-raw'    = รายชื่อเป้าหมายต้นฉบับ
+// 'targets-status' = รายชื่อ + สถานะปัจจุบัน
+// 'trackers'       = รายชื่อผู้กำกับติดตาม
+// 'chart'          = ภาพกราฟแสดงผล
+const topic = ref('summary');
+
+// Data for each tab
+const targetsList = ref({ data: [], total: 0, current_page: 1, last_page: 1 });
+const trackersList = ref({ data: [], total: 0 });
+const tabLoading = ref(false);
 
 const levelLabel = computed(() => ({ amphur: 'อำเภอ', tambon: 'ตำบล', village: 'หมู่บ้าน' }[level.value]));
 
@@ -101,18 +110,41 @@ async function load() {
   else await loadBottleneck();
 }
 
-// Export options
-const exportOptions = [
-  { key: 'summary',        label: 'สรุปยอดการลงทะเบียนทุกสถานะ', icon: 'fi-rr-chart-pie',     desc: 'รายอำเภอ/ตำบล/หมู่บ้าน + ทุกสถานะ 4.1-4.7' },
-  { key: 'targets-raw',    label: 'รายชื่อเป้าหมายต้นฉบับ',     icon: 'fi-rr-users-alt',     desc: 'ข้อมูลตามที่ import เข้าระบบ' },
-  { key: 'targets-status', label: 'รายชื่อเป้าหมาย + สถานะ',     icon: 'fi-rr-id-badge',      desc: 'พร้อมสถานะปัจจุบัน · ช่องทาง · ผู้อัปเดต' },
-  { key: 'trackers',       label: 'รายชื่อผู้กำกับติดตาม',       icon: 'fi-rr-user-headset',  desc: 'ครบทุกหมู่บ้าน + สถานะบัญชี' },
-  { key: 'chart',          label: 'ภาพกราฟแสดงผล',             icon: 'fi-rr-picture',       desc: 'ดาวน์โหลด chart Top 10 เป็น PNG' },
+// 5 หัวข้อรายงาน — เป็น tab + meta สำหรับแสดงผลและส่งออก
+const topicTabs = [
+  { key: 'summary',        label: 'สรุปยอดทุกสถานะ',  icon: 'fi-rr-chart-pie' },
+  { key: 'targets-raw',    label: 'รายชื่อต้นฉบับ',      icon: 'fi-rr-users-alt' },
+  { key: 'targets-status', label: 'รายชื่อ + สถานะ',     icon: 'fi-rr-id-badge' },
+  { key: 'trackers',       label: 'ผู้กำกับติดตาม',     icon: 'fi-rr-user-headset' },
+  { key: 'chart',          label: 'ภาพกราฟ',           icon: 'fi-rr-picture' },
 ];
 
-function doExport(key) {
-  showExport.value = false;
-  if (key === 'chart') return downloadChartPng();
+// โหลดข้อมูลตาม tab ที่เลือก
+async function loadTabData() {
+  if (topic.value === 'summary') {
+    await loadDaily(1);
+    return;
+  }
+  tabLoading.value = true;
+  try {
+    const params = { per_page: 35 };
+    if (amphurId.value) params.amphur_id = amphurId.value;
+    if (tambonId.value) params.tambon_id = tambonId.value;
+
+    if (topic.value === 'targets-raw' || topic.value === 'targets-status') {
+      const { data } = await axios.get('/api/targets', { params });
+      targetsList.value = data;
+    } else if (topic.value === 'trackers') {
+      const { data } = await axios.get('/api/trackers', { params });
+      trackersList.value = data;
+    }
+    // chart tab — ใช้ chartOptions ที่มีอยู่แล้ว
+  } finally { tabLoading.value = false; }
+}
+
+// ส่งออกตาม tab ปัจจุบัน
+function exportCurrent() {
+  if (topic.value === 'chart') return downloadChartPng();
 
   const params = new URLSearchParams();
   if (amphurId.value) params.append('amphur_id', amphurId.value);
@@ -124,7 +156,7 @@ function doExport(key) {
     'targets-status': '/api/reports/export/targets-status?',
     'trackers':       '/api/reports/export/trackers?',
   };
-  window.location.href = urls[key] + params.toString();
+  window.location.href = urls[topic.value] + params.toString();
 }
 
 function downloadChartPng() {
@@ -155,11 +187,7 @@ function downloadChartPng() {
   }
 }
 
-function onClickOutside(e) {
-  if (showExport.value && exportRef.value && !exportRef.value.contains(e.target)) {
-    showExport.value = false;
-  }
-}
+function onClickOutside() {} // placeholder — ไม่มี dropdown แล้ว แต่เก็บไว้ backward compat
 
 onMounted(async () => {
   amphurOpts.value = (await axios.get('/api/ref/amphurs')).data.data;
@@ -172,8 +200,9 @@ onBeforeUnmount(() => {
 });
 
 watch(level, () => loadDaily(1));
-watch(amphurId, async () => { await loadTambons(); await loadDaily(1); });
-watch(tambonId, () => loadDaily(1));
+watch(amphurId, async () => { await loadTambons(); await loadTabData(); });
+watch(tambonId, () => loadTabData());
+watch(topic, () => loadTabData());
 
 function levelClass(level) {
   if (level === 'ดีเยี่ยม') return 'card-tint-green text-green-700';
@@ -225,33 +254,29 @@ function pctClass(n) {
               <i class="fi-rr-triangle-warning"></i> <span>Bottleneck (สัปดาห์)</span>
             </button>
           </div>
-          <div v-if="reportType === 'daily'" ref="exportRef" class="sm:ml-auto relative">
-            <button @click="showExport = !showExport"
-                    class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5 whitespace-nowrap">
-              <i class="fi-rr-file-export"></i> ส่งออกรายงาน
-              <i :class="showExport ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down'" class="text-xs"></i>
+          <!-- เส้นกั้น (vertical divider) แยก daily/bottleneck กับ topic tabs -->
+          <div v-if="reportType === 'daily'" class="hidden lg:block w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+          <!-- Topic tabs: 5 หัวข้อรายงาน — อยู่แถวเดียวกับ daily/bottleneck -->
+          <div v-if="reportType === 'daily'" class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 overflow-x-auto">
+            <button v-for="t in topicTabs" :key="t.key" @click="topic = t.key"
+                    :class="['shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5',
+                             topic === t.key
+                               ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
+                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900']">
+              <i :class="t.icon"></i> <span>{{ t.label }}</span>
             </button>
-            <div v-if="showExport"
-                 class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden z-30">
-              <div class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500">
-                เลือกหัวข้อรายงาน
-              </div>
-              <button v-for="o in exportOptions" :key="o.key" @click="doExport(o.key)"
-                      class="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-slate-800/60 border-b border-slate-50 dark:border-slate-800/60 flex items-start gap-3">
-                <div class="w-9 h-9 shrink-0 rounded-xl card-tint-blue flex items-center justify-center text-blue-700">
-                  <i :class="o.icon"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm font-medium">{{ o.label }}</div>
-                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ o.desc }}</div>
-                </div>
-              </button>
-            </div>
           </div>
+
+          <!-- Export button — ส่งออกตาม tab ปัจจุบัน -->
+          <button v-if="reportType === 'daily'" @click="exportCurrent"
+                  class="ml-auto btn-green px-3 py-2.5 text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0">
+            <i class="fi-rr-file-export"></i> ส่งออก
+          </button>
         </div>
 
-        <!-- Level selector (รายอำเภอ / รายตำบล / รายหมู่บ้าน) -->
-        <div v-if="reportType === 'daily'" class="flex flex-wrap gap-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-1">
+        <!-- Level selector — แสดงเฉพาะ tab สรุปยอด ที่ใช้ level -->
+        <div v-if="reportType === 'daily' && topic === 'summary'" class="flex flex-wrap gap-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-1">
           <button
             v-for="opt in [
               { v: 'amphur',  label: 'รายอำเภอ',  icon: 'fi-rr-marker' },
@@ -303,6 +328,11 @@ function pctClass(n) {
 
       <!-- DAILY -->
       <template v-else-if="reportType === 'daily'">
+
+        <!-- ╔══════════════════════════════════════╗ -->
+        <!-- ║ Tab: สรุปยอดทุกสถานะ (summary)         ║ -->
+        <!-- ╚══════════════════════════════════════╝ -->
+        <div v-if="topic === 'summary'" class="space-y-4">
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div class="card-tint-blue p-4 col-span-2 lg:col-span-1">
             <div class="text-xs opacity-80">รวมเป้าหมาย</div>
@@ -415,6 +445,121 @@ function pctClass(n) {
               ถัดไป <i class="fi-rr-angle-small-right"></i>
             </button>
           </div>
+        </div>
+        </div>
+        <!-- ╔══════════════════════════════════════╗ -->
+        <!-- ║ Tab: รายชื่อต้นฉบับ / +สถานะ           ║ -->
+        <!-- ╚══════════════════════════════════════╝ -->
+        <div v-else-if="topic === 'targets-raw' || topic === 'targets-status'">
+          <div v-if="tabLoading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+          <div v-else class="card overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                <tr>
+                  <th class="text-left py-2 px-3">#</th>
+                  <th class="text-left">ชื่อ-สกุล</th>
+                  <th class="text-left">หมู่บ้าน</th>
+                  <th class="text-left">ตำบล / อำเภอ</th>
+                  <th v-if="topic === 'targets-raw'" class="text-right">รายได้/ปี</th>
+                  <th v-if="topic === 'targets-raw'" class="text-center">ปี</th>
+                  <th v-if="topic === 'targets-raw'" class="text-center">เคยได้รับบัตร</th>
+                  <th v-if="topic === 'targets-status'" class="text-center">สถานะ</th>
+                  <th v-if="topic === 'targets-status'" class="text-left">ช่องทาง</th>
+                  <th v-if="topic === 'targets-status'" class="text-left">อัปเดต</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+                <tr v-for="(t, i) in targetsList.data" :key="t.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td class="py-2 px-3 text-slate-500">{{ (targetsList.current_page - 1) * 35 + i + 1 }}</td>
+                  <td class="py-2 font-medium">{{ t.name }}</td>
+                  <td class="text-xs">{{ t.village }}{{ t.moo ? ' ม.'+t.moo : '' }}</td>
+                  <td class="text-xs text-slate-500">{{ t.tambon }} · {{ t.amphur }}</td>
+                  <td v-if="topic === 'targets-raw'" class="text-right text-xs">{{ formatNumber(t.annual_income || 0) }}</td>
+                  <td v-if="topic === 'targets-raw'" class="text-center text-xs">{{ t.year || '—' }}</td>
+                  <td v-if="topic === 'targets-raw'" class="text-center text-xs">
+                    <span v-if="t.has_old_welfare" class="text-blue-700">✓</span>
+                    <span v-else class="text-slate-300">—</span>
+                  </td>
+                  <td v-if="topic === 'targets-status'" class="text-center">
+                    <span v-if="t.status_code"
+                          :class="['text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap', `card-tint-${t.status_code === '4.7' ? 'green' : (t.status_code === '4.5' ? 'red' : 'blue')}`]">
+                      {{ t.status_code }} {{ statusShort(t.status_code) }}
+                    </span>
+                    <span v-else class="text-xs text-slate-400">ยังไม่ถูกติดตาม</span>
+                  </td>
+                  <td v-if="topic === 'targets-status'" class="text-xs">{{ t.channel || '—' }}</td>
+                  <td v-if="topic === 'targets-status'" class="text-xs text-slate-500">{{ t.updated_at ? shortDate(t.updated_at) : '—' }}</td>
+                </tr>
+                <tr v-if="!targetsList.data.length">
+                  <td :colspan="topic === 'targets-raw' ? 7 : 7" class="py-6 text-center text-slate-500">ไม่พบรายชื่อ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="targetsList.last_page > 1" class="text-xs text-slate-500 mt-2 text-center">
+            หน้า {{ targetsList.current_page }} / {{ targetsList.last_page }} · ทั้งหมด {{ formatNumber(targetsList.total) }} คน
+          </div>
+        </div>
+
+        <!-- ╔══════════════════════════════════════╗ -->
+        <!-- ║ Tab: ผู้กำกับติดตาม                     ║ -->
+        <!-- ╚══════════════════════════════════════╝ -->
+        <div v-else-if="topic === 'trackers'">
+          <div v-if="tabLoading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+          <div v-else class="card overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                <tr>
+                  <th class="text-left py-2 px-3">#</th>
+                  <th class="text-left">ชื่อ-สกุล</th>
+                  <th class="text-left">ตำแหน่ง</th>
+                  <th class="text-left">เบอร์โทร</th>
+                  <th class="text-left">หมู่บ้าน</th>
+                  <th class="text-left">ตำบล / อำเภอ</th>
+                  <th class="text-center">บัญชี Login</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+                <tr v-for="(t, i) in trackersList.data" :key="t.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td class="py-2 px-3 text-slate-500">{{ i + 1 }}</td>
+                  <td class="py-2 font-medium">{{ t.full_name }}</td>
+                  <td class="text-xs">{{ t.position }}{{ t.position_other ? ' ('+t.position_other+')' : '' }}</td>
+                  <td class="text-xs">
+                    <a v-if="t.phone" :href="`tel:${t.phone}`" class="text-blue-700 hover:underline">{{ t.phone }}</a>
+                    <span v-else class="text-slate-400">—</span>
+                  </td>
+                  <td class="text-xs">{{ t.village || (t.villages?.[0]?.name) }}{{ t.moo ? ' ม.'+t.moo : '' }}</td>
+                  <td class="text-xs text-slate-500">{{ t.tambon }} · {{ t.amphur }}</td>
+                  <td class="text-center">
+                    <span v-if="t.has_account" class="text-[10px] px-2 py-0.5 rounded bg-green-50 text-green-700 dark:bg-green-900/30">✓ มี</span>
+                    <span v-else class="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-500 dark:bg-slate-800">— ไม่มี</span>
+                  </td>
+                </tr>
+                <tr v-if="!trackersList.data.length">
+                  <td colspan="7" class="py-6 text-center text-slate-500">ไม่พบผู้กำกับติดตาม</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="text-xs text-slate-500 mt-2 text-center">
+            ทั้งหมด {{ formatNumber(trackersList.total) }} คน
+          </div>
+        </div>
+
+        <!-- ╔══════════════════════════════════════╗ -->
+        <!-- ║ Tab: ภาพกราฟ                             ║ -->
+        <!-- ╚══════════════════════════════════════╝ -->
+        <div v-else-if="topic === 'chart'">
+          <div v-if="dailyRows.length" class="card p-4 lg:p-5">
+            <div class="flex items-center justify-between mb-3">
+              <div class="font-semibold text-sm">10 {{ levelLabel }}ที่ก้าวหน้าสูงสุด</div>
+              <button @click="downloadChartPng" class="text-xs text-blue-700 hover:underline flex items-center gap-1">
+                <i class="fi-rr-download"></i> ดาวน์โหลด PNG
+              </button>
+            </div>
+            <apexchart type="bar" height="500" :options="chartOptions" :series="chartOptions.series" />
+          </div>
+          <div v-else class="card p-8 text-center text-sm text-slate-500">โหลดข้อมูลก่อน (เลือกระดับ → ตำบล หรือ หมู่บ้าน)</div>
         </div>
       </template>
 
