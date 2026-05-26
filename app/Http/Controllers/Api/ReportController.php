@@ -21,18 +21,48 @@ class ReportController extends Controller
      *   ?level=amphur|tambon|village (default village)
      *   ?date= (display only — current snapshot)
      *   ?amphur_id=&tambon_id=
+     *   ?page=1&per_page=35
      */
     public function dailyVillages(Request $request): JsonResponse
     {
-        $level = $this->validatedLevel($request);
-        $rows = $this->aggregateQuery($request, $level)->get();
+        $level   = $this->validatedLevel($request);
+        $perPage = max(1, min((int) $request->input('per_page', 35), 200));
+
+        $all = $this->aggregateQuery($request, $level)->get();
+        $mapped = $all->map(fn ($r) => $this->mapRow($r, $level));
+
+        // summary row — รวมทุกแถว
+        $summary = [
+            'total'     => (int) $mapped->sum('total'),
+            'untracked' => (int) $mapped->sum('untracked'),
+            's_41' => (int) $mapped->sum('s_41'),
+            's_42' => (int) $mapped->sum('s_42'),
+            's_43' => (int) $mapped->sum('s_43'),
+            's_44' => (int) $mapped->sum('s_44'),
+            's_45' => (int) $mapped->sum('s_45'),
+            's_46' => (int) $mapped->sum('s_46'),
+            's_47' => (int) $mapped->sum('s_47'),
+            'done'  => (int) $mapped->sum('done'),
+        ];
+        $summary['pct'] = $summary['total'] > 0 ? round(($summary['done'] / $summary['total']) * 100, 1) : 0;
+
+        // paginate (frontend-style: simple offset)
+        $page  = max(1, (int) $request->input('page', 1));
+        $total = $mapped->count();
+        $rows  = $mapped->slice(($page - 1) * $perPage, $perPage)->values();
+
         return response()->json([
-            'level' => $level,
-            'data'  => $rows->map(fn ($r) => $this->mapRow($r, $level)),
+            'level'        => $level,
+            'data'         => $rows,
+            'summary'      => $summary,
+            'total'        => $total,
+            'per_page'     => $perPage,
+            'current_page' => $page,
+            'last_page'    => max(1, (int) ceil($total / $perPage)),
         ]);
     }
 
-    /** GET /api/reports/daily-villages/export */
+    /** GET /api/reports/daily-villages/export — สรุปยอดทุกสถานะ */
     public function exportDailyVillages(Request $request): BinaryFileResponse
     {
         $level = $this->validatedLevel($request);
@@ -40,8 +70,13 @@ class ReportController extends Controller
             ->map(fn ($r) => $this->mapRow($r, $level));
 
         $labelName = $level === 'amphur' ? 'อำเภอ' : ($level === 'tambon' ? 'ตำบล' : 'หมู่บ้าน');
-        $headings = [$labelName, 'อำเภอ', 'ตำบล', 'เป้า', 'ยังไม่ถูกติดตาม', '4.7 ใช้สิทธิ', '4.6 รอยืนยัน', 'รวม', '%', 'สถานะ'];
-        $filename = "รายงานสรุปยอด_{$level}_".now()->format('Y-m-d').'.xlsx';
+        $headings = [
+            $labelName, 'อำเภอ', 'ตำบล', 'เป้า',
+            'ยังไม่ถูกติดตาม', '4.1 ไม่ประสงค์', '4.2 ลงทะเบียน', '4.3 เตรียมเอกสาร',
+            '4.4 ส่งเอกสารเพิ่ม', '4.5 รออุทธรณ์', '4.6 รอยืนยัน', '4.7 ใช้สิทธิ',
+            'รวม', '%', 'สถานะ'
+        ];
+        $filename = "สรุปยอดทุกสถานะ_{$level}_".now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
             public function __construct(private $rows, private $heads) {}
@@ -54,8 +89,129 @@ class ReportController extends Controller
                     $r['tambon'] ?? '—',
                     $r['total'],
                     $r['untracked'] ?? 0,
-                    $r['kyc_done'], $r['kyc_waiting'],
+                    $r['s_41'] ?? 0, $r['s_42'] ?? 0, $r['s_43'] ?? 0,
+                    $r['s_44'] ?? 0, $r['s_45'] ?? 0, $r['s_46'] ?? 0, $r['s_47'] ?? 0,
                     $r['done'], $r['pct'].'%', $r['level'],
+                ];
+            }
+        }, $filename);
+    }
+
+    /** GET /api/reports/export/targets-raw — รายชื่อเป้าหมายต้นฉบับ */
+    public function exportTargetsRaw(Request $request): BinaryFileResponse
+    {
+        $rows = \App\Models\Target::query()
+            ->with(['village.tambon.amphur', 'household'])
+            ->where('active', true)
+            ->when($request->filled('amphur_id'),  fn ($x) => $x->where('amphur_id',  (int) $request->amphur_id))
+            ->when($request->filled('tambon_id'),  fn ($x) => $x->where('tambon_id',  (int) $request->tambon_id))
+            ->when($request->filled('village_id'), fn ($x) => $x->where('village_id', (int) $request->village_id))
+            ->orderBy('amphur_id')->orderBy('tambon_id')->orderBy('village_id')->orderBy('id')
+            ->get();
+
+        $headings = ['ลำดับ', 'คำนำหน้า', 'ชื่อ', 'นามสกุล', 'เลขประจำตัวประชาชน',
+                     'บ้านเลขที่', 'รหัสบ้าน', 'หมู่ที่', 'หมู่บ้าน', 'ตำบล', 'อำเภอ',
+                     'รายได้/ปี', 'ปี (พ.ศ.)', 'เคยได้รับบัตร'];
+        $filename = "รายชื่อเป้าหมายต้นฉบับ_".now()->format('Y-m-d').'.xlsx';
+
+        return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
+            public function __construct(private $rows, private $heads) {}
+            public function collection() { return $this->rows; }
+            public function headings(): array { return $this->heads; }
+            public function map($t): array {
+                static $i = 0; $i++;
+                return [
+                    $i,
+                    $t->prefix ?? '',
+                    $t->first_name,
+                    $t->last_name,
+                    $t->id_card ?? '',
+                    $t->address_no ?? '',
+                    $t->household?->house_code ?? '',
+                    $t->village?->moo ?? '',
+                    $t->village?->name ?? '',
+                    $t->village?->tambon?->name ?? '',
+                    $t->village?->tambon?->amphur?->name ?? '',
+                    $t->annual_income ?? 0,
+                    $t->year ?? '',
+                    $t->has_old_welfare ? 'เคย' : '—',
+                ];
+            }
+        }, $filename);
+    }
+
+    /** GET /api/reports/export/targets-status — รายชื่อเป้าหมายพร้อมสถานะปัจจุบัน */
+    public function exportTargetsStatus(Request $request): BinaryFileResponse
+    {
+        $q = \App\Models\Target::query()
+            ->with(['village.tambon.amphur', 'currentStatus.channel'])
+            ->where('active', true)
+            ->when($request->filled('amphur_id'),  fn ($x) => $x->where('amphur_id',  (int) $request->amphur_id))
+            ->when($request->filled('tambon_id'),  fn ($x) => $x->where('tambon_id',  (int) $request->tambon_id))
+            ->when($request->filled('village_id'), fn ($x) => $x->where('village_id', (int) $request->village_id))
+            ->orderBy('amphur_id')->orderBy('tambon_id')->orderBy('village_id')->orderBy('id');
+
+        $rows = $q->get();
+        $headings = ['ลำดับ', 'ชื่อ-สกุล', 'หมู่บ้าน', 'หมู่ที่', 'ตำบล', 'อำเภอ',
+                     'สถานะปัจจุบัน', 'ช่องทาง', 'อัปเดตล่าสุด', 'หมายเหตุ'];
+        $filename = "รายชื่อเป้าหมาย+สถานะ_".now()->format('Y-m-d').'.xlsx';
+
+        return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
+            public function __construct(private $rows, private $heads) {}
+            public function collection() { return $this->rows; }
+            public function headings(): array { return $this->heads; }
+            public function map($t): array {
+                static $i = 0; $i++;
+                $statusMap = [
+                    '4.1' => 'ไม่ประสงค์', '4.2' => 'ลงทะเบียน', '4.3' => 'เตรียมเอกสาร',
+                    '4.4' => 'ส่งเอกสารเพิ่ม', '4.5' => 'รออุทธรณ์', '4.6' => 'รอยืนยันตัวตน', '4.7' => 'ใช้สิทธิแล้ว',
+                ];
+                $cs = $t->currentStatus;
+                return [
+                    $i,
+                    trim(($t->prefix ?? '').' '.$t->first_name.' '.$t->last_name),
+                    $t->village?->name ?? '',
+                    $t->village?->moo ?? '',
+                    $t->village?->tambon?->name ?? '',
+                    $t->village?->tambon?->amphur?->name ?? '',
+                    $cs ? ($cs->status_code.' '.($statusMap[$cs->status_code] ?? '')) : 'ยังไม่ถูกติดตาม',
+                    $cs?->channel?->name ?? '',
+                    $cs?->updated_at?->format('d/m/Y H:i') ?? '',
+                    $cs?->note ?? '',
+                ];
+            }
+        }, $filename);
+    }
+
+    /** GET /api/reports/export/trackers — รายชื่อผู้กำกับติดตาม */
+    public function exportTrackers(Request $request): BinaryFileResponse
+    {
+        $rows = \App\Models\Tracker::with('village.tambon.amphur', 'user')
+            ->where('active', true)
+            ->when($request->filled('amphur_id'),
+                fn ($q) => $q->whereHas('village.tambon', fn ($x) => $x->where('amphur_id', (int) $request->amphur_id)))
+            ->orderBy('full_name')
+            ->get();
+
+        $headings = ['ลำดับ', 'ชื่อ-สกุล', 'ตำแหน่ง', 'เบอร์โทร', 'หมู่บ้าน', 'หมู่ที่', 'ตำบล', 'อำเภอ', 'มีบัญชี Login'];
+        $filename = "รายชื่อผู้กำกับติดตาม_".now()->format('Y-m-d').'.xlsx';
+
+        return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
+            public function __construct(private $rows, private $heads) {}
+            public function collection() { return $this->rows; }
+            public function headings(): array { return $this->heads; }
+            public function map($t): array {
+                static $i = 0; $i++;
+                return [
+                    $i,
+                    $t->full_name,
+                    $t->position.($t->position_other ? ' ('.$t->position_other.')' : ''),
+                    $t->phone ?? '',
+                    $t->village?->name ?? '',
+                    $t->village?->moo ?? '',
+                    $t->village?->tambon?->name ?? '',
+                    $t->village?->tambon?->amphur?->name ?? '',
+                    $t->user_id ? '✓ มี' : '— ไม่มี',
                 ];
             }
         }, $filename);
@@ -152,9 +308,14 @@ class ReportController extends Controller
 
         $metrics = '
             COUNT(DISTINCT targets.id) as total,
-            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.7" THEN targets.id END) as kyc_done,
-            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.6" THEN targets.id END) as kyc_waiting,
             COUNT(DISTINCT CASE WHEN tcs.status_code IS NULL THEN targets.id END) as untracked,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.1" THEN targets.id END) as s_41,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.2" THEN targets.id END) as s_42,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.3" THEN targets.id END) as s_43,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.4" THEN targets.id END) as s_44,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.5" THEN targets.id END) as s_45,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.6" THEN targets.id END) as s_46,
+            COUNT(DISTINCT CASE WHEN tcs.status_code = "4.7" THEN targets.id END) as s_47,
             COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) as done
         ';
         $orderBy = 'COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) / GREATEST(COUNT(DISTINCT targets.id), 1) DESC';
@@ -183,9 +344,17 @@ class ReportController extends Controller
             'id'          => (int) $r->id,
             'name'        => $r->name . (isset($r->moo) && $r->moo ? ' (ม.'.$r->moo.')' : ''),
             'total'       => (int) $r->total,
-            'kyc_done'    => (int) $r->kyc_done,
-            'kyc_waiting' => (int) $r->kyc_waiting,
             'untracked'   => (int) $r->untracked,
+            's_41'        => (int) $r->s_41,
+            's_42'        => (int) $r->s_42,
+            's_43'        => (int) $r->s_43,
+            's_44'        => (int) $r->s_44,
+            's_45'        => (int) $r->s_45,
+            's_46'        => (int) $r->s_46,
+            's_47'        => (int) $r->s_47,
+            // เก็บ alias เดิมไว้ backward compat
+            'kyc_done'    => (int) $r->s_47,
+            'kyc_waiting' => (int) $r->s_46,
             'done'        => (int) $r->done,
             'pct'         => $pct,
             'level'       => $pct >= 80 ? 'ดีเยี่ยม' : ($pct >= 50 ? 'ปานกลาง' : 'ต้องเร่งรัด'),

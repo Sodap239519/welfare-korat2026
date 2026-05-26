@@ -67,6 +67,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Reports
     Route::get('reports/daily-villages',        [ReportController::class, 'dailyVillages']);
     Route::get('reports/daily-villages/export', [ReportController::class, 'exportDailyVillages']);
+    // Export multi-type — เลือกหัวข้อรายงานได้
+    Route::get('reports/export/targets-raw',    [ReportController::class, 'exportTargetsRaw']);
+    Route::get('reports/export/targets-status', [ReportController::class, 'exportTargetsStatus']);
+    Route::get('reports/export/trackers',       [ReportController::class, 'exportTrackers']);
     Route::get('reports/bottleneck',            [ReportController::class, 'bottleneck']);
 
     // Admin (super_admin only — enforced at frontend via meta.roles, basic protection)

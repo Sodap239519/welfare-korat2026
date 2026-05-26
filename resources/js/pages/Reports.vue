@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate, statusShort } from '@/composables/useApi';
 import { useThemeStore } from '@/stores/theme';
@@ -17,8 +17,17 @@ const tambonId = ref('');
 const date = ref(new Date().toISOString().slice(0, 10));
 
 const dailyRows = ref([]);
+const dailySummary = ref(null);
+const dailyTotal = ref(0);
+const dailyPage = ref(1);
+const dailyLastPage = ref(1);
+const perPage = 35;
 const bottleneck = ref(null);
 const loading = ref(false);
+
+// Export dropdown
+const showExport = ref(false);
+const exportRef = ref(null);
 
 const levelLabel = computed(() => ({ amphur: 'อำเภอ', tambon: 'ตำบล', village: 'หมู่บ้าน' }[level.value]));
 
@@ -58,14 +67,18 @@ async function loadTambons() {
   tambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: amphurId.value } })).data.data;
 }
 
-async function loadDaily() {
+async function loadDaily(page = 1) {
   loading.value = true;
   try {
-    const params = { level: level.value, date: date.value };
+    const params = { level: level.value, date: date.value, page, per_page: perPage };
     if (amphurId.value) params.amphur_id = amphurId.value;
     if (tambonId.value) params.tambon_id = tambonId.value;
     const { data } = await axios.get('/api/reports/daily-villages', { params });
-    dailyRows.value = data.data;
+    dailyRows.value     = data.data;
+    dailySummary.value  = data.summary;
+    dailyTotal.value    = data.total;
+    dailyPage.value     = data.current_page;
+    dailyLastPage.value = data.last_page;
   } finally { loading.value = false; }
 }
 async function loadBottleneck() {
@@ -81,21 +94,79 @@ async function load() {
   else await loadBottleneck();
 }
 
-function exportXlsx() {
-  const params = new URLSearchParams({ level: level.value, date: date.value, format: 'xlsx' });
+// Export options
+const exportOptions = [
+  { key: 'summary',        label: 'สรุปยอดการลงทะเบียนทุกสถานะ', icon: 'fi-rr-chart-pie',     desc: 'รายอำเภอ/ตำบล/หมู่บ้าน + ทุกสถานะ 4.1-4.7' },
+  { key: 'targets-raw',    label: 'รายชื่อเป้าหมายต้นฉบับ',     icon: 'fi-rr-users-alt',     desc: 'ข้อมูลตามที่ import เข้าระบบ' },
+  { key: 'targets-status', label: 'รายชื่อเป้าหมาย + สถานะ',     icon: 'fi-rr-id-badge',      desc: 'พร้อมสถานะปัจจุบัน · ช่องทาง · ผู้อัปเดต' },
+  { key: 'trackers',       label: 'รายชื่อผู้กำกับติดตาม',       icon: 'fi-rr-user-headset',  desc: 'ครบทุกหมู่บ้าน + สถานะบัญชี' },
+  { key: 'chart',          label: 'ภาพกราฟแสดงผล',             icon: 'fi-rr-picture',       desc: 'ดาวน์โหลด chart Top 10 เป็น PNG' },
+];
+
+function doExport(key) {
+  showExport.value = false;
+  if (key === 'chart') return downloadChartPng();
+
+  const params = new URLSearchParams();
   if (amphurId.value) params.append('amphur_id', amphurId.value);
   if (tambonId.value) params.append('tambon_id', tambonId.value);
-  window.location.href = '/api/reports/daily-villages/export?' + params.toString();
+
+  const urls = {
+    'summary':        '/api/reports/daily-villages/export?level=' + level.value + '&',
+    'targets-raw':    '/api/reports/export/targets-raw?',
+    'targets-status': '/api/reports/export/targets-status?',
+    'trackers':       '/api/reports/export/trackers?',
+  };
+  window.location.href = urls[key] + params.toString();
+}
+
+function downloadChartPng() {
+  // Apex chart มี API `dataURI()` — ดาวน์โหลด chart Top 10 เป็น PNG
+  const el = document.querySelector('.apexcharts-canvas');
+  if (!el) { alert('ไม่พบกราฟ — กรุณาโหลดข้อมูลก่อน'); return; }
+  // ใช้ chart instance ผ่าน window.Apex หรือ direct render
+  if (window.ApexCharts && el.querySelector('svg')) {
+    // วาด SVG เป็น canvas → PNG
+    const svg = el.querySelector('svg');
+    const data = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([data], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const a = document.createElement('a');
+      a.download = 'รายงาน_chart_' + new Date().toISOString().slice(0,10) + '.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  }
+}
+
+function onClickOutside(e) {
+  if (showExport.value && exportRef.value && !exportRef.value.contains(e.target)) {
+    showExport.value = false;
+  }
 }
 
 onMounted(async () => {
   amphurOpts.value = (await axios.get('/api/ref/amphurs')).data.data;
   await load();
+  document.addEventListener('click', onClickOutside);
 });
 
-watch(level, loadDaily);
-watch(amphurId, async () => { await loadTambons(); await loadDaily(); });
-watch(tambonId, loadDaily);
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onClickOutside);
+});
+
+watch(level, () => loadDaily(1));
+watch(amphurId, async () => { await loadTambons(); await loadDaily(1); });
+watch(tambonId, () => loadDaily(1));
 
 function levelClass(level) {
   if (level === 'ดีเยี่ยม') return 'card-tint-green text-green-700';
@@ -133,9 +204,29 @@ function pctClass(n) {
             <option value="daily">สรุปยอด (รายวัน)</option>
             <option value="bottleneck">วิเคราะห์ Bottleneck (รายสัปดาห์)</option>
           </select>
-          <button v-if="reportType === 'daily'" @click="exportXlsx" class="sm:ml-auto btn-green px-3 py-2.5 text-sm flex items-center gap-1.5">
-            <i class="fi-rr-file-excel"></i> Export Excel
-          </button>
+          <div v-if="reportType === 'daily'" ref="exportRef" class="sm:ml-auto relative">
+            <button @click="showExport = !showExport"
+                    class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5 whitespace-nowrap">
+              <i class="fi-rr-file-export"></i> ส่งออกรายงาน
+              <i :class="showExport ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down'" class="text-xs"></i>
+            </button>
+            <div v-if="showExport"
+                 class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden z-30">
+              <div class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500">
+                เลือกหัวข้อรายงาน
+              </div>
+              <button v-for="o in exportOptions" :key="o.key" @click="doExport(o.key)"
+                      class="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-slate-800/60 border-b border-slate-50 dark:border-slate-800/60 flex items-start gap-3">
+                <div class="w-9 h-9 shrink-0 rounded-xl card-tint-blue flex items-center justify-center text-blue-700">
+                  <i :class="o.icon"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium">{{ o.label }}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ o.desc }}</div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Level selector (รายอำเภอ / รายตำบล / รายหมู่บ้าน) -->
@@ -226,33 +317,83 @@ function pctClass(n) {
           <table class="w-full text-sm">
             <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th class="text-left py-2 px-4">{{ levelLabel }}</th>
-                <th v-if="level !== 'amphur'" class="text-left">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
-                <th class="text-right">เป้า</th>
-                <th class="text-right text-slate-500" title="ยังไม่ถูกติดตาม (ยังไม่มี record สถานะ)">ยังไม่ถูกติดตาม</th>
-                <th class="text-right">{{ statusShort('4.7') }}</th>
-                <th class="text-right">{{ statusShort('4.6') }}</th>
-                <th class="text-right">รวม</th>
-                <th class="text-right">%</th>
-                <th class="text-left pl-4 pr-3">สถานะ</th>
+                <th class="text-left py-2 px-3 sticky left-0 bg-white dark:bg-slate-900 z-10">{{ levelLabel }}</th>
+                <th v-if="level !== 'amphur'" class="text-left whitespace-nowrap">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
+                <th class="text-right whitespace-nowrap px-2">เป้า</th>
+                <th class="text-right whitespace-nowrap px-2 text-slate-500" title="ยังไม่ถูกติดตาม">— ยังไม่ติดตาม</th>
+                <th class="text-right whitespace-nowrap px-2" title="ไม่ประสงค์">4.1</th>
+                <th class="text-right whitespace-nowrap px-2" title="ลงทะเบียน">4.2</th>
+                <th class="text-right whitespace-nowrap px-2" title="เตรียมเอกสาร">4.3</th>
+                <th class="text-right whitespace-nowrap px-2" title="ส่งเอกสารเพิ่ม">4.4</th>
+                <th class="text-right whitespace-nowrap px-2" title="รออุทธรณ์">4.5</th>
+                <th class="text-right whitespace-nowrap px-2" title="รอยืนยันตัวตน">4.6</th>
+                <th class="text-right whitespace-nowrap px-2" title="ใช้สิทธิแล้ว">4.7</th>
+                <th class="text-right whitespace-nowrap px-2">รวม</th>
+                <th class="text-right whitespace-nowrap px-2">%</th>
+                <th class="text-left whitespace-nowrap pl-4 pr-3">สถานะ</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
-              <tr v-for="r in dailyRows" :key="r.id">
-                <td class="py-2 px-4 font-medium">{{ r.name }}</td>
-                <td v-if="level === 'village'" class="text-xs text-slate-500 dark:text-slate-400">{{ r.tambon }} · {{ r.amphur }}</td>
-                <td v-else-if="level === 'tambon'" class="text-xs text-slate-500 dark:text-slate-400">{{ r.amphur }}</td>
-                <td class="text-right">{{ formatNumber(r.total) }}</td>
-                <td class="text-right text-slate-500">{{ formatNumber(r.untracked || 0) }}</td>
-                <td class="text-right">{{ formatNumber(r.kyc_done) }}</td>
-                <td class="text-right">{{ formatNumber(r.kyc_waiting) }}</td>
-                <td class="text-right font-medium">{{ formatNumber(r.done) }}</td>
-                <td :class="['text-right font-semibold', pctClass(r.pct)]">{{ r.pct }}%</td>
+              <tr v-for="r in dailyRows" :key="r.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                <td class="py-2 px-3 font-medium sticky left-0 bg-white dark:bg-slate-900">{{ r.name }}</td>
+                <td v-if="level === 'village'" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.tambon }} · {{ r.amphur }}</td>
+                <td v-else-if="level === 'tambon'" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.amphur }}</td>
+                <td class="text-right px-2">{{ formatNumber(r.total) }}</td>
+                <td class="text-right px-2 text-slate-500">{{ formatNumber(r.untracked || 0) }}</td>
+                <td class="text-right px-2 text-slate-500">{{ formatNumber(r.s_41 || 0) }}</td>
+                <td class="text-right px-2">{{ formatNumber(r.s_42 || 0) }}</td>
+                <td class="text-right px-2">{{ formatNumber(r.s_43 || 0) }}</td>
+                <td class="text-right px-2">{{ formatNumber(r.s_44 || 0) }}</td>
+                <td class="text-right px-2 text-red-600">{{ formatNumber(r.s_45 || 0) }}</td>
+                <td class="text-right px-2">{{ formatNumber(r.s_46 || 0) }}</td>
+                <td class="text-right px-2 text-green-700">{{ formatNumber(r.s_47 || 0) }}</td>
+                <td class="text-right px-2 font-medium">{{ formatNumber(r.done) }}</td>
+                <td :class="['text-right px-2 font-semibold whitespace-nowrap', pctClass(r.pct)]">{{ r.pct }}%</td>
                 <td class="pl-4 pr-3"><span :class="['text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap', levelClass(r.level)]">{{ r.level }}</span></td>
               </tr>
-              <tr v-if="dailyRows.length === 0"><td :colspan="level === 'village' ? 9 : (level === 'tambon' ? 9 : 8)" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td></tr>
+              <tr v-if="dailyRows.length === 0">
+                <td :colspan="15" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td>
+              </tr>
             </tbody>
+            <!-- Summary row -->
+            <tfoot v-if="dailySummary && dailyRows.length" class="bg-blue-50 dark:bg-blue-900/20 border-t-2 border-blue-200 dark:border-blue-800">
+              <tr class="text-sm font-bold">
+                <td class="py-3 px-3 sticky left-0 bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">
+                  รวม ({{ formatNumber(dailyTotal) }} {{ levelLabel }})
+                </td>
+                <td v-if="level !== 'amphur'"></td>
+                <td class="text-right px-2">{{ formatNumber(dailySummary.total) }}</td>
+                <td class="text-right px-2 text-slate-600">{{ formatNumber(dailySummary.untracked) }}</td>
+                <td class="text-right px-2 text-slate-600">{{ formatNumber(dailySummary.s_41) }}</td>
+                <td class="text-right px-2">{{ formatNumber(dailySummary.s_42) }}</td>
+                <td class="text-right px-2">{{ formatNumber(dailySummary.s_43) }}</td>
+                <td class="text-right px-2">{{ formatNumber(dailySummary.s_44) }}</td>
+                <td class="text-right px-2 text-red-700">{{ formatNumber(dailySummary.s_45) }}</td>
+                <td class="text-right px-2">{{ formatNumber(dailySummary.s_46) }}</td>
+                <td class="text-right px-2 text-green-700">{{ formatNumber(dailySummary.s_47) }}</td>
+                <td class="text-right px-2">{{ formatNumber(dailySummary.done) }}</td>
+                <td :class="['text-right px-2', pctClass(dailySummary.pct)]">{{ dailySummary.pct }}%</td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="dailyLastPage > 1" class="flex items-center justify-between gap-2 text-sm">
+          <div class="text-xs text-slate-500 dark:text-slate-400">
+            หน้า {{ dailyPage }} / {{ dailyLastPage }} · ทั้งหมด {{ formatNumber(dailyTotal) }} {{ levelLabel }} · {{ perPage }} แถว/หน้า
+          </div>
+          <div class="flex gap-1">
+            <button @click="loadDaily(dailyPage - 1)" :disabled="dailyPage <= 1"
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800">
+              <i class="fi-rr-angle-small-left"></i> ก่อนหน้า
+            </button>
+            <button @click="loadDaily(dailyPage + 1)" :disabled="dailyPage >= dailyLastPage"
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800">
+              ถัดไป <i class="fi-rr-angle-small-right"></i>
+            </button>
+          </div>
         </div>
       </template>
 
