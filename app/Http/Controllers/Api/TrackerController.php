@@ -16,7 +16,7 @@ class TrackerController extends Controller
     public function index(Request $request): JsonResponse
     {
         $q = Tracker::query()
-            ->with(['village:id,name,moo,tambon_id', 'village.tambon:id,name'])
+            ->with(['village:id,name,moo,tambon_id', 'village.tambon:id,name,amphur_id', 'village.tambon.amphur:id,name'])
             ->where('active', true);
 
         if ($request->filled('q')) {
@@ -60,6 +60,9 @@ class TrackerController extends Controller
                 'village'        => $t->village?->name,
                 'moo'            => $t->village?->moo,
                 'tambon'         => $t->village?->tambon?->name,
+                'tambon_id'      => $t->village?->tambon_id,
+                'amphur'         => $t->village?->tambon?->amphur?->name,
+                'amphur_id'      => $t->village?->tambon?->amphur_id,
                 'total'          => $total,
                 'done'           => $done,
                 'pct'            => $total > 0 ? round(($done / $total) * 100) : 0,

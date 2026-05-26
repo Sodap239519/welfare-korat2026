@@ -79,11 +79,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('phases/{id}/set-current', [ReferenceController::class, 'setCurrentPhase'])->whereNumber('id');
     });
 
-    // Trackers
+    // Trackers — อ่านได้ทุก role · เขียน/แก้ไข/ลบ เฉพาะ super_admin
     Route::get('trackers',        [TrackerController::class, 'index']);
-    Route::post('trackers',       [TrackerController::class, 'store']);
-    Route::patch('trackers/{id}', [TrackerController::class, 'update'])->whereNumber('id');
-    Route::delete('trackers/{id}',[TrackerController::class, 'destroy'])->whereNumber('id');
+    Route::middleware('role:super_admin')->group(function () {
+        Route::post('trackers',       [TrackerController::class, 'store']);
+        Route::patch('trackers/{id}', [TrackerController::class, 'update'])->whereNumber('id');
+        Route::delete('trackers/{id}',[TrackerController::class, 'destroy'])->whereNumber('id');
+    });
 
     // Lookups
     Route::get('ref/statuses',         [ReferenceController::class, 'statuses']);

@@ -4,6 +4,9 @@ import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
+
+const auth = useAuthStore();
 
 const data = ref({ data: [], total: 0, current_page: 1, last_page: 1 });
 const loading = ref(false);
@@ -54,6 +57,31 @@ function openCreate() {
   editing.value = null;
   Object.assign(form, { full_name: '', position: 'ผู้ใหญ่บ้าน', position_other: '', phone: '', village_id: '', amphur_id: '', tambon_id: '' });
   formErrors.value = {};
+  showForm.value = true;
+}
+
+async function openEdit(t) {
+  editing.value = t.id;
+  Object.assign(form, {
+    full_name:      t.full_name      || '',
+    position:       t.position       || 'ผู้ใหญ่บ้าน',
+    position_other: t.position_other || '',
+    phone:          t.phone          || '',
+    amphur_id:      t.amphur_id      || '',
+    tambon_id:      '',
+    village_id:     '',
+  });
+  formErrors.value = {};
+
+  // โหลด options ตามลำดับ amphur → tambon → village (เพราะ disabled cascading)
+  if (t.amphur_id) {
+    tambonOpts.value = (await axios.get('/api/ref/tambons', { params: { amphur_id: t.amphur_id } })).data.data;
+    if (t.tambon_id) {
+      form.tambon_id = t.tambon_id;
+      villageOpts.value = (await axios.get('/api/ref/villages', { params: { tambon_id: t.tambon_id } })).data.data;
+      form.village_id = t.village_id;
+    }
+  }
   showForm.value = true;
 }
 
@@ -121,7 +149,7 @@ function pctClass(n) {
             <input v-model="filters.q" placeholder="ค้นหาชื่อ / เบอร์โทร"
               class="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500">
           </div>
-          <button @click="openCreate" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
+          <button v-if="auth.isSuperAdmin" @click="openCreate" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่ม</span>
           </button>
         </div>
@@ -134,7 +162,9 @@ function pctClass(n) {
       <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
 
       <div v-else-if="data.data.length === 0" class="card p-8 text-center text-sm text-slate-500">
-        ยังไม่มีผู้กำกับติดตาม — กดปุ่ม "เพิ่มผู้ติดตาม" เพื่อเริ่ม
+        ยังไม่มีผู้กำกับติดตาม
+        <span v-if="auth.isSuperAdmin"> — กดปุ่ม "เพิ่ม" เพื่อเริ่ม</span>
+        <span v-else> — ติดต่อ Super Admin เพื่อเพิ่มข้อมูล</span>
       </div>
 
       <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -149,7 +179,10 @@ function pctClass(n) {
                 <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ t.position }}{{ t.position_other ? ' ('+t.position_other+')' : '' }}</div>
               </div>
             </div>
-            <button @click="remove(t.id)" class="shrink-0 p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
+            <div v-if="auth.isSuperAdmin" class="shrink-0 flex items-center gap-0.5">
+              <button @click="openEdit(t)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700 dark:text-blue-300" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+              <button @click="remove(t.id)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
+            </div>
           </div>
           <div class="mt-3 space-y-1 text-sm min-w-0">
             <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 min-w-0">
@@ -166,7 +199,7 @@ function pctClass(n) {
           </div>
         </div>
 
-        <button @click="openCreate" class="card p-4 border-dashed border-2 border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50/40 dark:hover:bg-slate-800/50 flex flex-col items-center justify-center gap-2 min-h-[180px]">
+        <button v-if="auth.isSuperAdmin" @click="openCreate" class="card p-4 border-dashed border-2 border-blue-200 dark:border-slate-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50/40 dark:hover:bg-slate-800/50 flex flex-col items-center justify-center gap-2 min-h-[180px]">
           <i class="fi-rr-add text-2xl"></i>
           <span class="text-sm">เพิ่มผู้กำกับติดตามใหม่</span>
         </button>
