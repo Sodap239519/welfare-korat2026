@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ImportController;
+use App\Http\Controllers\Api\MapController;
 use App\Http\Controllers\Api\ReferenceController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\TargetController;
@@ -41,6 +42,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('import/run',      [ImportController::class, 'run']);
     Route::get('import/logs',      [ImportController::class, 'logs']);
     Route::get('import/logs/{id}', [ImportController::class, 'showLog'])->whereNumber('id');
+
+    // Map
+    Route::get('map/villages', [MapController::class, 'villages']);
 
     // Reports
     Route::get('reports/daily-villages',        [ReportController::class, 'dailyVillages']);

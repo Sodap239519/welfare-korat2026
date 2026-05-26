@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Village extends Model
 {
-    protected $fillable = ['tambon_id', 'moo', 'name'];
+    protected $fillable = ['tambon_id', 'moo', 'name', 'lat', 'lng'];
+
+    protected $casts = [
+        'lat' => 'float',
+        'lng' => 'float',
+    ];
 
     public function tambon(): BelongsTo { return $this->belongsTo(Tambon::class); }
     public function households(): HasMany { return $this->hasMany(Household::class); }

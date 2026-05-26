@@ -17,6 +17,7 @@ async function doLogout() {
 const items = [
   { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม' },
   { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย' },
+  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน' },
   { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม' },
   { name: 'import',         icon: 'fi-rr-cloud-upload-alt', label: 'นำเข้าข้อมูล' },
   { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน' },
