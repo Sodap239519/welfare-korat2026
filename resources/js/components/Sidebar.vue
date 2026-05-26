@@ -63,13 +63,13 @@ const isActive = (n) => computed(() => route.name === n);
         <span>{{ i.label }}</span>
       </RouterLink>
     </nav>
-    <div class="p-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-      <div v-if="auth.user" class="text-xs text-slate-600 dark:text-slate-300 mb-2 truncate">
+    <div v-if="auth.user" class="p-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+      <div class="text-xs text-slate-600 dark:text-slate-300 truncate">
         <i class="fi-rr-user text-slate-400"></i> {{ auth.user.name }}
       </div>
-      <button @click="doLogout" class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-red-600">
-        <i class="fi-rr-sign-out-alt"></i> ออกจากระบบ
-      </button>
+      <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+        <i class="fi-rr-info"></i> ออกจากระบบที่รูปโปรไฟล์ขวาบน
+      </div>
     </div>
   </aside>
 </template>

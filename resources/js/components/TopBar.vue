@@ -17,6 +17,8 @@ defineEmits(['openSidebar']);
 
 const showNotif = ref(false);
 const bellRef = ref(null);
+const showUserMenu = ref(false);
+const userMenuRef = ref(null);
 
 // Profile edit modal
 const showProfile = ref(false);
@@ -92,6 +94,19 @@ function onOutside(e) {
   if (showNotif.value && bellRef.value && !bellRef.value.contains(e.target)) {
     showNotif.value = false;
   }
+  if (showUserMenu.value && userMenuRef.value && !userMenuRef.value.contains(e.target)) {
+    showUserMenu.value = false;
+  }
+}
+
+function openProfileFromMenu() {
+  showUserMenu.value = false;
+  openProfile();
+}
+
+async function logoutFromMenu() {
+  showUserMenu.value = false;
+  await doLogout();
 }
 
 async function doLogout() {
@@ -126,7 +141,9 @@ onBeforeUnmount(() => {
       </div>
       <div class="flex items-center gap-1">
         <button title="ลดตัวอักษร" @click="theme.smaller" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-xs">A−</button>
-        <button title="ขนาดมาตรฐาน" @click="theme.reset" class="hidden sm:inline-block px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm">A</button>
+        <button title="คลิกเพื่อรีเซ็ตเป็น 16pt" @click="theme.reset" class="hidden sm:inline-flex items-baseline gap-0.5 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">
+          {{ theme.fontSize }}<span class="text-[10px] text-slate-500">pt</span>
+        </button>
         <button title="เพิ่มตัวอักษร" @click="theme.bigger" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-base font-semibold">A+</button>
         <button title="สลับโหมดสี" @click="theme.toggle" class="ml-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
           <i v-if="!theme.isDark" class="fi-rr-brightness text-lg"></i>
@@ -176,18 +193,41 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="auth.user" class="hidden sm:flex items-center gap-2 ml-2 pl-2 border-l border-slate-100 dark:border-slate-800">
-          <button @click="openProfile" class="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-1.5 py-1" title="แก้ไขข้อมูลส่วนตัว">
+        <div v-if="auth.user" ref="userMenuRef" class="relative ml-2 pl-2 border-l border-slate-100 dark:border-slate-800">
+          <button @click="showUserMenu = !showUserMenu"
+                  class="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-1.5 py-1"
+                  title="เมนูผู้ใช้">
             <div class="w-9 h-9 rounded-full text-white flex items-center justify-center text-xs font-semibold"
                  style="background: linear-gradient(135deg,#1d4ed8,#0ea5e9);">{{ initials }}</div>
-            <div class="text-xs leading-tight text-left">
+            <div class="hidden sm:block text-xs leading-tight text-left">
               <div class="font-medium text-slate-800 dark:text-slate-100">{{ auth.user.name }}</div>
               <div class="text-slate-500 dark:text-slate-400">{{ roleLabel }}</div>
             </div>
+            <i class="fi-rr-angle-small-down text-slate-400 hidden sm:inline-block"></i>
           </button>
-          <button @click="doLogout" title="ออกจากระบบ" class="ml-1 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
-            <i class="fi-rr-sign-out-alt text-base"></i>
-          </button>
+
+          <!-- Dropdown menu -->
+          <div v-if="showUserMenu"
+               class="absolute right-0 mt-2 w-60 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 rounded-full text-white flex items-center justify-center text-sm font-semibold"
+                     style="background: linear-gradient(135deg,#1d4ed8,#0ea5e9);">{{ initials }}</div>
+                <div class="min-w-0">
+                  <div class="font-medium text-sm truncate">{{ auth.user.name }}</div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ auth.user.phone }} · {{ roleLabel }}</div>
+                </div>
+              </div>
+            </div>
+            <button @click="openProfileFromMenu"
+                    class="w-full text-left px-4 py-2.5 hover:bg-blue-50 dark:hover:bg-slate-800/60 flex items-center gap-2.5 text-sm">
+              <i class="fi-rr-edit text-blue-700"></i> แก้ไขข้อมูลส่วนตัว
+            </button>
+            <button @click="logoutFromMenu"
+                    class="w-full text-left px-4 py-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 flex items-center gap-2.5 text-sm border-t border-slate-100 dark:border-slate-800">
+              <i class="fi-rr-sign-out-alt"></i> ออกจากระบบ
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -20,7 +20,9 @@ const sidebarOpen = ref(false);
     -->
     <div class="lg:pl-60 min-w-0 min-h-screen">
       <TopBar :title="title" :subtitle="subtitle" :greeting="greeting" @open-sidebar="sidebarOpen = true" />
-      <main class="p-4 lg:p-6 max-w-7xl mx-auto pb-24 lg:pb-6">
+      <!-- main: เต็มจอ (ลบ max-w-7xl เพราะผู้ใช้ขอเต็มจอ)
+           responsive padding mobile-first: 4 → 6 → 8 -->
+      <main class="p-4 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8">
         <slot />
       </main>
     </div>
