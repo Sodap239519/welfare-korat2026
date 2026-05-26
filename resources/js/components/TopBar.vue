@@ -19,6 +19,8 @@ const showNotif = ref(false);
 const bellRef = ref(null);
 const showUserMenu = ref(false);
 const userMenuRef = ref(null);
+const showSettings = ref(false);
+const settingsRef = ref(null);
 
 // Profile edit modal
 const showProfile = ref(false);
@@ -97,6 +99,9 @@ function onOutside(e) {
   if (showUserMenu.value && userMenuRef.value && !userMenuRef.value.contains(e.target)) {
     showUserMenu.value = false;
   }
+  if (showSettings.value && settingsRef.value && !settingsRef.value.contains(e.target)) {
+    showSettings.value = false;
+  }
 }
 
 function openProfileFromMenu() {
@@ -140,15 +145,60 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="flex items-center gap-1">
-        <button title="ลดตัวอักษร" @click="theme.smaller" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-xs">A−</button>
-        <button title="คลิกเพื่อรีเซ็ตเป็น 16pt" @click="theme.reset" class="hidden sm:inline-flex items-baseline gap-0.5 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">
-          {{ theme.fontSize }}<span class="text-[10px] text-slate-500">pt</span>
-        </button>
-        <button title="เพิ่มตัวอักษร" @click="theme.bigger" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-base font-semibold">A+</button>
-        <button title="สลับโหมดสี" @click="theme.toggle" class="ml-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-          <i v-if="!theme.isDark" class="fi-rr-brightness text-lg"></i>
-          <i v-else class="fi-sr-moon text-lg text-orange-400"></i>
-        </button>
+        <!-- Desktop: ปุ่มแยก A−/size/A+/theme -->
+        <div class="hidden lg:flex items-center gap-1">
+          <button title="ลดตัวอักษร" @click="theme.smaller" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-xs">A−</button>
+          <button title="คลิกเพื่อรีเซ็ตเป็น 16pt" @click="theme.reset" class="inline-flex items-baseline gap-0.5 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium">
+            {{ theme.fontSize }}<span class="text-[10px] text-slate-500">pt</span>
+          </button>
+          <button title="เพิ่มตัวอักษร" @click="theme.bigger" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-base font-semibold">A+</button>
+          <button title="สลับโหมดสี" @click="theme.toggle" class="ml-1 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+            <i v-if="!theme.isDark" class="fi-rr-brightness text-lg"></i>
+            <i v-else class="fi-sr-moon text-lg text-orange-400"></i>
+          </button>
+        </div>
+
+        <!-- Mobile: รวมเป็น dropdown เดียว -->
+        <div ref="settingsRef" class="lg:hidden relative">
+          <button @click="showSettings = !showSettings"
+                  class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1"
+                  title="การแสดงผล">
+            <i class="fi-rr-settings-sliders text-lg"></i>
+          </button>
+
+          <div v-if="showSettings"
+               class="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              การแสดงผล
+            </div>
+
+            <!-- ขนาดตัวอักษร -->
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm flex items-center gap-1.5"><i class="fi-rr-text"></i> ขนาดตัวอักษร</span>
+                <button @click="theme.reset" class="text-[11px] text-blue-700 hover:underline" title="รีเซ็ตเป็น 16pt">รีเซ็ต</button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button @click="theme.smaller" class="flex-1 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-medium">A−</button>
+                <div class="flex-1 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-center text-sm font-semibold">
+                  {{ theme.fontSize }}<span class="text-[10px] text-slate-500 ml-0.5">pt</span>
+                </div>
+                <button @click="theme.bigger" class="flex-1 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-base font-semibold">A+</button>
+              </div>
+            </div>
+
+            <!-- โหมดสี -->
+            <button @click="theme.toggle"
+                    class="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-sm">
+              <span class="flex items-center gap-2">
+                <i v-if="!theme.isDark" class="fi-rr-brightness text-base"></i>
+                <i v-else class="fi-sr-moon text-base text-orange-400"></i>
+                โหมดสี
+              </span>
+              <span class="text-xs text-slate-500">{{ theme.isDark ? 'มืด' : 'สว่าง' }} · แตะเพื่อสลับ</span>
+            </button>
+          </div>
+        </div>
 
         <!-- Notification bell -->
         <div ref="bellRef" class="relative">
