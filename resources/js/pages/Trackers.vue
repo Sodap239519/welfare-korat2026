@@ -162,7 +162,7 @@ function pctClass(n) {
 </script>
 
 <template>
-  <AppLayout title="ผู้กำกับติดตาม" :subtitle="`รวม ${formatNumber(data.total)} คน`">
+  <AppLayout title="ผู้กำกับติดตาม" :subtitle="`ทะเบียนคนในชุมชนรายหมู่บ้าน · รวม ${formatNumber(data.total)} คน`">
     <div class="space-y-4">
 
       <div class="card-hero p-4 flex items-center justify-between">

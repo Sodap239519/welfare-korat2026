@@ -18,9 +18,10 @@ Route::prefix('auth')->group(function () {
     Route::post('login',    [AuthController::class, 'login']);
 
     // Public geo lookups — สำหรับใช้ใน register form (เลือกหมู่บ้านที่รับผิดชอบ)
-    Route::get('geo/amphurs',  [ReferenceController::class, 'amphurs']);
-    Route::get('geo/tambons',  [ReferenceController::class, 'tambons']);
-    Route::get('geo/villages', [ReferenceController::class, 'villages']);
+    Route::get('geo/amphurs',       [ReferenceController::class, 'amphurs']);
+    Route::get('geo/tambons',       [ReferenceController::class, 'tambons']);
+    Route::get('geo/villages',      [ReferenceController::class, 'villages']);
+    Route::get('geo/village-names', [ReferenceController::class, 'villageNames']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',  [AuthController::class, 'logout']);

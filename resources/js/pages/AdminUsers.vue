@@ -118,7 +118,7 @@ function initials(name) {
 </script>
 
 <template>
-  <AppLayout title="จัดการผู้ใช้" subtitle="Super Admin · CRUD + อนุมัติ">
+  <AppLayout title="จัดการผู้ใช้" subtitle="บัญชี login ของระบบ · อนุมัติ · กำหนด role + scope">
     <div class="space-y-4">
 
       <div v-if="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3">

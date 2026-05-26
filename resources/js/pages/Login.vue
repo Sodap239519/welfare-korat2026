@@ -16,8 +16,8 @@ const loginForm = reactive({ phone: '', password: '', remember: false });
 const registerForm = reactive({
   name: '', phone: '', position_type: 'ผู้ใหญ่บ้าน', position_other: '',
   password: '', password_confirmation: '', email: '',
-  // ขอบเขตที่รับผิดชอบ — บังคับเลือก หมู่บ้าน
-  amphur_id: '', tambon_id: '', village_id: '',
+  // ขอบเขตที่รับผิดชอบ — บังคับเลือก หมู่บ้าน (ครอบทุก ม.)
+  amphur_id: '', tambon_id: '', village_name: '',
 });
 const showPassword = ref(false);
 
@@ -32,16 +32,17 @@ onMounted(async () => {
   amphurOpts.value = (await axios.get('/api/auth/geo/amphurs')).data.data;
 });
 watch(() => registerForm.amphur_id, async (id) => {
-  registerForm.tambon_id = ''; registerForm.village_id = '';
+  registerForm.tambon_id = ''; registerForm.village_name = '';
   tambonOpts.value = []; villageOpts.value = [];
   if (!id) return;
   tambonOpts.value = (await axios.get('/api/auth/geo/tambons', { params: { amphur_id: id } })).data.data;
 });
 watch(() => registerForm.tambon_id, async (id) => {
-  registerForm.village_id = '';
+  registerForm.village_name = '';
   villageOpts.value = [];
   if (!id) return;
-  villageOpts.value = (await axios.get('/api/auth/geo/villages', { params: { tambon_id: id } })).data.data;
+  // ใช้ village-names ที่ group หมู่บ้าน + รวม ม. — ไม่ลงลึกถึงหมู่ที่
+  villageOpts.value = (await axios.get('/api/auth/geo/village-names', { params: { tambon_id: id } })).data.data;
 });
 
 async function submitLogin() {
@@ -66,7 +67,7 @@ async function submitRegister() {
     loginForm.phone = registerForm.phone;
     Object.assign(registerForm, {
       name: '', phone: '', position_other: '', password: '', password_confirmation: '', email: '',
-      amphur_id: '', tambon_id: '', village_id: '',
+      amphur_id: '', tambon_id: '', village_name: '',
     });
   } catch (e) {
     fieldErrors.value = e.response?.data?.errors || {};
@@ -233,15 +234,17 @@ async function submitRegister() {
                   <option value="">เลือกตำบล</option>
                   <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
                 </select>
-                <select v-model="registerForm.village_id" :disabled="!registerForm.tambon_id" required
+                <select v-model="registerForm.village_name" :disabled="!registerForm.tambon_id" required
                   class="w-full min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
                   <option value="">เลือกหมู่บ้าน</option>
-                  <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (ม.'+v.moo+')' : '' }}</option>
+                  <option v-for="v in villageOpts" :key="v.name" :value="v.name">
+                    {{ v.name }}{{ v.moo_count > 1 ? ' · ครอบคลุม '+v.moo_count+' หมู่ ('+v.moo_label+')' : (v.moo_label ? ' · '+v.moo_label : '') }}
+                  </option>
                 </select>
               </div>
-              <div v-if="fieldErrors.village_id" class="text-[11px] text-red-600 mt-2">{{ fieldErrors.village_id[0] }}</div>
+              <div v-if="fieldErrors.village_name" class="text-[11px] text-red-600 mt-2">{{ fieldErrors.village_name[0] }}</div>
               <div class="text-[10px] text-slate-600 dark:text-slate-400 mt-2 leading-snug">
-                ระบบจะแสดงเฉพาะรายชื่อกลุ่มเป้าหมายในหมู่บ้านนี้ให้คุณติดตาม
+                <i class="fi-rr-info"></i> ผู้กำกับติดตามดูแล <b>ทั้งหมู่บ้าน</b> — หากชื่อหมู่บ้านเดียวกันมีหลายหมู่ ระบบจะให้คุณดูแลครบทุกหมู่ที่
               </div>
             </div>
 

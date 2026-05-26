@@ -60,6 +60,32 @@ class ReferenceController extends Controller
         return response()->json(['data' => $q->get(['id', 'name', 'moo', 'tambon_id'])]);
     }
 
+    /**
+     * GET /api/auth/geo/village-names?tambon_id=X
+     * คืนหมู่บ้านที่กรุ๊ปด้วย "ชื่อหมู่บ้าน" รวม moo เข้าด้วยกัน
+     * ผู้กำกับติดตามดูแลทั้งหมู่บ้าน ไม่ต้องลงลึกถึงหมู่ที่
+     */
+    public function villageNames(Request $request): JsonResponse
+    {
+        $rows = Village::query()
+            ->when($request->filled('tambon_id'), fn ($q) => $q->where('tambon_id', (int) $request->tambon_id))
+            ->orderBy('name')->orderBy('moo')
+            ->get(['id', 'name', 'moo', 'tambon_id']);
+
+        $grouped = $rows->groupBy('name')->map(function ($group, $name) {
+            $moos = $group->pluck('moo')->filter()->all();
+            return [
+                'name'        => $name,
+                'tambon_id'   => $group->first()->tambon_id,
+                'village_ids' => $group->pluck('id')->all(),
+                'moo_count'   => count($moos),
+                'moo_label'   => count($moos) > 0 ? 'ม.' . implode(', ม.', $moos) : null,
+            ];
+        })->values();
+
+        return response()->json(['data' => $grouped]);
+    }
+
     public function projectPhases(): JsonResponse
     {
         return response()->json([
