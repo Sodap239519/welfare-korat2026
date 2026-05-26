@@ -5,6 +5,7 @@ import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
+import { effectiveSopDetails } from '@/composables/sopDefaults';
 
 const route = useRoute();
 const router = useRouter();
@@ -123,15 +124,20 @@ function openSopAdd() {
 }
 
 function openSopEdit(phase) {
-  const d = phase.details || {};
+  // ใช้ effectiveSopDetails — DB ก่อน · fallback default ตาม sop_level
+  // (ก่อนหน้านี้ Settings ไม่ใช้ fallback → user แก้ ขั้น 3 ขึ้นมา ดู "ยังไม่มี" แต่ Dashboard แสดงผ่าน default)
+  const d = effectiveSopDetails(phase);
   Object.assign(sopForm, {
     id: phase.id, name: phase.name || '',
     description: phase.description || '', sop_level: phase.sop_level || 1,
     detailsSummary: d.summary || '',
     detailsFooter:  d.footer  || '',
-    detailsBullets: Array.isArray(d.bullets)
-      ? d.bullets.map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text || '', subtitle: b.subtitle || '', count: b.count ?? null }))
-      : [],
+    detailsBullets: d.bullets.map(b => ({
+      icon: b.icon || 'fi-rr-circle',
+      text: b.text || '',
+      subtitle: b.subtitle || '',
+      count: b.count ?? null,
+    })),
   });
   sopErr.value = {};
   showSopEdit.value = true;
@@ -418,11 +424,16 @@ const ICON_OPTIONS = [
                 <span v-if="p.is_current" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-700 text-white">กำลังดำเนินการ</span>
               </div>
               <div v-if="p.description" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ p.description }}</div>
-              <!-- กระบวนการดำเนินงาน (bullets) -->
-              <div v-if="p.details?.bullets?.length" class="mt-2 flex flex-wrap gap-1.5">
-                <span v-for="(b, i) in p.details.bullets" :key="i"
-                      class="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+              <!-- กระบวนการดำเนินงาน (bullets) — ใช้ effectiveSopDetails fallback default -->
+              <div v-if="effectiveSopDetails(p).bullets.length" class="mt-2 flex flex-wrap gap-1.5">
+                <span v-for="(b, i) in effectiveSopDetails(p).bullets" :key="i"
+                      class="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      :title="!p.details?.bullets?.length ? 'ค่าตั้งต้น — กดแก้ไขเพื่อปรับและบันทึกลง DB' : ''">
                   <i :class="b.icon || 'fi-rr-circle'"></i> {{ b.text }}
+                  <span v-if="!p.details?.bullets?.length" class="text-blue-600 ml-0.5">●</span>
+                </span>
+                <span v-if="!p.details?.bullets?.length" class="text-[10px] text-blue-600 dark:text-blue-400 italic">
+                  ● ค่าตั้งต้น (ยังไม่ได้บันทึก) — กด ✎ เพื่อแก้ + บันทึก
                 </span>
               </div>
               <div v-else class="mt-2 text-[10px] text-slate-400 italic">— ยังไม่มีกระบวนการดำเนินงานย่อย</div>

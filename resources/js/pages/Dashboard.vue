@@ -6,6 +6,7 @@ import axios from 'axios';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
 import { formatNumber, STATUS_SHORT } from '@/composables/useApi';
+import { DEFAULT_SOP_DETAILS, effectiveSopDetails } from '@/composables/sopDefaults';
 
 const theme = useThemeStore();
 const auth = useAuthStore();
@@ -50,62 +51,8 @@ const villageOpts = ref([]);
 const refreshing = ref(false);
 const asOf = ref('—');
 
-// SOP details (ตามแผนปฏิบัติการในเอกสารโครงการ)
-const sopDetails = {
-  1: {
-    color: 'blue', title: 'วิเคราะห์เกณฑ์ผู้มีสิทธิ์',
-    summary: 'มรก.มม. ส่ง Briefing 1 หน้า · เกณฑ์สิทธิ + เอกสารที่ต้องเตรียม',
-    bullets: [
-      { icon: 'fi-rr-id-card-clip-alt', text: 'บัตรประชาชน Smart Card' },
-      { icon: 'fi-rr-fingerprint',      text: 'Laser ID หลังบัตร' },
-      { icon: 'fi-rr-coins',            text: 'ข้อมูลรายได้ / ทรัพย์สิน' },
-      { icon: 'fi-rr-list-check',       text: 'ข้อมูลตามเกณฑ์ที่กำหนด' },
-    ],
-    footer: 'ให้ทุก อปท./รพ.สต./กำนัน ภายใน 10 วัน ผ่านไลน์กลุ่ม "บัตรสวัสดิการแห่งรัฐ โคราช"',
-  },
-  2: {
-    color: 'sky', title: 'ส่งรายชื่อกลุ่มเป้าหมาย',
-    summary: 'มรก.มม. + DSS ส่ง "รายชื่อรายอำเภอ/ตำบล/หมู่บ้าน" พร้อมเลข 13 หลัก',
-    bullets: [
-      { icon: 'fi-rr-id-card-clip-alt', text: 'เลข 13 หลัก' },
-      { icon: 'fi-rr-marker',           text: 'พิกัด GPS' },
-      { icon: 'fi-rr-phone-call',       text: 'เบอร์ติดต่อ' },
-      { icon: 'fi-rr-chart-pie-alt',    text: 'สถานะ MPI' },
-    ],
-    footer: 'นำเข้าระบบ NOAH + แบบฟอร์มที่ มรก. ออกแบบให้',
-  },
-  3: {
-    color: 'orange', title: 'จัดเวทีชี้แจงกลุ่มเป้าหมาย',
-    summary: 'จัด "เวที 1 ตำบล 1 ครั้ง" ภายใน 10 วันของเดือนมิถุนายน',
-    bullets: [
-      { icon: 'fi-rr-info',          text: 'ให้ความรู้สิทธิประโยชน์ + ขั้นตอน + เอกสาร' },
-      { icon: 'fi-rr-comments',      text: 'การให้คำปรึกษาเฉพาะราย' },
-      { icon: 'fi-rr-house-chimney', text: 'เยี่ยมบ้านผู้พิการ/ผู้สูงอายุที่มาเวทีไม่ได้' },
-    ],
-    footer: 'ใช้โค้ชทีมเดินสาย: นักศึกษา · รพ.สต. · อสม. · สภาองค์กรชุมชน',
-  },
-  4: {
-    color: 'purple', title: 'กลไกลงทะเบียน',
-    summary: '3 จุดบริการ ครอบคลุมทุกกลุ่ม — ประจำ / เคลื่อนที่ / เยี่ยมบ้าน',
-    bullets: [
-      { icon: 'fi-rr-building',    text: 'จุดบริการประจำ — เปิดศูนย์ที่ อบต./เทศบาล ทุกวันราชการ' },
-      { icon: 'fi-rr-ambulance',   text: 'จุดบริการเคลื่อนที่ — ทีมนักศึกษา + ธนาคารกรุงไทย CRM ลงพื้นที่ "วันลงทะเบียนรวมหมู่บ้าน" สัปดาห์ละ 2 หมู่/ตำบล' },
-      { icon: 'fi-rr-hand-holding-heart', text: 'ทีมพิเศษเยี่ยมบ้าน — สำหรับผู้พิการติดเตียง/ผู้สูงอายุ มีเอกสารมอบอำนาจสำเร็จรูป' },
-    ],
-    footer: '',
-  },
-  5: {
-    color: 'green', title: 'ติดตามและประเมินผล',
-    summary: 'Dashboard ของ มรก.มม. รายงานสถานะรายบุคคล เรียลไทม์',
-    bullets: [
-      { icon: 'fi-rr-chart-pie',    text: 'รายงานสรุปยอดรายหมู่บ้าน · ทุกวัน' },
-      { icon: 'fi-rr-calendar',     text: 'ส่งรายงานให้คลังจังหวัด · ทุกศุกร์ 16:30' },
-      { icon: 'fi-rr-user-headset', text: 'ทีม CRM ตามผู้ที่ลงทะเบียนแล้วแต่ยังไม่ยืนยันตัวตน' },
-      { icon: 'fi-rr-search-alt',   text: 'วิเคราะห์ Bottleneck รายสัปดาห์เพื่อปรับกลไก' },
-    ],
-    footer: '',
-  },
-};
+// SOP details — ใช้ค่า default จาก composables/sopDefaults.js (shared กับ AdminSettings)
+const sopDetails = DEFAULT_SOP_DETAILS;
 const sopTintMap = {
   blue:   'card-tint-blue',
   sky:    'card-tint-sky',
@@ -311,18 +258,19 @@ function openSopAdd() {
 
 function openSopEdit(phase) {
   if (!auth.isSuperAdmin) return;
-  // ดึง details จาก DB (phase.details) มาก่อน · ถ้าไม่มีให้ fall back หา hardcoded sopDetails
-  const d = phase.details && Object.keys(phase.details).length
-    ? phase.details
-    : (sopDetails[phase.sop_level] || {});
+  // ใช้ effectiveSopDetails — DB ก่อน · fallback default ตาม sop_level
+  const d = effectiveSopDetails(phase);
   Object.assign(sopForm, {
     id: phase.id, name: phase.name || '',
     description: phase.description || '', sop_level: phase.sop_level || 1,
     detailsSummary: d.summary || '',
     detailsFooter:  d.footer  || '',
-    detailsBullets: Array.isArray(d.bullets)
-      ? d.bullets.map(b => ({ icon: b.icon || 'fi-rr-circle', text: b.text || '', subtitle: b.subtitle || '', count: b.count ?? null }))
-      : [],
+    detailsBullets: d.bullets.map(b => ({
+      icon: b.icon || 'fi-rr-circle',
+      text: b.text || '',
+      subtitle: b.subtitle || '',
+      count: b.count ?? null,
+    })),
   });
   sopErr.value = {};
   showSopEdit.value = true;
