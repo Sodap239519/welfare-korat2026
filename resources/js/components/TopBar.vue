@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
           </button>
 
           <div v-if="showSettings"
-               class="absolute right-0 mt-2 w-64 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
+               class="fixed inset-x-4 top-[4.5rem] z-50 card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
             <div class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400">
               การแสดงผล
             </div>
@@ -210,9 +210,9 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
-          <!-- Dropdown -->
+          <!-- Dropdown — มือถือ: fixed กลางจอใต้ topbar / desktop: ติดมุมขวาปุ่ม -->
           <div v-if="showNotif"
-               class="absolute right-0 mt-2 w-80 sm:w-96 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
+               class="fixed inset-x-4 top-[4.5rem] z-50 lg:absolute lg:inset-x-auto lg:top-auto lg:right-0 lg:mt-2 lg:w-96 card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
               <div class="font-semibold text-sm">การแจ้งเตือน</div>
               <button v-if="notif.unread > 0" @click="notif.markAllRead" class="text-xs text-blue-700 hover:underline">อ่านทั้งหมด</button>
@@ -256,9 +256,9 @@ onBeforeUnmount(() => {
             <i class="fi-rr-angle-small-down text-slate-400 hidden sm:inline-block"></i>
           </button>
 
-          <!-- Dropdown menu -->
+          <!-- Dropdown menu — มือถือ: fixed กลางจอใต้ topbar / desktop: ติดมุมขวาปุ่ม -->
           <div v-if="showUserMenu"
-               class="absolute right-0 mt-2 w-60 max-w-[calc(100vw-2rem)] card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
+               class="fixed inset-x-4 top-[4.5rem] z-50 lg:absolute lg:inset-x-auto lg:top-auto lg:right-0 lg:mt-2 lg:w-60 card shadow-2xl shadow-slate-300/40 dark:shadow-black/40 overflow-hidden">
             <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
               <div class="flex items-center gap-2.5">
                 <div class="w-10 h-10 rounded-full text-white flex items-center justify-center text-sm font-semibold"
