@@ -68,9 +68,24 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null;
   }
 
+  async function updateProfile(payload) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await axios.patch('/api/auth/profile', payload);
+      user.value = data.user;
+      return data;
+    } catch (e) {
+      error.value = e.response?.data?.message || 'เกิดข้อผิดพลาด';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     user, isReady, loading, error,
     isAuth, roles, isSuperAdmin, isAdmin, isTracker,
-    fetchMe, login, register, logout,
+    fetchMe, login, register, logout, updateProfile,
   };
 });

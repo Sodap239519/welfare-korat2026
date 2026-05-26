@@ -17,6 +17,63 @@ const saving = ref(false);
 const errors = ref({});
 const flashOk = ref('');
 
+// Edit modal
+const showEdit = ref(false);
+const editForm = reactive({
+  prefix: '', first_name: '', last_name: '',
+  address_no: '', year: '',
+  annual_income: '', has_old_welfare: false,
+  income_note: '',
+});
+const editErr = ref({});
+const editSaving = ref(false);
+const incomeHistory = ref([]);
+const showHistory = ref(false);
+
+function openEdit() {
+  Object.assign(editForm, {
+    prefix: target.value.prefix || '',
+    first_name: target.value.first_name || '',
+    last_name: target.value.last_name || '',
+    address_no: target.value.address_no || '',
+    year: target.value.year || '',
+    annual_income: target.value.annual_income ?? 0,
+    has_old_welfare: !!target.value.has_old_welfare,
+    income_note: '',
+  });
+  editErr.value = {};
+  showEdit.value = true;
+}
+
+async function saveEdit() {
+  editSaving.value = true;
+  editErr.value = {};
+  try {
+    const { data } = await axios.patch(`/api/targets/${id}`, {
+      prefix: editForm.prefix || null,
+      first_name: editForm.first_name,
+      last_name: editForm.last_name || null,
+      address_no: editForm.address_no,
+      year: editForm.year !== '' ? Number(editForm.year) : null,
+      annual_income: Number(editForm.annual_income),
+      has_old_welfare: editForm.has_old_welfare ? 1 : 0,
+      income_note: editForm.income_note || null,
+    });
+    target.value = data;
+    showEdit.value = false;
+    flashOk.value = 'บันทึกข้อมูลเรียบร้อย';
+    setTimeout(() => (flashOk.value = ''), 3000);
+  } catch (e) {
+    editErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { editSaving.value = false; }
+}
+
+async function loadIncomeHistory() {
+  const { data } = await axios.get(`/api/targets/${id}/income-history`);
+  incomeHistory.value = data.data;
+  showHistory.value = true;
+}
+
 const form = reactive({
   status_code: '',
   channel_id: '',
@@ -104,11 +161,13 @@ function initials(name) {
               <div class="flex flex-wrap items-center gap-3 mt-2 text-xs opacity-90">
                 <span v-if="target.year"><i class="fi-rr-calendar"></i> ปี {{ target.year }}</span>
                 <span><i class="fi-rr-coins"></i> {{ formatNumber(target.annual_income) }} บ./ปี</span>
-                <span v-if="target.poverty_level"><i class="fi-rr-home"></i> {{ target.poverty_level }}</span>
                 <span v-if="target.has_old_welfare"><i class="fi-rr-credit-card"></i> มีบัตรเดิม</span>
               </div>
             </div>
           </div>
+          <button @click="openEdit" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-sm flex items-center gap-1.5">
+            <i class="fi-rr-edit"></i> แก้ไขข้อมูล
+          </button>
         </div>
       </div>
 
@@ -257,6 +316,106 @@ function initials(name) {
                   </div>
                   <div v-if="l.note" class="text-xs text-slate-600 dark:text-slate-300 mt-1">{{ l.note }}</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit modal -->
+      <div v-if="showEdit" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showEdit = false">
+        <div class="card w-full sm:max-w-lg p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="font-semibold">แก้ไขข้อมูลส่วนตัว</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">การแก้ "รายได้" จะเก็บประวัติ + ค่าเดิมเป็น Baseline</div>
+            </div>
+            <button @click="showEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          </div>
+
+          <div v-if="editErr.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ editErr.general[0] }}</div>
+
+          <form @submit.prevent="saveEdit" class="space-y-3">
+            <div class="grid grid-cols-[100px_1fr_1fr] gap-2">
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">คำนำหน้า</label>
+                <select v-model="editForm.prefix" class="w-full px-2 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                  <option v-for="p in ['นาย','นาง','นางสาว','เด็กชาย','เด็กหญิง','อื่น ๆ']" :key="p" :value="p">{{ p }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">ชื่อ</label>
+                <input v-model="editForm.first_name" required class="w-full px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">นามสกุล</label>
+                <input v-model="editForm.last_name" class="w-full px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">บ้านเลขที่</label>
+                <input v-model="editForm.address_no" class="w-full px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">ปีข้อมูล</label>
+                <input v-model="editForm.year" type="number" min="2500" max="2700" class="w-full px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+            </div>
+            <div class="card-tint-orange p-3 rounded-xl">
+              <div class="text-xs font-medium mb-2"><i class="fi-rr-coins"></i> รายได้เฉลี่ย (บาท/ปี)</div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <input v-model="editForm.annual_income" type="number" min="0" class="w-full px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-900 text-sm">
+                  <div class="text-[11px] mt-1 opacity-80">ค่าเดิม: {{ formatNumber(target?.annual_income) }} บ./ปี</div>
+                </div>
+                <div>
+                  <input v-model="editForm.income_note" placeholder="หมายเหตุการแก้ไข (ไม่บังคับ)" class="w-full px-3 py-2 rounded-lg border border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-900 text-sm">
+                </div>
+              </div>
+              <button type="button" @click="loadIncomeHistory" class="text-xs text-orange-700 hover:underline mt-2">
+                <i class="fi-rr-time-past"></i> ดูประวัติการแก้ไขรายได้
+              </button>
+            </div>
+            <label class="flex items-center gap-2 text-sm">
+              <input v-model="editForm.has_old_welfare" type="checkbox" class="rounded text-blue-600"> มีบัตรสวัสดิการเดิม
+            </label>
+            <div class="flex gap-2 justify-end pt-1">
+              <button type="button" @click="showEdit = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+              <button type="submit" :disabled="editSaving" class="btn-primary px-4 py-2 text-sm flex items-center gap-1.5">
+                <i :class="['fi-rr-disk', editSaving && 'animate-spin']"></i> บันทึก
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Income history modal -->
+      <div v-if="showHistory" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showHistory = false">
+        <div class="card w-full sm:max-w-lg p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-3">
+            <div class="font-semibold">ประวัติการแก้ไขรายได้</div>
+            <button @click="showHistory = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          </div>
+          <div v-if="incomeHistory.length === 0" class="text-sm text-slate-500 text-center py-6">ยังไม่มีการแก้ไขรายได้</div>
+          <div v-else class="space-y-2">
+            <div v-for="h in incomeHistory" :key="h.id"
+                 :class="['p-3 rounded-xl border', h.is_baseline ? 'border-blue-200 card-tint-blue' : 'border-slate-100 dark:border-slate-800']">
+              <div class="flex items-baseline justify-between gap-2 flex-wrap">
+                <div class="font-medium text-sm">
+                  <span class="text-slate-500">{{ formatNumber(h.old_income) }}</span>
+                  <i class="fi-rr-arrow-right mx-1 text-slate-400 text-xs"></i>
+                  <strong>{{ formatNumber(h.new_income) }}</strong>
+                  <span :class="['text-xs ml-2', h.diff > 0 ? 'text-green-700' : h.diff < 0 ? 'text-red-600' : 'text-slate-500']">
+                    {{ h.diff > 0 ? '+' : '' }}{{ formatNumber(h.diff) }}
+                  </span>
+                </div>
+                <div class="text-xs text-slate-500">{{ shortDate(h.changed_at) }}</div>
+              </div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                <span v-if="h.is_baseline" class="font-medium text-blue-700">📌 Baseline · </span>
+                โดย {{ h.changed_by_name }}
+                <span v-if="h.note"> · {{ h.note }}</span>
               </div>
             </div>
           </div>

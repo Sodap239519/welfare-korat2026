@@ -88,6 +88,48 @@ class AuthController extends Controller
         ]);
     }
 
+    /** PATCH /api/auth/profile — แก้ไขข้อมูลส่วนตัวของผู้ใช้เอง */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name'           => ['sometimes', 'string', 'max:150'],
+            'phone'          => ['sometimes', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone,'.$user->id],
+            'email'          => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email,'.$user->id],
+            'position_type'  => ['sometimes', 'nullable', 'string', 'max:40'],
+            'position_other' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'current_password' => ['required_with:password', 'nullable', 'string'],
+            'password'       => ['sometimes', 'nullable', \Illuminate\Validation\Rules\Password::min(6)],
+        ], [
+            'phone.regex'    => 'เบอร์โทรต้องเป็นตัวเลข 9-10 หลัก',
+            'phone.unique'   => 'เบอร์โทรนี้มีคนใช้แล้ว',
+            'password.min'   => 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+            'current_password.required_with' => 'กรุณาระบุรหัสผ่านปัจจุบันก่อนเปลี่ยน',
+        ]);
+
+        // ถ้าเปลี่ยน password — ตรวจสอบ current_password ก่อน
+        if (!empty($data['password'])) {
+            if (!\Illuminate\Support\Facades\Hash::check($data['current_password'], $user->password)) {
+                return response()->json([
+                    'message' => 'รหัสผ่านปัจจุบันไม่ถูกต้อง',
+                    'errors'  => ['current_password' => ['รหัสผ่านปัจจุบันไม่ถูกต้อง']],
+                ], 422);
+            }
+            $data['password'] = \Illuminate\Support\Facades\Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+        unset($data['current_password']);
+
+        $user->update($data);
+
+        return response()->json([
+            'message' => 'อัปเดตข้อมูลส่วนตัวเรียบร้อย — ข้อมูลเก่าในประวัติยังคงแสดงด้วยชื่อเดิม',
+            'user'    => $this->presentUser($user->fresh('roles')),
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         Auth::guard('web')->logout();

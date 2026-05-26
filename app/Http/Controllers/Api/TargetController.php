@@ -104,7 +104,7 @@ class TargetController extends Controller
 
         $banks = config('banks.banks', []);
 
-        $logs = TargetStatusLog::with(['channel:id,name', 'user:id,name'])
+        $logs = TargetStatusLog::with(['channel:id,name'])
             ->where('target_id', $id)
             ->orderByDesc('changed_at')
             ->limit(50)
@@ -116,7 +116,8 @@ class TargetController extends Controller
                 'sub_channel'       => $l->sub_channel,
                 'sub_channel_label' => $l->sub_channel ? ($banks[$l->sub_channel] ?? $l->sub_channel) : null,
                 'note'              => $l->note,
-                'user'              => $l->user?->name,
+                // ใช้ snapshot name — ไม่เปลี่ยนเมื่อ user แก้ชื่อภายหลัง
+                'user'              => $l->user_name_snapshot ?: '—',
                 'changed_at'        => $l->changed_at?->toIso8601String(),
             ]);
 
@@ -149,7 +150,8 @@ class TargetController extends Controller
                 'sub_channel'       => $t->currentStatus->sub_channel,
                 'sub_channel_label' => $t->currentStatus->sub_channel ? ($banks[$t->currentStatus->sub_channel] ?? $t->currentStatus->sub_channel) : null,
                 'note'              => $t->currentStatus->note,
-                'updated_by'        => $t->currentStatus->updater?->name,
+                // ใช้ snapshot — ไม่เปลี่ยนเมื่อ user แก้ชื่อ
+                'updated_by'        => $t->currentStatus->updated_by_name ?: $t->currentStatus->updater?->name,
                 'updated_at'        => $t->currentStatus->updated_at?->toIso8601String(),
             ] : null,
             'logs' => $logs,
@@ -285,33 +287,37 @@ class TargetController extends Controller
             $data['sub_channel'] = null;
         }
 
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
+        $userName = $user->name;     // snapshot ตอนนี้
         $now = now();
         $logsBatch = [];
         $count = 0;
 
-        DB::transaction(function () use ($data, $userId, $now, &$logsBatch, &$count) {
+        DB::transaction(function () use ($data, $userId, $userName, $now, &$logsBatch, &$count) {
             foreach ($data['target_ids'] as $tid) {
                 $logsBatch[] = [
-                    'target_id'   => $tid,
-                    'status_code' => $data['status_code'],
-                    'channel_id'  => $data['channel_id'] ?? null,
-                    'sub_channel' => $data['sub_channel'] ?? null,
-                    'note'        => $data['note'] ?? null,
-                    'user_id'     => $userId,
-                    'changed_at'  => $now,
-                    'created_at'  => $now,
-                    'updated_at'  => $now,
+                    'target_id'          => $tid,
+                    'status_code'        => $data['status_code'],
+                    'channel_id'         => $data['channel_id'] ?? null,
+                    'sub_channel'        => $data['sub_channel'] ?? null,
+                    'note'               => $data['note'] ?? null,
+                    'user_id'            => $userId,
+                    'user_name_snapshot' => $userName,
+                    'changed_at'         => $now,
+                    'created_at'         => $now,
+                    'updated_at'         => $now,
                 ];
                 TargetCurrentStatus::updateOrCreate(
                     ['target_id' => $tid],
                     [
-                        'status_code' => $data['status_code'],
-                        'channel_id'  => $data['channel_id'] ?? null,
-                        'sub_channel' => $data['sub_channel'] ?? null,
-                        'note'        => $data['note'] ?? null,
-                        'updated_by'  => $userId,
-                        'updated_at'  => $now,
+                        'status_code'     => $data['status_code'],
+                        'channel_id'      => $data['channel_id'] ?? null,
+                        'sub_channel'     => $data['sub_channel'] ?? null,
+                        'note'            => $data['note'] ?? null,
+                        'updated_by'      => $userId,
+                        'updated_by_name' => $userName,
+                        'updated_at'      => $now,
                     ]
                 );
                 $count++;
@@ -379,32 +385,114 @@ class TargetController extends Controller
         }
 
         $target = Target::findOrFail($id);
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
+        $userName = $user->name;
 
-        DB::transaction(function () use ($target, $data, $userId) {
+        DB::transaction(function () use ($target, $data, $userId, $userName) {
             TargetStatusLog::create([
-                'target_id'   => $target->id,
-                'status_code' => $data['status_code'],
-                'channel_id'  => $data['channel_id'] ?? null,
-                'sub_channel' => $data['sub_channel'] ?? null,
-                'note'        => $data['note'] ?? null,
-                'user_id'     => $userId,
-                'changed_at'  => now(),
+                'target_id'          => $target->id,
+                'status_code'        => $data['status_code'],
+                'channel_id'         => $data['channel_id'] ?? null,
+                'sub_channel'        => $data['sub_channel'] ?? null,
+                'note'               => $data['note'] ?? null,
+                'user_id'            => $userId,
+                'user_name_snapshot' => $userName,
+                'changed_at'         => now(),
             ]);
 
             TargetCurrentStatus::updateOrCreate(
                 ['target_id' => $target->id],
                 [
-                    'status_code' => $data['status_code'],
-                    'channel_id'  => $data['channel_id'] ?? null,
-                    'sub_channel' => $data['sub_channel'] ?? null,
-                    'note'        => $data['note'] ?? null,
-                    'updated_by'  => $userId,
-                    'updated_at'  => now(),
+                    'status_code'     => $data['status_code'],
+                    'channel_id'      => $data['channel_id'] ?? null,
+                    'sub_channel'     => $data['sub_channel'] ?? null,
+                    'note'            => $data['note'] ?? null,
+                    'updated_by'      => $userId,
+                    'updated_by_name' => $userName,
+                    'updated_at'      => now(),
                 ]
             );
         });
 
         return $this->show($id);
+    }
+
+    /** PATCH /api/targets/{id} — แก้ไขข้อมูลส่วนตัว (ชื่อ/รายได้/บ้านเลขที่/etc.) */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $target = Target::findOrFail($id);
+
+        $data = $request->validate([
+            'prefix'          => ['sometimes', 'nullable', 'string', 'max:20'],
+            'first_name'      => ['sometimes', 'string', 'max:100'],
+            'last_name'       => ['sometimes', 'nullable', 'string', 'max:100'],
+            'year'            => ['sometimes', 'nullable', 'integer', 'between:2500,2700'],
+            'annual_income'   => ['sometimes', 'integer', 'min:0', 'max:999999999'],
+            'has_old_welfare' => ['sometimes', 'boolean'],
+            'address_no'      => ['sometimes', 'string', 'max:50'],
+            'income_note'     => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $user = $request->user();
+
+        DB::transaction(function () use ($target, $data, $user) {
+            // ถ้ารายได้เปลี่ยน → log เข้า target_income_history
+            if (array_key_exists('annual_income', $data) && (int) $data['annual_income'] !== (int) $target->annual_income) {
+                // ครั้งแรกที่แก้ — บันทึก baseline ของรายได้เดิมด้วย
+                $hasHistory = \App\Models\TargetIncomeHistory::where('target_id', $target->id)->exists();
+                if (!$hasHistory) {
+                    \App\Models\TargetIncomeHistory::create([
+                        'target_id'       => $target->id,
+                        'old_income'      => 0,
+                        'new_income'      => $target->annual_income,
+                        'is_baseline'     => true,
+                        'note'            => 'รายได้เริ่มต้น (จากการนำเข้าครั้งแรก)',
+                        'changed_by'      => null,
+                        'changed_by_name' => 'ระบบ (Baseline)',
+                        'changed_at'      => $target->created_at,
+                    ]);
+                }
+                \App\Models\TargetIncomeHistory::create([
+                    'target_id'       => $target->id,
+                    'old_income'      => $target->annual_income,
+                    'new_income'      => (int) $data['annual_income'],
+                    'is_baseline'     => false,
+                    'note'            => $data['income_note'] ?? null,
+                    'changed_by'      => $user->id,
+                    'changed_by_name' => $user->name,
+                    'changed_at'      => now(),
+                ]);
+            }
+
+            $target->update(collect($data)->except('income_note')->toArray());
+
+            // ถ้าแก้ address_no → อัปเดต household ที่เกี่ยวข้อง
+            if (array_key_exists('address_no', $data) && $target->household) {
+                $target->household->update(['address_no' => $data['address_no']]);
+            }
+        });
+
+        return $this->show($id);
+    }
+
+    /** GET /api/targets/{id}/income-history */
+    public function incomeHistory(int $id): JsonResponse
+    {
+        Target::findOrFail($id);
+        $rows = \App\Models\TargetIncomeHistory::where('target_id', $id)
+            ->orderByDesc('changed_at')
+            ->get()
+            ->map(fn ($h) => [
+                'id'              => $h->id,
+                'old_income'      => $h->old_income,
+                'new_income'      => $h->new_income,
+                'diff'            => $h->new_income - $h->old_income,
+                'is_baseline'     => $h->is_baseline,
+                'note'            => $h->note,
+                'changed_by_name' => $h->changed_by_name,
+                'changed_at'      => $h->changed_at?->toIso8601String(),
+            ]);
+        return response()->json(['data' => $rows]);
     }
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
@@ -16,6 +16,46 @@ defineEmits(['openSidebar']);
 
 const showNotif = ref(false);
 const bellRef = ref(null);
+
+// Profile edit modal
+const showProfile = ref(false);
+const profileForm = reactive({
+  name: '', phone: '', email: '',
+  position_type: '', position_other: '',
+  current_password: '', password: '',
+});
+const profileErr = ref({});
+const profileFlash = ref('');
+const profileSaving = ref(false);
+
+function openProfile() {
+  Object.assign(profileForm, {
+    name: auth.user?.name || '',
+    phone: auth.user?.phone || '',
+    email: auth.user?.email || '',
+    position_type: auth.user?.position_type || '',
+    position_other: auth.user?.position_other || '',
+    current_password: '',
+    password: '',
+  });
+  profileErr.value = {};
+  profileFlash.value = '';
+  showProfile.value = true;
+}
+
+async function saveProfile() {
+  profileSaving.value = true;
+  profileErr.value = {};
+  try {
+    const res = await auth.updateProfile(profileForm);
+    profileFlash.value = res.message;
+    profileForm.current_password = '';
+    profileForm.password = '';
+    setTimeout(() => { showProfile.value = false; profileFlash.value = ''; }, 1500);
+  } catch (e) {
+    profileErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { profileSaving.value = false; }
+}
 
 const initials = computed(() => {
   const n = auth.user?.name || '';
@@ -136,16 +176,85 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="auth.user" class="hidden sm:flex items-center gap-2 ml-2 pl-2 border-l border-slate-100 dark:border-slate-800">
-          <div class="w-9 h-9 rounded-full text-white flex items-center justify-center text-xs font-semibold"
-               style="background: linear-gradient(135deg,#1d4ed8,#0ea5e9);">{{ initials }}</div>
-          <div class="text-xs leading-tight">
-            <div class="font-medium text-slate-800 dark:text-slate-100">{{ auth.user.name }}</div>
-            <div class="text-slate-500 dark:text-slate-400">{{ roleLabel }}</div>
-          </div>
+          <button @click="openProfile" class="flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-1.5 py-1" title="แก้ไขข้อมูลส่วนตัว">
+            <div class="w-9 h-9 rounded-full text-white flex items-center justify-center text-xs font-semibold"
+                 style="background: linear-gradient(135deg,#1d4ed8,#0ea5e9);">{{ initials }}</div>
+            <div class="text-xs leading-tight text-left">
+              <div class="font-medium text-slate-800 dark:text-slate-100">{{ auth.user.name }}</div>
+              <div class="text-slate-500 dark:text-slate-400">{{ roleLabel }}</div>
+            </div>
+          </button>
           <button @click="doLogout" title="ออกจากระบบ" class="ml-1 p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
             <i class="fi-rr-sign-out-alt text-base"></i>
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Profile edit modal -->
+    <div v-if="showProfile" class="fixed inset-0 z-50 bg-slate-900/50 flex items-end sm:items-center justify-center" @click.self="showProfile = false">
+      <div class="card w-full sm:max-w-md p-5 rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="font-semibold">แก้ไขข้อมูลส่วนตัว</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">การเปลี่ยนชื่อจะไม่ส่งผลต่อประวัติเก่า (เก็บ snapshot ไว้แล้ว)</div>
+          </div>
+          <button @click="showProfile = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+        </div>
+
+        <div v-if="profileFlash" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ profileFlash }}</div>
+        <div v-if="profileErr?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ profileErr.general[0] }}</div>
+
+        <form @submit.prevent="saveProfile" class="space-y-3">
+          <div>
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชื่อ-สกุล</label>
+            <input v-model="profileForm.name" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <div v-if="profileErr?.name" class="text-[11px] text-red-600 mt-1">{{ profileErr.name[0] }}</div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทร</label>
+              <input v-model="profileForm.phone" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              <div v-if="profileErr?.phone" class="text-[11px] text-red-600 mt-1">{{ profileErr.phone[0] }}</div>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">อีเมล</label>
+              <input v-model="profileForm.email" type="email" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ตำแหน่ง</label>
+              <select v-model="profileForm.position_type" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+                <option value="">— ไม่ระบุ —</option>
+                <option v-for="p in ['ผู้ใหญ่บ้าน','กำนัน','ผู้ช่วยผู้ใหญ่บ้าน','อสม.','ส.อบต.','อื่นๆ']" :key="p" :value="p">{{ p }}</option>
+              </select>
+            </div>
+            <div v-if="profileForm.position_type === 'อื่นๆ'">
+              <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ระบุ</label>
+              <input v-model="profileForm.position_other" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            </div>
+          </div>
+          <div class="card-tint-blue p-3 rounded-xl space-y-2">
+            <div class="text-xs font-medium"><i class="fi-rr-lock"></i> เปลี่ยนรหัสผ่าน (ไม่บังคับ)</div>
+            <div>
+              <label class="block text-[11px] mb-1">รหัสผ่านปัจจุบัน (จำเป็นเมื่อเปลี่ยน)</label>
+              <input v-model="profileForm.current_password" type="password" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+              <div v-if="profileErr?.current_password" class="text-[11px] text-red-600 mt-1">{{ profileErr.current_password[0] }}</div>
+            </div>
+            <div>
+              <label class="block text-[11px] mb-1">รหัสผ่านใหม่ (≥ 6 ตัว)</label>
+              <input v-model="profileForm.password" type="password" minlength="6" class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+              <div v-if="profileErr?.password" class="text-[11px] text-red-600 mt-1">{{ profileErr.password[0] }}</div>
+            </div>
+          </div>
+          <div class="flex gap-2 justify-end pt-1">
+            <button type="button" @click="showProfile = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+            <button type="submit" :disabled="profileSaving" class="btn-primary px-4 py-2 text-sm flex items-center gap-1.5">
+              <i :class="['fi-rr-disk', profileSaving && 'animate-spin']"></i> บันทึก
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </header>

@@ -18,8 +18,9 @@ Route::prefix('auth')->group(function () {
     Route::post('login',    [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('logout', [AuthController::class, 'logout']);
-        Route::get('me',      [AuthController::class, 'me']);
+        Route::post('logout',  [AuthController::class, 'logout']);
+        Route::get('me',       [AuthController::class, 'me']);
+        Route::patch('profile',[AuthController::class, 'updateProfile']);
     });
 });
 
@@ -36,8 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('targets',                  [TargetController::class, 'index']);
     Route::post('targets',                 [TargetController::class, 'store']);    // manual add (Admin/Tracker)
     Route::post('targets/bulk-status',     [TargetController::class, 'bulkUpdateStatus']);
-    Route::get('targets/{id}',             [TargetController::class, 'show'])->whereNumber('id');
-    Route::patch('targets/{id}/status',    [TargetController::class, 'updateStatus'])->whereNumber('id');
+    Route::get('targets/{id}',                 [TargetController::class, 'show'])->whereNumber('id');
+    Route::patch('targets/{id}',               [TargetController::class, 'update'])->whereNumber('id');
+    Route::patch('targets/{id}/status',        [TargetController::class, 'updateStatus'])->whereNumber('id');
+    Route::get('targets/{id}/income-history',  [TargetController::class, 'incomeHistory'])->whereNumber('id');
 
     // Import
     Route::post('import/preview',  [ImportController::class, 'preview']);
