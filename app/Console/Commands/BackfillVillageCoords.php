@@ -10,13 +10,40 @@ class BackfillVillageCoords extends Command
     protected $signature = 'villages:backfill-coords
         {--dry : แสดงรายการที่จะแก้ไขโดยไม่บันทึก}
         {--force : คำนวณใหม่ทุกหมู่บ้านที่ระบุ (แม้มีพิกัดอยู่)}
-        {--tambon=* : เฉพาะหมู่บ้านใน tambon_id ที่ระบุ (ใส่ได้หลายตัว)}';
+        {--tambon=* : เฉพาะหมู่บ้านใน tambon_id ที่ระบุ (ใส่ได้หลายตัว)}
+        {--auto-fix : สแกนหาหมู่บ้านที่อยู่ห่าง tambon center > 5km แล้วแก้ให้ทั้งหมด}';
     protected $description = 'เติม lat/lng ให้หมู่บ้าน ใช้ tambon/amphur center จริง > centroid > province';
 
     public function handle(): int
     {
         $force   = (bool) $this->option('force');
         $tambons = (array) $this->option('tambon');
+        $auto    = (bool) $this->option('auto-fix');
+
+        // โหมด auto-fix: สแกนหาหมู่บ้านที่ผิดที่
+        if ($auto) {
+            $this->info('🔍 สแกนหาหมู่บ้านที่อยู่ห่างจาก tambon center > 5km...');
+            $misplaced = [];
+            Village::with('tambon')->chunk(200, function ($chunk) use (&$misplaced) {
+                foreach ($chunk as $v) {
+                    if (!$v->tambon?->lat || !$v->tambon?->lng) continue;
+                    if (abs($v->lat - $v->tambon->lat) > 0.05 || abs($v->lng - $v->tambon->lng) > 0.05) {
+                        $misplaced[$v->tambon_id] = ($misplaced[$v->tambon_id] ?? 0) + 1;
+                    }
+                }
+            });
+            if (empty($misplaced)) {
+                $this->info('✓ ไม่พบหมู่บ้านที่ผิดที่ — ทุกอย่างถูกต้อง');
+                return self::SUCCESS;
+            }
+            foreach ($misplaced as $tid => $cnt) {
+                $t = \App\Models\Tambon::find($tid);
+                $this->warn(sprintf('  ต.%s (id=%d): %d หมู่บ้านผิดที่', $t->name, $tid, $cnt));
+            }
+            $tambons = array_keys($misplaced);
+            $force = true;
+            $this->newLine();
+        }
 
         $q = Village::query()->with('tambon.amphur');
         if (!empty($tambons))    $q->whereIn('tambon_id', $tambons);
