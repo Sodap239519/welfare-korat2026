@@ -31,6 +31,13 @@ const exportRef = ref(null);
 
 const levelLabel = computed(() => ({ amphur: 'อำเภอ', tambon: 'ตำบล', village: 'หมู่บ้าน' }[level.value]));
 
+function formatThaiDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '';
+  return dt.toLocaleDateString('th-TH', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 const stats = computed(() => {
   const total = dailyRows.value.length;
   const excellent = dailyRows.value.filter(r => r.pct >= 80).length;
@@ -193,17 +200,31 @@ function pctClass(n) {
               : 'วิเคราะห์ Bottleneck รายสัปดาห์' }}
         </h2>
         <div class="text-sm opacity-90 mt-0.5">
-          {{ reportType === 'daily' ? new Date(date).toLocaleDateString('th-TH', { day: '2-digit', month: 'long', year: 'numeric' }) : 'จ.นครราชสีมา' }}
+          <span v-if="reportType === 'daily' && date">{{ formatThaiDate(date) }}</span>
+          <span v-else>จ.นครราชสีมา</span>
         </div>
       </div>
 
       <!-- Toolbar -->
       <div class="card p-3 space-y-2">
         <div class="flex flex-wrap gap-2 items-center">
-          <select v-model="reportType" @change="load" class="w-full sm:w-auto min-w-0 px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-            <option value="daily">สรุปยอด (รายวัน)</option>
-            <option value="bottleneck">วิเคราะห์ Bottleneck (รายสัปดาห์)</option>
-          </select>
+          <!-- Report type tabs (อยู่ในแถวเดียว) -->
+          <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 shrink-0">
+            <button @click="reportType = 'daily'; load()"
+                    :class="['px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5',
+                             reportType === 'daily'
+                               ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
+                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900']">
+              <i class="fi-rr-chart-pie"></i> <span>สรุปยอด (รายวัน)</span>
+            </button>
+            <button @click="reportType = 'bottleneck'; load()"
+                    :class="['px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5',
+                             reportType === 'bottleneck'
+                               ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
+                               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900']">
+              <i class="fi-rr-triangle-warning"></i> <span>Bottleneck (สัปดาห์)</span>
+            </button>
+          </div>
           <div v-if="reportType === 'daily'" ref="exportRef" class="sm:ml-auto relative">
             <button @click="showExport = !showExport"
                     class="btn-green px-3 py-2.5 text-sm flex items-center gap-1.5 whitespace-nowrap">
@@ -320,15 +341,15 @@ function pctClass(n) {
                 <th class="text-left py-2 px-3 sticky left-0 bg-white dark:bg-slate-900 z-10">{{ levelLabel }}</th>
                 <th v-if="level !== 'amphur'" class="text-left whitespace-nowrap">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
                 <th class="text-right whitespace-nowrap px-2">เป้า</th>
-                <th class="text-right whitespace-nowrap px-2 text-slate-500" title="ยังไม่ถูกติดตาม">— ยังไม่ติดตาม</th>
-                <th class="text-right whitespace-nowrap px-2" title="ไม่ประสงค์">4.1</th>
-                <th class="text-right whitespace-nowrap px-2" title="ลงทะเบียน">4.2</th>
-                <th class="text-right whitespace-nowrap px-2" title="เตรียมเอกสาร">4.3</th>
-                <th class="text-right whitespace-nowrap px-2" title="ส่งเอกสารเพิ่ม">4.4</th>
-                <th class="text-right whitespace-nowrap px-2" title="รออุทธรณ์">4.5</th>
-                <th class="text-right whitespace-nowrap px-2" title="รอยืนยันตัวตน">4.6</th>
-                <th class="text-right whitespace-nowrap px-2" title="ใช้สิทธิแล้ว">4.7</th>
-                <th class="text-right whitespace-nowrap px-2">รวม</th>
+                <th class="text-right whitespace-nowrap px-2 text-slate-500" title="ยังไม่ถูกติดตาม">ยังไม่ติดตาม</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.1">ไม่ประสงค์</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.2">ลงทะเบียน</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.3">เตรียมเอกสาร</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.4">ส่งเอกสารเพิ่ม</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.5">รออุทธรณ์</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.6">รอยืนยันตัวตน</th>
+                <th class="text-right whitespace-nowrap px-2" title="4.7">ใช้สิทธิแล้ว</th>
+                <th class="text-right whitespace-nowrap px-2">รวมลงทะเบียน</th>
                 <th class="text-right whitespace-nowrap px-2">%</th>
                 <th class="text-left whitespace-nowrap pl-4 pr-3">สถานะ</th>
               </tr>

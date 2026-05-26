@@ -113,7 +113,7 @@ class ReferenceController extends Controller
 
         return response()->json([
             'message' => "ตั้งขั้นปัจจุบันเป็น ชั้น {$phase->sop_level} เรียบร้อย",
-            'phase'   => $phase->fresh(['id', 'sop_level', 'name', 'is_current']),
+            'phase'   => $phase->fresh(),   // fresh() รับ relations ไม่ใช่ columns — ส่ง model ทั้งตัว
             // ส่ง phases สดทุกตัวกลับ — frontend จะแทน phases.value ทันที ไม่ต้อง GET ตามมา
             'phases'  => ProjectPhase::orderBy('sort_order')->get(['id', 'name', 'sop_level', 'icon', 'description', 'details', 'is_current']),
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate');
