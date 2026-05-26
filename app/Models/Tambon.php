@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Tambon extends Model
 {
-    protected $fillable = ['amphur_id', 'code', 'name'];
+    protected $fillable = ['amphur_id', 'code', 'name', 'lat', 'lng'];
+    protected $casts = ['lat' => 'float', 'lng' => 'float'];
 
     public function amphur(): BelongsTo { return $this->belongsTo(Amphur::class); }
     public function villages(): HasMany { return $this->hasMany(Village::class); }

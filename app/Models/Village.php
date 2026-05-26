@@ -21,53 +21,80 @@ class Village extends Model
     public function trackers(): HasMany { return $this->hasMany(Tracker::class); }
 
     /**
-     * คืน [lat, lng] โดยลำดับ fallback:
-     *   1) centroid ของหมู่บ้านอื่นใน tambon เดียวกัน
-     *   2) centroid ของหมู่บ้านใน amphur เดียวกัน
-     *   3) centroid ของทุกหมู่บ้านในระบบ (= จังหวัด)
-     *   4) hardcoded จุดศูนย์กลางจังหวัดนครราชสีมา
+     * คืน [lat, lng, source] โดยลำดับ fallback:
+     *   1) tambon.lat/lng จริง (จากข้อมูลพิกัด ปกครอง)         · source = 'tambon'
+     *   2) centroid ของหมู่บ้านอื่นใน tambon เดียวกัน        · source = 'tambon_centroid'
+     *   3) amphur.lat/lng จริง                                · source = 'amphur'
+     *   4) centroid ของหมู่บ้านใน amphur เดียวกัน             · source = 'amphur_centroid'
+     *   5) centroid ของทุกหมู่บ้านในระบบ (= จังหวัด)           · source = 'province_centroid'
+     *   6) hardcoded จุดศูนย์กลางจังหวัดนครราชสีมา             · source = 'province_hardcoded'
      */
     public static function resolveCenterCoords(int $tambonId): array
     {
-        // 1) tambon centroid
+        $tambon = Tambon::find($tambonId);
+
+        // 1) tambon's own real coords
+        if ($tambon && $tambon->lat && $tambon->lng) {
+            return ['lat' => $tambon->lat, 'lng' => $tambon->lng, 'source' => 'tambon'];
+        }
+
+        // 2) tambon centroid from sibling villages
         $c = DB::table('villages')
             ->where('tambon_id', $tambonId)
             ->whereNotNull('lat')->whereNotNull('lng')
             ->selectRaw('AVG(lat) as lat, AVG(lng) as lng')
             ->first();
-        if ($c && $c->lat) return ['lat' => (float) $c->lat, 'lng' => (float) $c->lng];
+        if ($c && $c->lat) return ['lat' => (float) $c->lat, 'lng' => (float) $c->lng, 'source' => 'tambon_centroid'];
 
-        // 2) amphur centroid
-        $amphurId = Tambon::where('id', $tambonId)->value('amphur_id');
-        if ($amphurId) {
+        // 3) amphur's own real coords
+        if ($tambon && $tambon->amphur && $tambon->amphur->lat && $tambon->amphur->lng) {
+            return ['lat' => $tambon->amphur->lat, 'lng' => $tambon->amphur->lng, 'source' => 'amphur'];
+        }
+
+        // 4) amphur centroid from villages
+        if ($tambon) {
             $c = DB::table('villages')
                 ->join('tambons', 'tambons.id', '=', 'villages.tambon_id')
-                ->where('tambons.amphur_id', $amphurId)
+                ->where('tambons.amphur_id', $tambon->amphur_id)
                 ->whereNotNull('villages.lat')->whereNotNull('villages.lng')
                 ->selectRaw('AVG(villages.lat) as lat, AVG(villages.lng) as lng')
                 ->first();
-            if ($c && $c->lat) return ['lat' => (float) $c->lat, 'lng' => (float) $c->lng];
+            if ($c && $c->lat) return ['lat' => (float) $c->lat, 'lng' => (float) $c->lng, 'source' => 'amphur_centroid'];
         }
 
-        // 3) province centroid
+        // 5) province centroid
         $c = DB::table('villages')
             ->whereNotNull('lat')->whereNotNull('lng')
             ->selectRaw('AVG(lat) as lat, AVG(lng) as lng')
             ->first();
-        if ($c && $c->lat) return ['lat' => (float) $c->lat, 'lng' => (float) $c->lng];
+        if ($c && $c->lat) return ['lat' => (float) $c->lat, 'lng' => (float) $c->lng, 'source' => 'province_centroid'];
 
-        // 4) Korat province center
-        return ['lat' => 14.97, 'lng' => 102.10];
+        // 6) Korat hardcoded
+        return ['lat' => 14.97, 'lng' => 102.10, 'source' => 'province_hardcoded'];
     }
 
-    /** ใส่พิกัดให้ village ที่ยังว่าง + jitter เล็กๆ กันแท่งซ้อนกันเป๊ะ */
-    public function ensureCoords(): void
+    /**
+     * ใส่พิกัดให้ village + jitter ตาม source:
+     *   - real (tambon/amphur):     ±0.005° (~550m) — กระจายในเขต tambon
+     *   - centroid:                  ±0.005° (~550m)
+     *   - province fallback:         ±0.05° (~5.5km) — ให้รู้ว่าผิด ต้องแก้
+     * $force = true จะคำนวณใหม่แม้มีพิกัดอยู่
+     */
+    public function ensureCoords(bool $force = false): void
     {
-        if ($this->lat && $this->lng) return;
+        if (!$force && $this->lat && $this->lng) return;
         $c = self::resolveCenterCoords($this->tambon_id);
-        // jitter ~ ±0.0005° ≈ 55 m เพื่อไม่ให้หมู่บ้านใหม่หลายตัวจาก fallback เดียวกัน stack
-        $this->lat = $c['lat'] + (mt_rand(-50, 50) / 100000);
-        $this->lng = $c['lng'] + (mt_rand(-50, 50) / 100000);
+
+        // jitter range ตาม source — ที่แม่นน้อยกว่า ใช้ jitter ใหญ่กว่า
+        $jitter = match ($c['source']) {
+            'tambon', 'tambon_centroid' => 0.005,    // ±550m
+            'amphur', 'amphur_centroid' => 0.01,     // ±1.1km
+            default                      => 0.05,    // ±5.5km — เห็นชัดว่าต้องแก้
+        };
+        $r = fn() => (mt_rand(-1000, 1000) / 1000) * $jitter;
+
+        $this->lat = $c['lat'] + $r();
+        $this->lng = $c['lng'] + $r();
         $this->save();
     }
 }
