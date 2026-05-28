@@ -1,145 +1,182 @@
 #!/bin/bash
 # ════════════════════════════════════════════════════════════
 #  Welfare Korat 2026 — Deploy Hook Script (Plesk)
-#  ทุก output จะถูกเขียนลง deploy.log (เปิดอ่านผ่าน File Manager ได้)
+#  เขียนทุก output ลง deploy.log (เปิดผ่าน File Manager)
 # ════════════════════════════════════════════════════════════
 
-# Plesk shell มี PATH ว่าง — set เองให้ครบ
+# Plesk shell มี PATH ว่าง + ไม่มี tee + ไม่รองรับ process substitution
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.3/bin:/opt/plesk/php/8.2/bin:/opt/plesk/php/8.1/bin:$PATH"
 
-# ─── เขียนทุก output ลง deploy.log (เห็นทั้งใน Plesk UI และในไฟล์) ───
-LOG="$(pwd)/deploy.log"
-exec > >(tee -a "$LOG") 2>&1
+# เขียน output ลงไฟล์อย่างเดียว — ใช้ shell redirect ล้วน (ไม่ใช้ tee/process substitution)
+exec > deploy.log 2>&1
 
-echo ""
 echo "══════════════════════════════════════════════════════════"
-echo "  Deploy started at: $(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo unknown)"
-echo "  PWD: $(pwd)"
-echo "  USER: $(whoami 2>/dev/null || echo unknown)"
+echo "  Deploy started"
+echo "  PWD: $PWD"
 echo "  SHELL: $SHELL"
+echo "  BASH_VERSION: $BASH_VERSION"
 echo "══════════════════════════════════════════════════════════"
 
-# ─── PROBE: ดูว่ามีเครื่องมืออะไรบนเครื่องบ้าง ───
+# ─── PROBE: ดูว่ามีอะไรบนเครื่องบ้าง (ไม่ใช้ command ภายนอกถ้าหลีกเลี่ยงได้) ───
 echo ""
-echo "── PROBE: searching for binaries ──"
-echo "PATH = $PATH"
+echo "── PROBE: PATH ──"
+echo "$PATH"
 echo ""
-echo "PHP candidates:"
-ls -1 /opt/plesk/php/*/bin/php 2>/dev/null || echo "  (none in /opt/plesk/php)"
-ls -1 /usr/bin/php* 2>/dev/null || echo "  (none in /usr/bin)"
-ls -1 /usr/local/bin/php* 2>/dev/null || echo "  (none in /usr/local/bin)"
-command -v php && php -v | head -n1 || echo "  command -v php → not found"
+
+echo "── PROBE: PHP binaries ──"
+for p in /opt/plesk/php/8.3/bin/php /opt/plesk/php/8.2/bin/php /opt/plesk/php/8.1/bin/php /usr/bin/php /usr/bin/php8.3 /usr/bin/php8.2 /usr/local/bin/php; do
+    if [ -x "$p" ]; then
+        echo "  EXISTS: $p"
+    fi
+done
+
 echo ""
-echo "Composer candidates:"
-command -v composer || echo "  composer → not found"
-ls -1 /usr/local/bin/composer* 2>/dev/null || echo "  (none in /usr/local/bin)"
-[ -f composer.phar ] && echo "  composer.phar exists in repo" || echo "  no composer.phar in repo"
+echo "── PROBE: Composer binaries ──"
+for c in /usr/local/bin/composer /usr/bin/composer /opt/plesk/composer/composer; do
+    if [ -x "$c" ]; then
+        echo "  EXISTS: $c"
+    fi
+done
+if [ -f composer.phar ]; then
+    echo "  EXISTS: composer.phar (in repo)"
+fi
+
 echo ""
-echo "NPM candidates:"
-command -v npm || echo "  npm → not found"
-command -v node || echo "  node → not found"
+echo "── PROBE: NPM binaries ──"
+for n in /usr/bin/npm /usr/local/bin/npm /opt/plesk/node/*/bin/npm; do
+    if [ -x "$n" ]; then
+        echo "  EXISTS: $n"
+    fi
+done
+
 echo ""
+echo "── PROBE: Other utils ──"
+for u in /bin/sh /bin/bash /usr/bin/tee /bin/chmod /usr/bin/date /bin/date; do
+    if [ -x "$u" ]; then
+        echo "  EXISTS: $u"
+    fi
+done
 
 # ─── DETECT PHP ───
+echo ""
 echo "── DETECT: php ──"
-if [ -x /opt/plesk/php/8.3/bin/php ]; then
-    PHP_BIN=/opt/plesk/php/8.3/bin/php
-elif [ -x /opt/plesk/php/8.2/bin/php ]; then
-    PHP_BIN=/opt/plesk/php/8.2/bin/php
-elif [ -x /opt/plesk/php/8.1/bin/php ]; then
-    PHP_BIN=/opt/plesk/php/8.1/bin/php
-elif command -v php8.3 >/dev/null 2>&1; then
-    PHP_BIN=$(command -v php8.3)
-elif command -v php >/dev/null 2>&1; then
-    PHP_BIN=$(command -v php)
-else
-    echo "  [FATAL] ไม่พบ php — ดู PROBE ด้านบน แล้วบอก path จริงให้ Claude"
+PHP_BIN=""
+for p in /opt/plesk/php/8.3/bin/php /opt/plesk/php/8.2/bin/php /opt/plesk/php/8.1/bin/php /usr/bin/php8.3 /usr/bin/php8.2 /usr/bin/php /usr/local/bin/php; do
+    if [ -x "$p" ]; then
+        PHP_BIN="$p"
+        break
+    fi
+done
+if [ -z "$PHP_BIN" ]; then
+    echo "  [FATAL] ไม่พบ php — ดู PROBE ด้านบน"
     exit 1
 fi
 echo "  PHP_BIN = $PHP_BIN"
-$PHP_BIN -v | head -n1
+"$PHP_BIN" -v 2>&1 | head -n1 || echo "  (php -v failed)"
 
 # ─── DETECT Composer ───
 echo ""
 echo "── DETECT: composer ──"
-if command -v composer >/dev/null 2>&1; then
-    COMPOSER_CMD="$(command -v composer)"
-elif [ -x /usr/local/bin/composer ]; then
-    COMPOSER_CMD="/usr/local/bin/composer"
-elif [ -f composer.phar ]; then
+COMPOSER_CMD=""
+for c in /usr/local/bin/composer /usr/bin/composer /opt/plesk/composer/composer; do
+    if [ -x "$c" ]; then
+        COMPOSER_CMD="$c"
+        break
+    fi
+done
+if [ -z "$COMPOSER_CMD" ] && [ -f composer.phar ]; then
     COMPOSER_CMD="$PHP_BIN composer.phar"
-else
+fi
+if [ -z "$COMPOSER_CMD" ]; then
     echo "  ไม่พบ composer → ดาวน์โหลด composer.phar..."
-    $PHP_BIN -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" || {
-        echo "  [FATAL] ดาวน์โหลด composer installer ไม่ได้ (network blocked?)"
-        exit 1
-    }
-    $PHP_BIN composer-setup.php --quiet
-    rm -f composer-setup.php
-    COMPOSER_CMD="$PHP_BIN composer.phar"
+    "$PHP_BIN" -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" 2>&1
+    if [ -f composer-setup.php ]; then
+        "$PHP_BIN" composer-setup.php --quiet
+        rm -f composer-setup.php
+        if [ -f composer.phar ]; then
+            COMPOSER_CMD="$PHP_BIN composer.phar"
+        fi
+    fi
+fi
+if [ -z "$COMPOSER_CMD" ]; then
+    echo "  [FATAL] ไม่พบ composer และดาวน์โหลดไม่ได้"
+    exit 1
 fi
 echo "  COMPOSER_CMD = $COMPOSER_CMD"
 
 # ─── DETECT NPM ───
 echo ""
 echo "── DETECT: npm ──"
-if command -v npm >/dev/null 2>&1; then
-    NPM_BIN=$(command -v npm)
-    HAS_NPM=1
-    echo "  NPM_BIN = $NPM_BIN ($(npm -v))"
-else
+NPM_BIN=""
+for n in /usr/bin/npm /usr/local/bin/npm; do
+    if [ -x "$n" ]; then
+        NPM_BIN="$n"
+        break
+    fi
+done
+if [ -z "$NPM_BIN" ]; then
     HAS_NPM=0
-    echo "  npm not found — จะ skip การ build (ใช้ public/build/ ที่ commit ไว้)"
+    echo "  npm ไม่พบ — skip build (ใช้ public/build/ ที่ commit มา)"
+else
+    HAS_NPM=1
+    echo "  NPM_BIN = $NPM_BIN"
 fi
 
 # ─── 1. Composer install ───
 echo ""
 echo "── [1/7] composer install ──"
-$COMPOSER_CMD install --no-dev --optimize-autoloader --no-interaction
+$COMPOSER_CMD install --no-dev --optimize-autoloader --no-interaction || {
+    echo "  [WARN] composer install ล้มเหลว — ดู error ด้านบน"
+    exit 1
+}
 
-# ─── 2. NPM build (skip ถ้าไม่มี npm) ───
+# ─── 2. NPM build ───
 echo ""
 echo "── [2/7] npm build ──"
 if [ "$HAS_NPM" = "1" ]; then
     if [ -f package-lock.json ]; then
-        $NPM_BIN ci
+        "$NPM_BIN" ci || "$NPM_BIN" install
     else
-        $NPM_BIN install
+        "$NPM_BIN" install
     fi
-    $NPM_BIN run build
+    "$NPM_BIN" run build
 else
-    echo "  (skipped — no npm)"
+    echo "  (skipped)"
 fi
 
 # ─── 3. Clear caches ───
 echo ""
 echo "── [3/7] artisan optimize:clear ──"
-$PHP_BIN artisan optimize:clear
+"$PHP_BIN" artisan optimize:clear || echo "  [WARN] อาจเป็นเพราะ .env ยังไม่ตั้ง — ข้ามไปก่อน"
 
 # ─── 4. Migrate ───
 echo ""
 echo "── [4/7] artisan migrate --force ──"
-$PHP_BIN artisan migrate --force
+"$PHP_BIN" artisan migrate --force || echo "  [WARN] migrate ล้มเหลว — ตรวจ .env DB"
 
 # ─── 5. Storage link ───
 echo ""
 echo "── [5/7] artisan storage:link ──"
-$PHP_BIN artisan storage:link 2>/dev/null || echo "  (symlink exists)"
+"$PHP_BIN" artisan storage:link 2>/dev/null || echo "  (symlink exists or failed)"
 
 # ─── 6. Cache for prod ───
 echo ""
 echo "── [6/7] cache config/route/view/event ──"
-$PHP_BIN artisan config:cache
-$PHP_BIN artisan route:cache
-$PHP_BIN artisan view:cache
-$PHP_BIN artisan event:cache
+"$PHP_BIN" artisan config:cache  || echo "  config:cache failed"
+"$PHP_BIN" artisan route:cache   || echo "  route:cache failed"
+"$PHP_BIN" artisan view:cache    || echo "  view:cache failed"
+"$PHP_BIN" artisan event:cache   || echo "  event:cache failed"
 
 # ─── 7. Permissions ───
 echo ""
 echo "── [7/7] chmod storage + bootstrap/cache ──"
-chmod -R 775 storage bootstrap/cache 2>/dev/null || echo "  (chmod skipped)"
+if [ -x /bin/chmod ] || [ -x /usr/bin/chmod ]; then
+    chmod -R 775 storage bootstrap/cache 2>/dev/null || echo "  (chmod skipped)"
+else
+    echo "  chmod ไม่มี — ข้าม"
+fi
 
 echo ""
 echo "══════════════════════════════════════════════════════════"
-echo "  DEPLOY OK at $(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo unknown)"
+echo "  DEPLOY FINISHED (exit OK)"
 echo "══════════════════════════════════════════════════════════"
