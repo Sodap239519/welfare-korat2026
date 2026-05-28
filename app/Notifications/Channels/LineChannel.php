@@ -21,7 +21,7 @@ class LineChannel
         $message = $notification->toLine($notifiable);
         if (empty($message)) return;
 
-        // 1) LINE Notify (legacy)
+        // 1) LINE Notify (legacy · LINE ปิด service มี.ค. 2025 — fallback เท่านั้น)
         if ($token = config('services.line.notify_token')) {
             try {
                 Http::asForm()
@@ -30,7 +30,7 @@ class LineChannel
                     ->post('https://notify-api.line.me/api/notify', [
                         'message' => "\n" . $message,
                     ]);
-                return; // ส่งแล้ว ไม่ต้องลองทางอื่น
+                return;
             } catch (\Throwable $e) {
                 Log::warning('LINE Notify failed: ' . $e->getMessage());
             }
@@ -38,18 +38,54 @@ class LineChannel
 
         // 2) LINE Messaging API push
         $msgToken = config('services.line.messaging_token');
-        $target   = config('services.line.target_id');
-        if ($msgToken && $target) {
-            try {
-                Http::withToken($msgToken)
-                    ->timeout(10)
-                    ->post('https://api.line.me/v2/bot/message/push', [
-                        'to' => $target,
-                        'messages' => [['type' => 'text', 'text' => $message]],
-                    ]);
-            } catch (\Throwable $e) {
-                Log::warning('LINE Messaging push failed: ' . $e->getMessage());
-            }
+        if (!$msgToken) return;
+
+        // ระบุ target ตามประเภท notification:
+        // - ถ้า notification class มี method getLineTarget() → ใช้ค่าจากตรงนั้น
+        // - ถ้า notification class มี property $lineTargetType ('admin'/'report') → map เป็น config
+        // - ถ้าไม่มี → fallback ไปที่ legacy target_id
+        $target = $this->resolveTarget($notification);
+        if (!$target) {
+            Log::warning('LINE push skipped — no target_id configured for ' . get_class($notification));
+            return;
         }
+
+        try {
+            Http::withToken($msgToken)
+                ->timeout(10)
+                ->post('https://api.line.me/v2/bot/message/push', [
+                    'to' => $target,
+                    'messages' => [['type' => 'text', 'text' => $message]],
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('LINE Messaging push failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * หา target ID ที่จะส่งให้ — ตามประเภทของ notification
+     */
+    private function resolveTarget(Notification $notification): ?string
+    {
+        // 1) method override ใน notification class (มีอำนาจสูงสุด)
+        if (method_exists($notification, 'getLineTarget')) {
+            $t = $notification->getLineTarget();
+            if (!empty($t)) return $t;
+        }
+
+        // 2) property $lineTargetType บน notification class
+        $type = property_exists($notification, 'lineTargetType')
+            ? $notification->lineTargetType
+            : null;
+
+        if ($type === 'admin') {
+            return config('services.line.admin_target_id') ?: config('services.line.target_id');
+        }
+        if ($type === 'report') {
+            return config('services.line.report_target_id') ?: config('services.line.target_id');
+        }
+
+        // 3) fallback — legacy target_id
+        return config('services.line.target_id');
     }
 }

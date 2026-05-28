@@ -51,8 +51,8 @@ class WeeklyBottleneck extends Command
                 'pct' => $r->total > 0 ? round(($r->done / $r->total) * 100, 1) : 0,
             ]);
 
-        // 3) Tracker ที่ไม่อัปเดต > 3 วัน
-        $inactiveTrackers = DB::table('trackers')
+        // 3) Tracker ที่ไม่อัปเดต > 3 วัน — group ตามคน (user_id) แล้วรวมพื้นที่ดูแล
+        $trackerRows = DB::table('trackers')
             ->join('villages', 'villages.id', '=', 'trackers.village_id')
             ->leftJoin('targets', 'targets.village_id', '=', 'villages.id')
             ->leftJoin('target_status_logs as logs', function ($j) {
@@ -60,11 +60,35 @@ class WeeklyBottleneck extends Command
                   ->where('logs.changed_at', '>=', now()->subDays(3));
             })
             ->where('trackers.active', true)
-            ->selectRaw('trackers.id, trackers.full_name, trackers.position, villages.name as village, COUNT(logs.id) as recent')
-            ->groupBy('trackers.id', 'trackers.full_name', 'trackers.position', 'villages.name')
-            ->having('recent', '=', 0)
-            ->get()
-            ->map(fn ($r) => ['id' => (int) $r->id, 'name' => $r->full_name, 'position' => $r->position, 'village' => $r->village]);
+            ->selectRaw('trackers.id, trackers.user_id, trackers.full_name, trackers.position,
+                villages.name as village, villages.moo as village_moo,
+                COUNT(logs.id) as recent')
+            ->groupBy('trackers.id', 'trackers.user_id', 'trackers.full_name', 'trackers.position',
+                      'villages.name', 'villages.moo')
+            ->get();
+
+        $inactiveTrackers = $trackerRows
+            ->groupBy(fn ($r) => $r->user_id
+                ? "user:{$r->user_id}"
+                : "name:" . trim($r->full_name) . '|' . trim((string) $r->position))
+            ->map(function ($group) {
+                $first = $group->first();
+                $villages = $group->sortBy('village')
+                    ->map(fn ($r) => $r->village . ($r->village_moo ? " (ม.{$r->village_moo})" : ''))
+                    ->unique()->values();
+                return [
+                    'id'            => (int) $first->id,
+                    'name'          => $first->full_name,
+                    'position'      => $first->position,
+                    'village'       => $villages->first(),
+                    'villages'      => $villages->all(),
+                    'village_count' => $villages->count(),
+                    'recent_logs'   => (int) $group->sum('recent'),
+                ];
+            })
+            ->filter(fn ($p) => $p['recent_logs'] === 0)
+            ->sortByDesc('village_count')
+            ->values();
 
         $totalTargets = (int) Target::where('active', true)->count();
         $totalDone = (int) DB::table('target_current_status')->whereNotIn('status_code', ['4.1'])->count();

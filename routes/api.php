@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ImportController;
+use App\Http\Controllers\Api\LineWebhookController;
 use App\Http\Controllers\Api\MapController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReferenceController;
@@ -22,6 +23,17 @@ Route::prefix('auth')->group(function () {
     Route::get('geo/tambons',       [ReferenceController::class, 'tambons']);
     Route::get('geo/villages',      [ReferenceController::class, 'villages']);
     Route::get('geo/village-names', [ReferenceController::class, 'villageNames']);
+    // Public stats — แสดงตัวเลขกลุ่มเป้าหมาย/ตำบล/อำเภอ ในหน้า Login
+    Route::get('public-stats',      [ReferenceController::class, 'publicStats']);
+});
+
+// ─── LINE Bot Webhook (no auth · LINE จะเรียกตรงๆ) ───
+Route::prefix('line')->group(function () {
+    Route::post('webhook',  [LineWebhookController::class, 'handle']);
+    Route::get('events',    [LineWebhookController::class, 'show']);  // ดู event ที่จับได้
+});
+
+Route::prefix('auth')->group(function () {
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',  [AuthController::class, 'logout']);

@@ -11,6 +11,9 @@ class UserPendingApproval extends Notification
 {
     use Queueable;
 
+    /** ใช้ LINE_ADMIN_TARGET_ID — กลุ่ม Admin (แยกจาก report) */
+    public string $lineTargetType = 'admin';
+
     public function __construct(public User $pendingUser) {}
 
     public function via(object $notifiable): array

@@ -35,3 +35,12 @@ Schedule::command('reports:notify-stuck --days=7')
     ->dailyAt('08:00')
     ->timezone('Asia/Bangkok')
     ->withoutOverlapping();
+
+// รายงานความคืบหน้าทุก 3 วัน (TOP 5 อำเภอ + ตำบลย่อย) → ส่งเข้า LINE
+// รันวันที่ 1, 4, 7, 10, ... ของเดือน เวลา 08:00
+Schedule::command('report:three-day')
+    ->cron('0 8 1-31/3 * *')
+    ->timezone('Asia/Bangkok')
+    ->withoutOverlapping()
+    ->onSuccess(fn () => info('[Schedule] three-day report sent'))
+    ->onFailure(fn () => info('[Schedule] three-day report FAILED'));

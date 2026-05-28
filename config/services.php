@@ -36,11 +36,16 @@ return [
     ],
 
     'line' => [
-        // ทางที่ 1 — LINE Notify (legacy แต่ง่ายสุด ถ้ายังมี token เดิมใช้ได้)
+        // ทางที่ 1 — LINE Notify (legacy · LINE ปิด service มี.ค. 2025 ใช้ไม่ได้แล้ว)
         'notify_token'    => env('LINE_NOTIFY_TOKEN'),
-        // ทางที่ 2 — LINE Messaging API (ใหม่)
+
+        // ทางที่ 2 — LINE Messaging API (Bot) — 1 token ส่งไปหลายกลุ่มได้
         'messaging_token' => env('LINE_MESSAGING_TOKEN'),
-        'target_id'       => env('LINE_TARGET_ID'), // groupId / userId / roomId ที่จะ push ไป
+
+        // target IDs (groupId / userId / roomId) — แยกตามประเภทการแจ้งเตือน
+        'admin_target_id'  => env('LINE_ADMIN_TARGET_ID'),   // กลุ่ม Admin — แจ้งสมัครใหม่ + อนุมัติ
+        'report_target_id' => env('LINE_REPORT_TARGET_ID'),  // กลุ่มรายงาน — Report 3 วัน + bottleneck
+        'target_id'        => env('LINE_TARGET_ID'),          // legacy fallback (ใช้ถ้าไม่ได้ระบุ admin/report)
     ],
 
 ];
