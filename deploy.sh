@@ -5,12 +5,18 @@
 #  Plesk จะรัน script นี้อัตโนมัติทุกครั้งที่ git pull เสร็จ
 # ════════════════════════════════════════════════════════════
 
+# Plesk รัน script ด้วย shell ที่ PATH ว่าง — ต้อง set เองให้ครบ
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/plesk/php/8.3/bin:/opt/plesk/php/8.2/bin:$PATH"
+
 set -e  # หยุดทันทีถ้า command ใดล้มเหลว
 
 echo ""
 echo "════════════════════════════════════════════════════"
 echo "  Deploying Welfare Korat 2026..."
-echo "  Time: $(date '+%Y-%m-%d %H:%M:%S')"
+# ใช้ printf แทน date — ปลอดภัยถ้า date หาไม่เจอ
+if command -v date >/dev/null 2>&1; then
+    echo "  Time: $(date '+%Y-%m-%d %H:%M:%S')"
+fi
 echo "════════════════════════════════════════════════════"
 
 # ─── 0. Auto-detect binaries (Plesk เก็บไว้ไม่เหมือนกัน) ───
