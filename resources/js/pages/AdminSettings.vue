@@ -248,25 +248,80 @@ function openEdit(type, item = null) {
       code: item?.code ?? '',
       name: item?.name ?? '',
       sort_order: item?.sort_order ?? null,
+      logo_url: item?.logo_url ?? null,        // โลโก้เดิม (ถ้ามี)
+      logo_file: null,                          // ไฟล์ที่เลือกใหม่ (ยังไม่ส่ง)
+      logo_preview: item?.logo_url ?? null,     // data URL สำหรับ preview
+      remove_logo: false,                       // flag ขอลบโลโก้เดิม
     });
   }
   showEdit.value = true;
+}
+
+// อ่านไฟล์ที่ user เลือกเป็น data URL เพื่อ preview · เก็บ File ไว้ส่งตอน save
+function onPickLogo(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > 1024 * 1024) {
+    alert('ไฟล์ใหญ่เกิน 1 MB — กรุณาใช้รูปขนาดเล็กลง');
+    e.target.value = '';
+    return;
+  }
+  editForm.logo_file = file;
+  editForm.remove_logo = false;
+  const reader = new FileReader();
+  reader.onload = (ev) => { editForm.logo_preview = ev.target.result; };
+  reader.readAsDataURL(file);
+}
+
+function clearPickedLogo() {
+  editForm.logo_file = null;
+  // ถ้ายังมี logo_url เดิม → preview กลับเป็นรูปเดิม / ถ้าไม่มีก็เคลียร์
+  editForm.logo_preview = editForm.logo_url || null;
+  editForm.remove_logo = false;
+}
+
+function removeExistingLogo() {
+  editForm.logo_file = null;
+  editForm.logo_preview = null;
+  editForm.remove_logo = true;
 }
 
 async function save() {
   editSaving.value = true;
   editErr.value = {};
   const ep = endpoints[editType.value];
-  const payload = { ...editForm };
-  delete payload.id;
+
+  // Bank ที่เลือกไฟล์โลโก้ → ส่งแบบ multipart/form-data (FormData)
+  const isBankWithFile = editType.value === 'bank' && (editForm.logo_file || editForm.remove_logo);
+
   try {
-    if (editForm.id) {
-      const { data } = await axios.patch(`${ep.base}/${editForm.id}`, payload);
-      const idx = ep.store.value.findIndex(x => x.id === editForm.id);
-      if (idx >= 0) ep.store.value[idx] = data.data;
+    let res;
+    if (isBankWithFile) {
+      const fd = new FormData();
+      if (editForm.code != null)       fd.append('code', editForm.code);
+      if (editForm.name != null)       fd.append('name', editForm.name);
+      if (editForm.sort_order != null && editForm.sort_order !== '') fd.append('sort_order', editForm.sort_order);
+      if (editForm.logo_file)          fd.append('logo', editForm.logo_file);
+      if (editForm.remove_logo)        fd.append('remove_logo', '1');
+      // Laravel ไม่อ่าน multipart จาก PATCH/PUT — ใช้ POST + _method ตัวช่วย
+      if (editForm.id) fd.append('_method', 'PATCH');
+      const url = editForm.id ? `${ep.base}/${editForm.id}` : ep.base;
+      res = await axios.post(url, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
     } else {
-      const { data } = await axios.post(ep.base, payload);
-      ep.store.value.push(data.data);
+      // กรณีไม่มีไฟล์ → ส่ง JSON ตามปกติ
+      const payload = { ...editForm };
+      delete payload.id; delete payload.logo_url; delete payload.logo_file;
+      delete payload.logo_preview; delete payload.remove_logo;
+      res = editForm.id
+        ? await axios.patch(`${ep.base}/${editForm.id}`, payload)
+        : await axios.post(ep.base, payload);
+    }
+
+    if (editForm.id) {
+      const idx = ep.store.value.findIndex(x => x.id === editForm.id);
+      if (idx >= 0) ep.store.value[idx] = res.data.data;
+    } else {
+      ep.store.value.push(res.data.data);
     }
     showEdit.value = false;
   } catch (e) {
@@ -305,20 +360,15 @@ const ICON_OPTIONS = [
   <AppLayout title="ตั้งค่าข้อมูล" subtitle="Super Admin · ช่องทาง · สถานะ · ธนาคาร">
     <div class="space-y-4">
 
-      <!-- Submenu — dropdown -->
-      <div class="card p-3 flex items-center gap-3 flex-wrap">
-        <label class="text-sm font-medium shrink-0">เลือกเมนูย่อย:</label>
-        <div class="relative flex-1 min-w-0 sm:max-w-xs">
-          <select v-model="tab"
-                  class="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium appearance-none">
-            <option v-for="t in tabs" :key="t.key" :value="t.key">{{ t.label }}</option>
-          </select>
-          <i class="fi-rr-angle-small-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
-        </div>
-        <span class="text-[11px] text-slate-500 hidden sm:inline">
-          <i :class="tabs.find(t => t.key === tab)?.icon"></i>
-          {{ tabs.find(t => t.key === tab)?.label }}
-        </span>
+      <!-- Submenu — horizontal scrollable tabs (เห็น active ชัด · scroll ได้บน mobile) -->
+      <div class="card p-1.5 flex bg-slate-50 dark:bg-slate-800/40 overflow-x-auto fade-x">
+        <button v-for="t in tabs" :key="t.key" @click="tab = t.key"
+                :class="['shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium transition tap-transparent whitespace-nowrap min-h-[40px]',
+                         tab === t.key
+                           ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
+                           : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200']">
+          <i :class="t.icon"></i> {{ t.label }}
+        </button>
       </div>
 
       <div v-if="loading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
@@ -340,8 +390,8 @@ const ICON_OPTIONS = [
             <div class="font-medium truncate">{{ c.name }}</div>
             <div class="text-[11px] text-slate-500">code: <code>{{ c.code }}</code> · ลำดับ {{ c.sort_order }}</div>
           </div>
-          <button @click="openEdit('channel', c)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700"><i class="fi-rr-edit text-sm"></i></button>
-          <button @click="remove('channel', c)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600"><i class="fi-rr-trash text-sm"></i></button>
+          <button @click="openEdit('channel', c)" class="btn-icon hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700 tap-transparent" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+          <button @click="remove('channel', c)" class="btn-icon hover:bg-red-50 dark:hover:bg-slate-800 text-red-600 tap-transparent" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
         </div>
         <div v-if="channels.length === 0" class="card p-8 text-center text-sm text-slate-500">ยังไม่มีช่องทาง</div>
       </div>
@@ -367,8 +417,8 @@ const ICON_OPTIONS = [
               <span v-if="s.requires_channel" class="text-blue-600">· ต้องเลือกช่องทาง</span>
             </div>
           </div>
-          <button @click="openEdit('status', s)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700"><i class="fi-rr-edit text-sm"></i></button>
-          <button @click="remove('status', s)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600"><i class="fi-rr-trash text-sm"></i></button>
+          <button @click="openEdit('status', s)" class="btn-icon hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700 tap-transparent" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+          <button @click="remove('status', s)" class="btn-icon hover:bg-red-50 dark:hover:bg-slate-800 text-red-600 tap-transparent" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
         </div>
         <div v-if="statuses.length === 0" class="card p-8 text-center text-sm text-slate-500">ยังไม่มีสถานะ</div>
       </div>
@@ -385,13 +435,21 @@ const ICON_OPTIONS = [
           </button>
         </div>
         <div v-for="b in banks" :key="b.id" class="card p-3 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl card-tint-green flex items-center justify-center text-green-700"><i class="fi-rr-bank"></i></div>
+          <!-- Logo preview · fallback เป็นไอคอน bank -->
+          <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+            <img v-if="b.logo_url" :src="b.logo_url" :alt="b.name" class="w-full h-full object-contain p-1" />
+            <i v-else class="fi-rr-bank text-green-700"></i>
+          </div>
           <div class="flex-1 min-w-0">
             <div class="font-medium truncate">{{ b.name }}</div>
-            <div class="text-[11px] text-slate-500">code: <code>{{ b.code }}</code> · ลำดับ {{ b.sort_order }}</div>
+            <div class="text-[11px] text-slate-500 flex items-center gap-2 flex-wrap">
+              <span>code: <code>{{ b.code }}</code></span>
+              <span>· ลำดับ {{ b.sort_order }}</span>
+              <span v-if="!b.logo_url" class="text-orange-600">· ยังไม่มีโลโก้</span>
+            </div>
           </div>
-          <button @click="openEdit('bank', b)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700"><i class="fi-rr-edit text-sm"></i></button>
-          <button @click="remove('bank', b)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600"><i class="fi-rr-trash text-sm"></i></button>
+          <button @click="openEdit('bank', b)" class="btn-icon hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700 tap-transparent" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+          <button @click="remove('bank', b)" class="btn-icon hover:bg-red-50 dark:hover:bg-slate-800 text-red-600 tap-transparent" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
         </div>
         <div v-if="banks.length === 0" class="card p-8 text-center text-sm text-slate-500">ยังไม่มีธนาคาร</div>
       </div>
@@ -438,16 +496,16 @@ const ICON_OPTIONS = [
               </div>
               <div v-else class="mt-2 text-[10px] text-slate-400 italic">— ยังไม่มีกระบวนการดำเนินงานย่อย</div>
             </div>
-            <div class="shrink-0 flex flex-col items-end gap-1">
-              <div class="flex items-center gap-0.5">
-                <button @click="openSopEdit(p)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+            <div class="shrink-0 flex flex-col items-end gap-1.5">
+              <div class="flex items-center gap-1">
+                <button @click="openSopEdit(p)" class="btn-icon hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700 tap-transparent" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
                 <button @click="deleteSop(p)" :disabled="p.is_current"
-                        class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600 disabled:opacity-30 disabled:cursor-not-allowed" title="ลบ">
+                        class="btn-icon hover:bg-red-50 dark:hover:bg-slate-800 text-red-600 disabled:opacity-30 disabled:cursor-not-allowed tap-transparent" title="ลบ">
                   <i class="fi-rr-trash text-sm"></i>
                 </button>
               </div>
               <button v-if="!p.is_current" @click="setSopCurrentInSettings(p)"
-                      class="text-[10px] px-2 py-1 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-700 text-slate-500 whitespace-nowrap">
+                      class="text-xs px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:text-blue-700 text-slate-500 whitespace-nowrap tap-transparent min-h-[36px]">
                 <i class="fi-rr-pin"></i> ตั้งเป็นปัจจุบัน
               </button>
             </div>
@@ -463,7 +521,7 @@ const ICON_OPTIONS = [
             <i :class="sopForm.id ? 'fi-rr-edit' : 'fi-rr-add'" class="text-blue-700"></i>
             {{ sopForm.id ? 'แก้ไขขั้น SOP' : 'เพิ่มขั้น SOP ใหม่' }}
           </div>
-          <button @click="showSopEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          <button @click="showSopEdit = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
         </div>
 
         <div v-if="sopErr?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ sopErr.general[0] }}</div>
@@ -517,17 +575,18 @@ const ICON_OPTIONS = [
                   <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
                   <input v-model="b.text" maxlength="300" placeholder="ข้อความขั้นตอน (เช่น ตรวจสอบสิทธิ์)"
                          class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-                  <button type="button" @click="moveSopBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <button type="button" @click="moveSopBullet(i, -1)" :disabled="i === 0" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 tap-transparent" title="เลื่อนขึ้น">
                     <i class="fi-rr-angle-up text-xs"></i>
                   </button>
-                  <button type="button" @click="moveSopBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <button type="button" @click="moveSopBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 tap-transparent" title="เลื่อนลง">
                     <i class="fi-rr-angle-down text-xs"></i>
                   </button>
-                  <button type="button" @click="removeSopBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
+                  <button type="button" @click="removeSopBullet(i)" class="btn-icon hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 tap-transparent" title="ลบ">
                     <i class="fi-rr-cross-small text-xs"></i>
                   </button>
                 </div>
-                <div class="grid grid-cols-2 gap-1.5 pl-[8.5rem] pr-[6rem]">
+                <!-- mobile: no pl/pr · sm: ตามเดิม จัดให้ alignment กับ input ด้านบน -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:pl-[8.5rem] sm:pr-[6rem]">
                   <input v-model="b.subtitle" maxlength="200" placeholder="หมายเหตุย่อย (เช่น กรมบัญชีกลาง) — ไม่บังคับ"
                          class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] text-slate-500">
                   <input v-model="b.count" type="number" min="0" placeholder="จำนวน (ไม่บังคับ)"
@@ -555,7 +614,7 @@ const ICON_OPTIONS = [
       <Modal :show="showEdit" max-width="max-w-md" @close="showEdit = false">
         <div class="flex items-center justify-between mb-4">
           <div class="font-semibold">{{ editTitle }}</div>
-          <button @click="showEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          <button @click="showEdit = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
         </div>
 
         <div v-if="editErr?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ editErr.general[0] }}</div>
@@ -629,6 +688,41 @@ const ICON_OPTIONS = [
             <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ลำดับการแสดง (เว้นว่างให้ระบบเติม)</label>
             <input v-model.number="editForm.sort_order" type="number" min="0"
                    class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+          </div>
+
+          <!-- โลโก้ธนาคาร (เฉพาะ Banks) -->
+          <div v-if="editType === 'bank'" class="border-t border-slate-100 dark:border-slate-800 pt-3">
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+              <i class="fi-rr-picture text-blue-700"></i> โลโก้ธนาคาร
+              <span class="text-[10px] text-slate-400">(PNG/JPG/SVG/WebP · ≤1MB)</span>
+            </label>
+            <div class="flex items-center gap-3">
+              <!-- Preview -->
+              <div class="w-20 h-20 shrink-0 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden shadow-sm">
+                <img v-if="editForm.logo_preview" :src="editForm.logo_preview" alt="logo preview"
+                     class="w-full h-full object-contain p-1.5" />
+                <i v-else class="fi-rr-bank text-3xl text-slate-300 dark:text-slate-600"></i>
+              </div>
+              <!-- Actions -->
+              <div class="flex-1 min-w-0">
+                <label class="btn-outline px-3 py-2 text-xs flex items-center justify-center gap-1.5 cursor-pointer w-full sm:w-auto inline-flex">
+                  <i class="fi-rr-cloud-upload"></i>
+                  {{ editForm.logo_preview ? 'เปลี่ยนรูป' : 'เลือกรูป' }}
+                  <input type="file" accept="image/*" @change="onPickLogo" class="hidden">
+                </label>
+                <div class="flex gap-2 mt-1.5">
+                  <button v-if="editForm.logo_file" type="button" @click="clearPickedLogo"
+                          class="text-[11px] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1">
+                    <i class="fi-rr-undo"></i> ยกเลิกรูปที่เลือก
+                  </button>
+                  <button v-if="!editForm.logo_file && editForm.logo_preview && editForm.id" type="button" @click="removeExistingLogo"
+                          class="text-[11px] text-red-600 hover:text-red-700 flex items-center gap-1">
+                    <i class="fi-rr-trash"></i> ลบโลโก้
+                  </button>
+                </div>
+                <div v-if="editErr.logo" class="text-[11px] text-red-600 mt-1">{{ editErr.logo[0] }}</div>
+              </div>
+            </div>
           </div>
 
           <div class="flex gap-2 justify-end pt-1">

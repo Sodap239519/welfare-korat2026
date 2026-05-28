@@ -235,10 +235,12 @@ function groupVillages(villages) {
 
       <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
 
-      <div v-else-if="data.data.length === 0" class="card p-8 text-center text-sm text-slate-500">
-        ยังไม่มีผู้กำกับติดตาม
-        <span v-if="auth.isSuperAdmin"> — กดปุ่ม "เพิ่ม" เพื่อเริ่ม</span>
-        <span v-else> — ติดต่อ Super Admin เพื่อเพิ่มข้อมูล</span>
+      <div v-else-if="data.data.length === 0" class="card p-12 text-center text-sm text-slate-500">
+        <i class="fi-rr-user-headset text-4xl text-slate-300 dark:text-slate-600"></i>
+        <div class="mt-3 font-medium text-slate-700 dark:text-slate-200">ยังไม่มีผู้กำกับติดตาม</div>
+        <div class="text-xs mt-1">
+        <span v-if="auth.isSuperAdmin">กดปุ่ม "เพิ่ม" เพื่อเริ่ม</span>
+        <span v-else>ติดต่อ Super Admin เพื่อเพิ่มข้อมูล</span></div>
       </div>
 
       <div v-else class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -331,7 +333,7 @@ function groupVillages(villages) {
       <Modal :show="showForm" max-width="max-w-md" @close="showForm = false">
           <div class="flex items-center justify-between mb-3">
             <div class="font-semibold">{{ editing ? 'แก้ไขผู้ติดตาม' : 'เพิ่มผู้กำกับติดตาม' }}</div>
-            <button @click="showForm = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+            <button @click="showForm = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
           </div>
           <form @submit.prevent="save" class="space-y-3">
             <div>
@@ -353,24 +355,24 @@ function groupVillages(villages) {
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทร</label>
               <input v-model="form.phone" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             </div>
-            <div class="grid grid-cols-3 gap-2">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
-                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">อำเภอ</label>
-                <select v-model="form.amphur_id" @change="loadTambons" class="w-full px-2 py-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs">
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">อำเภอ</label>
+                <select v-model="form.amphur_id" @change="loadTambons" class="w-full px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
                   <option value="">เลือก</option>
                   <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ตำบล</label>
-                <select v-model="form.tambon_id" @change="loadVillages" :disabled="!form.amphur_id" class="w-full px-2 py-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs disabled:opacity-40">
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">ตำบล</label>
+                <select v-model="form.tambon_id" @change="loadVillages" :disabled="!form.amphur_id" class="w-full px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
                   <option value="">เลือก</option>
                   <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
                 </select>
               </div>
               <div>
-                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">หมู่บ้าน</label>
-                <select v-model="form.village_id" :disabled="!form.tambon_id" class="w-full px-2 py-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs disabled:opacity-40">
+                <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">หมู่บ้าน</label>
+                <select v-model="form.village_id" :disabled="!form.tambon_id" class="w-full px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
                   <option value="">เลือก</option>
                   <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' ('+v.moo+')' : '' }}</option>
                 </select>
@@ -394,7 +396,7 @@ function groupVillages(villages) {
             <div class="font-semibold flex items-center gap-2"><i class="fi-rr-user-add text-blue-700"></i> เปิดบัญชีให้ผู้กำกับติดตาม</div>
             <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">สร้างบัญชี User · ผูก scope กับหมู่บ้านโดยอัตโนมัติ</div>
           </div>
-          <button @click="showCreateUser = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          <button @click="showCreateUser = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
         </div>
 
         <div v-if="cuFlash" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ cuFlash }}</div>

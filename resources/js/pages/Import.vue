@@ -176,26 +176,26 @@ const showingFixes = computed(() => (preview.value?.autofix || []).filter(r => r
           </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-4">
           <div class="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
             <div class="text-xs opacity-70">แถวรวม</div>
-            <div class="text-lg font-bold">{{ formatNumber(preview.summary.total) }}</div>
+            <div class="text-lg font-bold tabular-nums">{{ formatNumber(preview.summary.total) }}</div>
           </div>
           <div class="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
             <div class="text-xs opacity-70">เพิ่มใหม่</div>
-            <div class="text-lg font-bold text-green-700">{{ formatNumber(preview.summary.created) }}</div>
+            <div class="text-lg font-bold tabular-nums text-green-700">{{ formatNumber(preview.summary.created) }}</div>
           </div>
           <div class="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
             <div class="text-xs opacity-70">อัปเดต</div>
-            <div class="text-lg font-bold text-sky-700">{{ formatNumber(preview.summary.updated) }}</div>
+            <div class="text-lg font-bold tabular-nums text-sky-700">{{ formatNumber(preview.summary.updated) }}</div>
           </div>
           <div class="bg-white dark:bg-slate-800 rounded-xl p-3 text-center">
             <div class="text-xs opacity-70">ผิดพลาด</div>
-            <div class="text-lg font-bold text-red-600">{{ formatNumber(preview.summary.failed) }}</div>
+            <div class="text-lg font-bold tabular-nums text-red-600">{{ formatNumber(preview.summary.failed) }}</div>
           </div>
-          <div class="bg-white dark:bg-slate-800 rounded-xl p-3 text-center col-span-2 sm:col-span-1">
+          <div class="bg-white dark:bg-slate-800 rounded-xl p-3 text-center col-span-2 sm:col-span-3 lg:col-span-1">
             <div class="text-xs opacity-70">แก้บ้านเลขที่</div>
-            <div class="text-lg font-bold text-orange-700">{{ formatNumber(preview.summary.fixes) }}</div>
+            <div class="text-lg font-bold tabular-nums text-orange-700">{{ formatNumber(preview.summary.fixes) }}</div>
           </div>
         </div>
 

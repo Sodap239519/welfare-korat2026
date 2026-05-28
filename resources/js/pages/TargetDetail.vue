@@ -18,6 +18,14 @@ const saving = ref(false);
 const errors = ref({});
 const flashOk = ref('');
 
+// Mobile: ซ่อน Current + History details เป็นค่าเริ่มต้น · กดเพื่อขยาย
+// Desktop (lg+): บังคับแสดงเสมอผ่าน Tailwind `lg:!block`
+const currentOpen = ref(false);
+const historyOpen = ref(false);
+// History sub-dropdown: แสดง 2 รายการล่าสุดเสมอ · ส่วนเกินอยู่ใน "ดูเพิ่มเติม"
+const HISTORY_VISIBLE = 2;
+const historyShowMore = ref(false);
+
 // Edit modal
 const showEdit = ref(false);
 const editForm = reactive({
@@ -172,40 +180,145 @@ function initials(name) {
         </div>
       </div>
 
+      <!--
+        Grid layout — flat, each item gets explicit lg position:
+        Mobile: Tracker → Current → History → Update (order 1-4)
+        Desktop: LEFT (col 1-2) = Update | RIGHT (col 3) = Current → History → Tracker
+      -->
       <div class="grid lg:grid-cols-3 gap-4">
 
-        <!-- LEFT: Current + Update -->
-        <div class="lg:col-span-2 space-y-4">
+          <!-- ╔══════════════════════════════════════════════╗ -->
+          <!-- ║  สถานะปัจจุบัน — Mobile: dropdown · Desktop: แสดงเลย  ║ -->
+          <!-- ╚══════════════════════════════════════════════╝ -->
+          <div class="relative card-tint-blue order-2 lg:col-start-3 lg:row-start-1 overflow-hidden shadow-md shadow-blue-500/10 ring-1 ring-blue-200/60 dark:ring-blue-800/40">
+            <!-- Accent bar ซ้าย -->
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-600 to-sky-500 z-10"></div>
 
-          <!-- Current -->
-          <div class="card p-5">
-            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <div>
-                <div class="text-xs text-slate-500 dark:text-slate-400">สถานะปัจจุบัน</div>
-                <div class="flex items-center gap-2 mt-1.5">
-                  <span v-if="target.current?.status_code" :class="['inline-block px-3 py-1.5 rounded-xl text-sm font-medium', statusColorClass(target.current.status_code)]">
-                    <i class="fi-sr-check-circle"></i> {{ statuses.find(s => s.code === target.current.status_code)?.label || statusShort(target.current.status_code) }}
-                  </span>
-                  <span v-else class="inline-block px-3 py-1.5 rounded-xl text-sm font-medium bg-slate-100 text-slate-600">ยังไม่ถูกติดตาม</span>
+            <!-- Header — mobile = ปุ่มกด · desktop = static (เพราะ lg:pointer-events-none) -->
+            <button @click="currentOpen = !currentOpen"
+                    class="w-full text-left p-4 lg:cursor-default lg:pointer-events-none tap-transparent">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5 text-xs text-blue-800 dark:text-blue-300 font-semibold uppercase tracking-wide">
+                  <i class="fi-sr-flag text-blue-700 dark:text-blue-400"></i> สถานะปัจจุบัน
+                </div>
+                <i :class="['lg:hidden text-blue-600 dark:text-blue-400 transition-transform', currentOpen ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down']"></i>
+              </div>
+
+              <!-- Status badge — แสดงตลอด ทั้ง mobile/desktop -->
+              <div class="mt-2">
+                <span v-if="target.current?.status_code"
+                      :class="['inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-base font-semibold shadow-sm', statusColorClass(target.current.status_code)]">
+                  <i class="fi-sr-check-circle text-base"></i>
+                  <span>{{ statuses.find(s => s.code === target.current.status_code)?.label || statusShort(target.current.status_code) }}</span>
+                </span>
+                <span v-else class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-base font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  <i class="fi-rr-question"></i> ยังไม่ถูกติดตาม
+                </span>
+              </div>
+            </button>
+
+            <!-- รายละเอียด — mobile: ซ่อน/แสดงตาม currentOpen · desktop: บังคับแสดงเสมอ -->
+            <div :class="[currentOpen ? 'block' : 'hidden', 'lg:!block px-4 pb-4']">
+              <div v-if="target.current" class="space-y-1.5 text-xs">
+                <div v-if="target.current.channel" class="flex items-center gap-2 text-slate-700 dark:text-slate-100">
+                  <i class="fi-rr-route text-blue-600 dark:text-blue-400 w-3.5 text-center"></i>
+                  <span class="text-slate-500 dark:text-slate-300">ช่องทาง:</span>
+                  <span class="font-medium truncate">{{ target.current.channel }}<span v-if="target.current.sub_channel_label" class="text-slate-500 dark:text-slate-400"> ({{ target.current.sub_channel_label }})</span></span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-700 dark:text-slate-100">
+                  <i class="fi-rr-clock text-blue-600 dark:text-blue-400 w-3.5 text-center"></i>
+                  <span class="text-slate-500 dark:text-slate-300">อัปเดต:</span>
+                  <span class="font-medium tabular-nums">{{ shortDate(target.current.updated_at) }}</span>
+                  <span v-if="target.current.updated_by" class="text-slate-500 dark:text-slate-400 truncate">· {{ target.current.updated_by }}</span>
+                </div>
+                <div v-if="target.current.note" class="bg-white/70 dark:bg-slate-900/40 border border-blue-100 dark:border-blue-900/40 rounded-lg text-xs p-2.5 flex items-start gap-1.5 mt-2">
+                  <i class="fi-rr-info text-blue-700 dark:text-blue-400 mt-0.5 shrink-0"></i>
+                  <span class="leading-relaxed text-slate-700 dark:text-slate-200">{{ target.current.note }}</span>
                 </div>
               </div>
-              <div v-if="target.current" class="text-right text-xs text-slate-500 dark:text-slate-400">
-                อัปเดตล่าสุด<br>
-                <span class="text-slate-800 dark:text-slate-100 font-medium">{{ shortDate(target.current.updated_at) }}</span>
-                <div v-if="target.current.updated_by">โดย {{ target.current.updated_by }}</div>
-              </div>
-            </div>
-            <div v-if="target.current?.note || target.current?.channel" class="card-tint-blue text-xs p-3">
-              <span v-if="target.current.note"><i class="fi-rr-info"></i> {{ target.current.note }}</span>
-              <div v-if="target.current.channel" class="mt-1">
-                <i class="fi-rr-route"></i> ช่องทาง: <strong>{{ target.current.channel }}</strong>
-                <span v-if="target.current.sub_channel_label"> ({{ target.current.sub_channel_label }})</span>
-              </div>
+              <div v-else class="text-xs text-slate-500 dark:text-slate-300 italic">ยังไม่มีการบันทึกสถานะ</div>
             </div>
           </div>
 
-          <!-- Update -->
-          <div class="card p-5">
+          <!-- ╔══════════════════════════════════════════════╗ -->
+          <!-- ║  ประวัติ — Mobile: dropdown · Desktop: แสดง 2 + ดูเพิ่ม ║ -->
+          <!-- ╚══════════════════════════════════════════════╝ -->
+          <div class="card order-3 lg:col-start-3 lg:row-start-2 overflow-hidden">
+            <!-- Header — mobile = ปุ่มกด · desktop = static -->
+            <button @click="historyOpen = !historyOpen"
+                    class="w-full text-left p-4 lg:cursor-default lg:pointer-events-none tap-transparent flex items-center gap-1.5">
+              <i class="fi-rr-time-past text-blue-700"></i>
+              <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">ประวัติการเปลี่ยนสถานะ</span>
+              <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium">
+                {{ target.logs.length }} รายการ
+              </span>
+              <i :class="['lg:hidden ml-auto text-slate-400 transition-transform', historyOpen ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down']"></i>
+            </button>
+
+            <!-- Body — mobile: ซ่อน/แสดงตาม historyOpen · desktop: บังคับแสดง -->
+            <div :class="[historyOpen ? 'block' : 'hidden', 'lg:!block px-4 pb-4']">
+              <!-- Empty state -->
+              <div v-if="target.logs.length === 0" class="text-xs text-slate-400 italic text-center py-4">
+                <i class="fi-rr-folder-open text-2xl text-slate-300 dark:text-slate-600 block mb-1"></i>
+                ยังไม่มีประวัติ
+              </div>
+
+              <!-- Visible items (2 รายการล่าสุดเสมอ) -->
+              <div v-else class="space-y-2.5 text-xs">
+              <div v-for="(l, i) in target.logs.slice(0, HISTORY_VISIBLE)" :key="l.id" class="flex gap-2.5">
+                <div class="shrink-0 w-2 h-2 mt-1.5 rounded-full bg-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/30"></div>
+                <div :class="['flex-1 min-w-0', i < Math.min(target.logs.length, HISTORY_VISIBLE) - 1 ? 'pb-2.5 border-b border-slate-100 dark:border-slate-800' : '']">
+                  <div class="flex items-baseline justify-between gap-2 flex-wrap">
+                    <span class="font-medium">
+                      เปลี่ยนเป็น
+                      <span :class="[statusColorClass(l.status_code), 'px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap']">{{ statusShort(l.status_code) }}</span>
+                    </span>
+                    <span class="text-[11px] text-slate-500 shrink-0 tabular-nums">{{ shortDate(l.changed_at) }}</span>
+                  </div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                    <span v-if="l.user">โดย {{ l.user }}</span>
+                    <span v-if="l.channel"> · {{ l.channel }}<span v-if="l.sub_channel_label"> ({{ l.sub_channel_label }})</span></span>
+                  </div>
+                  <div v-if="l.note" class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed line-clamp-2">{{ l.note }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- "ดูเพิ่มเติม" dropdown · แสดงเฉพาะถ้าเกิน HISTORY_VISIBLE -->
+            <template v-if="target.logs.length > HISTORY_VISIBLE">
+              <button @click="historyShowMore = !historyShowMore"
+                      class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 w-full flex items-center justify-center gap-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-800/50 rounded-lg py-2 tap-transparent transition">
+                <i :class="historyShowMore ? 'fi-rr-angle-small-up' : 'fi-rr-angle-small-down'"></i>
+                {{ historyShowMore ? 'ซ่อนรายการที่เก่ากว่า' : `ดูเพิ่มเติม ${target.logs.length - HISTORY_VISIBLE} รายการ` }}
+              </button>
+
+              <div v-if="historyShowMore" class="space-y-2.5 text-xs mt-3">
+                <div v-for="(l, i) in target.logs.slice(HISTORY_VISIBLE)" :key="l.id" class="flex gap-2.5">
+                  <div class="shrink-0 w-2 h-2 mt-1.5 rounded-full bg-slate-400 ring-4 ring-slate-100 dark:ring-slate-800"></div>
+                  <div :class="['flex-1 min-w-0', i < target.logs.length - HISTORY_VISIBLE - 1 ? 'pb-2.5 border-b border-slate-100 dark:border-slate-800' : '']">
+                    <div class="flex items-baseline justify-between gap-2 flex-wrap">
+                      <span class="font-medium">
+                        เปลี่ยนเป็น
+                        <span :class="[statusColorClass(l.status_code), 'px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap']">{{ statusShort(l.status_code) }}</span>
+                      </span>
+                      <span class="text-[11px] text-slate-500 shrink-0 tabular-nums">{{ shortDate(l.changed_at) }}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                      <span v-if="l.user">โดย {{ l.user }}</span>
+                      <span v-if="l.channel"> · {{ l.channel }}<span v-if="l.sub_channel_label"> ({{ l.sub_channel_label }})</span></span>
+                    </div>
+                    <div v-if="l.note" class="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed line-clamp-2">{{ l.note }}</div>
+                  </div>
+                </div>
+              </div>
+            </template>
+            </div><!-- end body wrapper (mobile collapse · lg:!block) -->
+          </div>
+
+          <!-- ╔══════════════════════════════════════════════╗ -->
+          <!-- ║  อัปเดตสถานะ (mobile 4 · desktop left big block) ║ -->
+          <!-- ╚══════════════════════════════════════════════╝ -->
+          <div class="card p-5 order-4 lg:col-start-1 lg:row-start-1 lg:col-span-2 lg:row-span-3">
             <div class="font-semibold mb-3">อัปเดตสถานะ</div>
 
             <div v-if="flashOk" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ flashOk }}</div>
@@ -214,9 +327,9 @@ function initials(name) {
             <form @submit.prevent="submit" class="space-y-4">
               <div>
                 <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">สถานะใหม่ <span class="text-red-600">*</span></label>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 lg:grid-cols-3 gap-2">
                   <label v-for="s in statuses" :key="s.code"
-                         :class="['flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50',
+                         :class="['flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50 tap-transparent min-h-[44px]',
                                   form.status_code === s.code ? 'border-2 border-blue-500 card-tint-blue' : 'border-slate-100 dark:border-slate-800']">
                     <input type="radio" v-model="form.status_code" :value="s.code" class="text-blue-600">
                     <span :class="['text-sm px-2 py-0.5 rounded whitespace-nowrap', s.color]">{{ statusShort(s.code) }}</span>
@@ -231,11 +344,11 @@ function initials(name) {
                 </label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <label v-for="c in channels" :key="c.id"
-                         :class="['flex flex-col items-center gap-1.5 p-3 rounded-xl border cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50',
+                         :class="['flex flex-col items-center gap-1.5 p-3 rounded-xl border cursor-pointer hover:bg-blue-50/30 dark:hover:bg-slate-800/50 tap-transparent min-h-[80px]',
                                   Number(form.channel_id) === c.id ? 'border-2 border-sky-500 card-tint-sky' : 'border-slate-100 dark:border-slate-800']">
                     <input type="radio" v-model.number="form.channel_id" :value="c.id" class="hidden">
-                    <i :class="[c.icon || 'fi-rr-circle', 'text-lg text-sky-700']"></i>
-                    <span class="text-xs text-center">{{ c.name }}</span>
+                    <i :class="[c.icon || 'fi-rr-circle', 'text-xl text-sky-700']"></i>
+                    <span class="text-sm text-center leading-tight">{{ c.name }}</span>
                   </label>
                 </div>
                 <div v-if="errors.channel_id" class="text-[11px] text-red-600 mt-1">{{ errors.channel_id[0] }}</div>
@@ -276,51 +389,28 @@ function initials(name) {
               </div>
             </form>
           </div>
-        </div>
 
-        <!-- RIGHT: Tracker + Timeline -->
-        <div class="space-y-4">
-
-          <div class="card-tint-sky p-5">
-            <div class="text-xs opacity-80 mb-2">ผู้กำกับติดตามหมู่บ้าน</div>
+          <!-- ╔══════════════════════════════════════════════╗ -->
+          <!-- ║  ผู้กำกับติดตามหมู่บ้าน (mobile 1 · desktop right bottom) ║ -->
+          <!-- ╚══════════════════════════════════════════════╝ -->
+          <div class="card-tint-sky p-5 order-1 lg:col-start-3 lg:row-start-3">
+            <div class="text-xs opacity-80 mb-2 font-medium flex items-center gap-1.5">
+              <i class="fi-rr-user-headset"></i> ผู้กำกับติดตามหมู่บ้าน
+            </div>
             <div v-if="target.tracker" class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full bg-sky-600 text-white flex items-center justify-center font-semibold">
+              <div class="w-12 h-12 rounded-full bg-sky-600 text-white flex items-center justify-center font-semibold shrink-0">
                 {{ initials(target.tracker.name) }}
               </div>
-              <div class="min-w-0">
+              <div class="min-w-0 flex-1">
                 <div class="font-medium truncate">{{ target.tracker.name }}</div>
-                <div class="text-xs opacity-80">{{ target.tracker.position }}</div>
-                <a v-if="target.tracker.phone" :href="`tel:${target.tracker.phone}`" class="text-xs text-sky-800 dark:text-sky-300 font-medium hover:underline mt-1 inline-flex items-center gap-1">
+                <div class="text-xs opacity-80 truncate">{{ target.tracker.position }}</div>
+                <a v-if="target.tracker.phone" :href="`tel:${target.tracker.phone}`" class="text-xs text-sky-800 dark:text-sky-300 font-medium hover:underline mt-1 inline-flex items-center gap-1 tap-transparent">
                   <i class="fi-rr-phone-call"></i> {{ target.tracker.phone }}
                 </a>
               </div>
             </div>
-            <div v-else class="text-sm text-slate-500">ยังไม่มีผู้กำกับติดตามที่หมู่บ้านนี้</div>
+            <div v-else class="text-sm text-slate-500 italic">ยังไม่มีผู้กำกับติดตามที่หมู่บ้านนี้</div>
           </div>
-
-          <div class="card p-5">
-            <div class="font-semibold mb-3 text-sm">ประวัติการเปลี่ยนสถานะ</div>
-            <div v-if="target.logs.length === 0" class="text-sm text-slate-500">ยังไม่มีประวัติ</div>
-            <div v-else class="space-y-3 text-sm">
-              <div v-for="(l, i) in target.logs" :key="l.id" class="flex gap-3">
-                <div class="shrink-0 w-2.5 h-2.5 mt-1.5 rounded-full bg-blue-600 ring-4 ring-blue-100 dark:ring-blue-900/30"></div>
-                <div :class="['flex-1', i < target.logs.length - 1 ? 'pb-3 border-b border-slate-100 dark:border-slate-800' : '']">
-                  <div class="flex items-baseline justify-between gap-2">
-                    <span class="font-medium">
-                      เปลี่ยนเป็น <span :class="[statusColorClass(l.status_code), 'px-1.5 rounded text-xs whitespace-nowrap']">{{ statusShort(l.status_code) }}</span>
-                    </span>
-                    <span class="text-xs text-slate-500">{{ shortDate(l.changed_at) }}</span>
-                  </div>
-                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    <span v-if="l.user">โดย {{ l.user }}</span>
-                    <span v-if="l.channel"> · {{ l.channel }}<span v-if="l.sub_channel_label"> ({{ l.sub_channel_label }})</span></span>
-                  </div>
-                  <div v-if="l.note" class="text-xs text-slate-600 dark:text-slate-300 mt-1">{{ l.note }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Edit modal -->
@@ -330,7 +420,7 @@ function initials(name) {
               <div class="font-semibold">แก้ไขข้อมูลส่วนตัว</div>
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">การแก้ "รายได้" จะเก็บประวัติ + ค่าเดิมเป็น Baseline</div>
             </div>
-            <button @click="showEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+            <button @click="showEdit = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
           </div>
 
           <div v-if="editErr.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ editErr.general[0] }}</div>
@@ -393,7 +483,7 @@ function initials(name) {
       <Modal :show="showHistory" max-width="max-w-lg" @close="showHistory = false">
           <div class="flex items-center justify-between mb-3">
             <div class="font-semibold">ประวัติการแก้ไขรายได้</div>
-            <button @click="showHistory = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+            <button @click="showHistory = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
           </div>
           <div v-if="incomeHistory.length === 0" class="text-sm text-slate-500 text-center py-6">ยังไม่มีการแก้ไขรายได้</div>
           <div v-else class="space-y-2">

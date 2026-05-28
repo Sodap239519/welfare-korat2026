@@ -234,33 +234,33 @@ function pctClass(n) {
         </div>
       </div>
 
-      <!-- Toolbar -->
+      <!-- Toolbar — mobile stack เรียบร้อย / desktop แถวเดียว -->
       <div class="card p-3 space-y-2">
-        <div class="flex flex-wrap gap-2 items-center">
-          <!-- Report type tabs (อยู่ในแถวเดียว) -->
+        <div class="flex flex-col lg:flex-row lg:flex-wrap gap-2 lg:items-center">
+          <!-- Report type tabs -->
           <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 shrink-0">
             <button @click="reportType = 'daily'; load()"
-                    :class="['px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5',
+                    :class="['flex-1 lg:flex-none px-3 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 tap-transparent min-h-[36px]',
                              reportType === 'daily'
                                ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900']">
               <i class="fi-rr-chart-pie"></i> <span>สรุปยอด (รายวัน)</span>
             </button>
             <button @click="reportType = 'bottleneck'; load()"
-                    :class="['px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5',
+                    :class="['flex-1 lg:flex-none px-3 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 tap-transparent min-h-[36px]',
                              reportType === 'bottleneck'
                                ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900']">
               <i class="fi-rr-triangle-warning"></i> <span>Bottleneck (สัปดาห์)</span>
             </button>
           </div>
-          <!-- เส้นกั้น (vertical divider) แยก daily/bottleneck กับ topic tabs -->
+          <!-- เส้นกั้น แยก daily/bottleneck กับ topic tabs (desktop เท่านั้น) -->
           <div v-if="reportType === 'daily'" class="hidden lg:block w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
-          <!-- Topic tabs: 5 หัวข้อรายงาน — อยู่แถวเดียวกับ daily/bottleneck -->
-          <div v-if="reportType === 'daily'" class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 overflow-x-auto">
+          <!-- Topic tabs · scrollable แนวนอนบน mobile · fade 2 ฝั่ง -->
+          <div v-if="reportType === 'daily'" class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 overflow-x-auto fade-x">
             <button v-for="t in topicTabs" :key="t.key" @click="topic = t.key"
-                    :class="['shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-1.5',
+                    :class="['shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition flex items-center gap-1.5 tap-transparent min-h-[36px]',
                              topic === t.key
                                ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900']">
@@ -268,10 +268,10 @@ function pctClass(n) {
             </button>
           </div>
 
-          <!-- Export button — ส่งออกตาม tab ปัจจุบัน -->
+          <!-- Export button — full-width บน mobile · ลอยขวาบน desktop -->
           <button v-if="reportType === 'daily'" @click="exportCurrent"
-                  class="ml-auto btn-green px-3 py-2.5 text-sm flex items-center gap-1.5 whitespace-nowrap shrink-0">
-            <i class="fi-rr-file-export"></i> ส่งออก
+                  class="lg:ml-auto btn-green px-4 py-2.5 text-sm flex items-center justify-center gap-1.5 whitespace-nowrap tap-transparent">
+            <i class="fi-rr-file-export"></i> ส่งออก Excel
           </button>
         </div>
 
@@ -293,7 +293,7 @@ function pctClass(n) {
           </button>
         </div>
 
-        <div v-if="reportType === 'daily'" class="grid grid-cols-2 lg:grid-cols-3 gap-2">
+        <div v-if="reportType === 'daily'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           <div class="relative min-w-0">
             <input v-model="date" type="date" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <button v-if="date" @click="date = ''" title="ล้าง"
@@ -333,27 +333,28 @@ function pctClass(n) {
         <!-- ║ Tab: สรุปยอดทุกสถานะ (summary)         ║ -->
         <!-- ╚══════════════════════════════════════╝ -->
         <div v-if="topic === 'summary'" class="space-y-4">
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <div class="card-tint-blue p-4 col-span-2 lg:col-span-1">
+        <!-- KPI cards · 2 cols xs / 5 cols lg · ไม่ใช้ col-span เพื่อสมดุล -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div class="card-tint-blue p-3 sm:p-4">
             <div class="text-xs opacity-80">รวมเป้าหมาย</div>
-            <div class="text-2xl font-bold mt-1">{{ formatNumber(stats.sumTotal) }}</div>
-            <div class="text-[11px] opacity-70">จำนวน {{ levelLabel }} {{ stats.total }} แห่ง</div>
+            <div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums">{{ formatNumber(stats.sumTotal) }}</div>
+            <div class="text-[11px] opacity-70 truncate">{{ levelLabel }} {{ stats.total }} แห่ง</div>
           </div>
-          <div class="card-tint-blue p-4">
+          <div class="card-tint-blue p-3 sm:p-4">
             <div class="text-xs opacity-80">รวม %</div>
-            <div class="text-2xl font-bold mt-1 text-blue-900 dark:text-blue-100">{{ stats.overallPct }}%</div>
+            <div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-blue-900 dark:text-blue-100">{{ stats.overallPct }}%</div>
           </div>
-          <div class="card-tint-green p-4">
+          <div class="card-tint-green p-3 sm:p-4">
             <div class="text-xs opacity-80">บรรลุ ≥ 80%</div>
-            <div class="text-2xl font-bold mt-1 text-green-700">{{ formatNumber(stats.excellent) }}</div>
+            <div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-green-700">{{ formatNumber(stats.excellent) }}</div>
           </div>
-          <div class="card-tint-orange p-4">
+          <div class="card-tint-orange p-3 sm:p-4">
             <div class="text-xs opacity-80">50-79%</div>
-            <div class="text-2xl font-bold mt-1 text-orange-700">{{ formatNumber(stats.medium) }}</div>
+            <div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-orange-700">{{ formatNumber(stats.medium) }}</div>
           </div>
-          <div class="card-tint-red p-4">
+          <div class="card-tint-red p-3 sm:p-4">
             <div class="text-xs opacity-80">ต่ำกว่า 50%</div>
-            <div class="text-2xl font-bold mt-1 text-red-700">{{ formatNumber(stats.low) }}</div>
+            <div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-red-700">{{ formatNumber(stats.low) }}</div>
           </div>
         </div>
 
@@ -364,11 +365,16 @@ function pctClass(n) {
           </div>
         </div>
 
+        <!-- Hint: บนมือถือเลื่อนซ้าย-ขวาเพื่อดูคอลัมน์อื่น -->
+        <div class="lg:hidden flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 px-1">
+          <i class="fi-rr-arrows-h text-blue-500"></i>
+          <span>เลื่อนซ้าย-ขวาเพื่อดูคอลัมน์อื่น</span>
+        </div>
         <div class="card overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th class="text-left py-2 px-3 sticky left-0 bg-white dark:bg-slate-900 z-10">{{ levelLabel }}</th>
+                <th class="text-left py-2 px-3 sticky left-0 bg-white dark:bg-slate-900 z-10 sticky-col-shadow">{{ levelLabel }}</th>
                 <th v-if="level !== 'amphur'" class="text-left whitespace-nowrap">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
                 <th class="text-right whitespace-nowrap px-2">เป้า</th>
                 <th class="text-right whitespace-nowrap px-2 text-slate-500" title="ยังไม่ถูกติดตาม">ยังไม่ติดตาม</th>
@@ -386,7 +392,7 @@ function pctClass(n) {
             </thead>
             <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
               <tr v-for="r in dailyRows" :key="r.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
-                <td class="py-2 px-3 font-medium sticky left-0 bg-white dark:bg-slate-900">{{ r.name }}</td>
+                <td class="py-2 px-3 font-medium sticky left-0 bg-white dark:bg-slate-900 sticky-col-shadow">{{ r.name }}</td>
                 <td v-if="level === 'village'" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.tambon }} · {{ r.amphur }}</td>
                 <td v-else-if="level === 'tambon'" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.amphur }}</td>
                 <td class="text-right px-2">{{ formatNumber(r.total) }}</td>
@@ -576,13 +582,38 @@ function pctClass(n) {
         </div>
 
         <div class="card p-5">
-          <div class="font-semibold mb-3"><i class="fi-rr-user-headset text-orange-500"></i> ผู้ติดตามที่ไม่อัปเดตเกิน 3 วัน</div>
+          <div class="font-semibold mb-3 flex items-center gap-2">
+            <i class="fi-rr-user-headset text-orange-500"></i>
+            ผู้ติดตามที่ไม่อัปเดตเกิน 3 วัน
+            <span v-if="bottleneck.inactive_trackers.length"
+                  class="text-[10px] px-1.5 py-0.5 rounded-full card-tint-orange font-medium">
+              {{ bottleneck.inactive_trackers.length }} คน
+            </span>
+          </div>
           <div v-if="!bottleneck.inactive_trackers.length" class="text-sm text-slate-500">ทุกคนอัปเดตเป็นประจำ</div>
-          <div v-for="t in bottleneck.inactive_trackers" :key="t.id" class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
-            <div>
-              <div class="font-medium text-sm">{{ t.name }} <span class="text-xs text-slate-500">({{ t.position }})</span></div>
-              <div class="text-xs text-slate-500 dark:text-slate-400">{{ t.village }}</div>
+          <div v-for="t in bottleneck.inactive_trackers" :key="t.id"
+               class="flex items-start justify-between gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-sm flex items-center gap-1.5 flex-wrap">
+                <span>{{ t.name }}</span>
+                <span class="text-xs text-slate-500">({{ t.position }})</span>
+              </div>
+              <!-- หมู่บ้านที่ดูแล: ถ้ามีหลายหมู่ → แสดงเป็น chip list / ถ้า 1 หมู่ → แสดง text ปกติ -->
+              <div v-if="(t.villages?.length || 0) > 1" class="mt-1 flex flex-wrap gap-1">
+                <span v-for="(v, i) in t.villages" :key="i"
+                      class="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  {{ v }}
+                </span>
+              </div>
+              <div v-else class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {{ (t.villages && t.villages[0]) || t.village }}
+              </div>
             </div>
+            <span v-if="(t.village_count || 0) > 1"
+                  class="shrink-0 text-[11px] px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 font-medium whitespace-nowrap"
+                  :title="`ดูแล ${t.village_count} หมู่บ้าน`">
+              {{ t.village_count }} หมู่
+            </span>
           </div>
         </div>
       </template>

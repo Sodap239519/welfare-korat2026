@@ -12,6 +12,12 @@ const theme = useThemeStore();
 const auth = useAuthStore();
 const dark = computed(() => theme.isDark);
 
+// Responsive chart height — มือถือเตี้ยลงเพื่อไม่ stack สูงเกิน
+const isMobile = ref(false);
+function updateIsMobile() { isMobile.value = window.matchMedia('(max-width: 1023px)').matches; }
+onMounted(() => { updateIsMobile(); window.addEventListener('resize', updateIsMobile); });
+const chartHeight = computed(() => isMobile.value ? 240 : 280);
+
 const filters = ref({ amphur_id: '', tambon_id: '', village_id: '' });
 const stats = ref(null);
 const trend = ref({ labels: [], series: [{ name: 'ยอดสะสม', data: [] }, { name: 'เป้าหมาย', data: [] }] });
@@ -73,6 +79,48 @@ const statusColorMap = {
   '4.1':'#94a3b8','4.2':'#2563eb','4.3':'#fb923c','4.4':'#f97316',
   '4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a',
 };
+
+// 4 ช่องทางการลงทะเบียน — สีต่อ Card ตาม code
+// website=ฟ้า · paotang=น้ำเงิน · atm_ktb=ฟ้าเข้ม · bank=เขียว
+const channelStyleMap = {
+  website:  { tint: 'card-tint-sky',    iconBg: 'bg-sky-600',    iconText: 'text-white', accent: 'text-sky-700 dark:text-sky-300',   border: 'border-sky-200/60 dark:border-sky-900/40' },
+  paotang:  { tint: 'card-tint-blue',   iconBg: 'bg-blue-700',   iconText: 'text-white', accent: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200/60 dark:border-blue-900/40' },
+  atm_ktb:  { tint: 'card-tint-orange', iconBg: 'bg-orange-500', iconText: 'text-white', accent: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200/60 dark:border-orange-900/40' },
+  bank:     { tint: 'card-tint-green',  iconBg: 'bg-green-600',  iconText: 'text-white', accent: 'text-green-700 dark:text-green-300', border: 'border-green-200/60 dark:border-green-900/40' },
+};
+function channelStyle(c) {
+  return channelStyleMap[c.code] || channelStyleMap.website;
+}
+
+// 5 ธนาคาร — brand colors แบบจาง ๆ + ตัวอักษรย่อ (fallback ถ้าไม่มีไฟล์โลโก้)
+// KTB=ฟ้ากรุงไทย · GSB=ชมพูออมสิน · BAAC=เขียว ธ.ก.ส. · GHB=ส้ม ธอส. · IBANK=เขียวเข้มอิสลาม
+const bankStyleMap = {
+  KTB:   { bg: 'bg-sky-50 dark:bg-sky-900/15 border-sky-200/60 dark:border-sky-900/30',         badge: 'bg-sky-600',     text: 'text-sky-800 dark:text-sky-200',     value: 'text-sky-900 dark:text-sky-100',     initial: 'KTB',  short: 'กรุงไทย' },
+  GSB:   { bg: 'bg-pink-50 dark:bg-pink-900/15 border-pink-200/60 dark:border-pink-900/30',     badge: 'bg-pink-600',    text: 'text-pink-800 dark:text-pink-200',   value: 'text-pink-900 dark:text-pink-100',   initial: 'GSB',  short: 'ออมสิน' },
+  BAAC:  { bg: 'bg-green-50 dark:bg-green-900/15 border-green-200/60 dark:border-green-900/30', badge: 'bg-green-600',   text: 'text-green-800 dark:text-green-200', value: 'text-green-900 dark:text-green-100', initial: 'ธกส',  short: 'ธ.ก.ส.' },
+  GHB:   { bg: 'bg-orange-50 dark:bg-orange-900/15 border-orange-200/60 dark:border-orange-900/30', badge: 'bg-orange-500', text: 'text-orange-800 dark:text-orange-200', value: 'text-orange-900 dark:text-orange-100', initial: 'ธอส', short: 'อาคารสงเคราะห์' },
+  IBANK: { bg: 'bg-emerald-50 dark:bg-emerald-900/15 border-emerald-200/60 dark:border-emerald-900/30', badge: 'bg-emerald-700', text: 'text-emerald-800 dark:text-emerald-200', value: 'text-emerald-900 dark:text-emerald-100', initial: 'IBANK', short: 'อิสลาม' },
+};
+const bankFallback = { bg: 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-700', badge: 'bg-slate-500', text: 'text-slate-700 dark:text-slate-300', value: 'text-slate-900 dark:text-slate-100', initial: '?', short: '' };
+function bankStyle(code) {
+  if (!code) return bankFallback;
+  return bankStyleMap[String(code).toUpperCase()] || bankFallback;
+}
+function bankLogoUrl(bank) {
+  // bank อาจเป็น object (มี logo_url จาก API) หรือ string (code เก่า — backward compat)
+  if (typeof bank === 'object' && bank) {
+    if (bank.logo_url) return bank.logo_url;
+    if (bank.code)     return `/img/banks/${String(bank.code).toLowerCase()}.png`;
+    return null;
+  }
+  if (!bank) return null;
+  return `/img/banks/${String(bank).toLowerCase()}.png`;
+}
+// per-image error state — กดผิดพลาดเมื่อไหร่ ก็ fallback เป็นตัวอักษรย่อ
+const bankLogoFailed = reactive({});
+function onLogoError(code) {
+  bankLogoFailed[code] = true;
+}
 
 // Tint class + accent text per status (สำหรับ KPI card)
 const statusTintMap = {
@@ -622,40 +670,49 @@ function statusSegments(row) {
         </div>
       </div>
 
-      <!-- Filter — 3 selects + button : แถวเดียวบน desktop, grid 3 + ปุ่มแยกแถวบน mobile -->
-      <div class="grid grid-cols-3 md:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+      <!-- Filter — 3 dropdowns + refresh ปุ่มเดียว · แถวเดียวทุก breakpoint
+           mobile: ปุ่มรีเฟรชเป็นไอคอน-only (square) · desktop: มี text "รีเฟรช" -->
+      <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-stretch">
         <div class="relative min-w-0">
-          <select v-model="filters.amphur_id" @change="loadTambons" class="w-full min-w-0 pl-2 sm:pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm">
+          <select v-model="filters.amphur_id" @change="loadTambons"
+                  class="w-full min-w-0 pl-2 sm:pl-3 pr-7 sm:pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <option value="">ทุกอำเภอ</option>
             <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
           </select>
+          <!-- ปุ่มล้างเลื่อนเข้าด้านในเพื่อไม่ทับ chevron บนมือถือ -->
           <button v-if="filters.amphur_id" @click="filters.amphur_id = ''; loadTambons()" title="ล้าง"
-                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                  class="absolute right-6 sm:right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 tap-transparent">
             <i class="fi-rr-cross-small text-[10px]"></i>
           </button>
         </div>
         <div class="relative min-w-0">
-          <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id" class="w-full min-w-0 pl-2 sm:pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
+          <select v-model="filters.tambon_id" @change="loadVillages" :disabled="!filters.amphur_id"
+                  class="w-full min-w-0 pl-2 sm:pl-3 pr-7 sm:pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
             <option value="">ทุกตำบล</option>
             <option v-for="t in tambonOpts" :key="t.id" :value="t.id">{{ t.name }}</option>
           </select>
           <button v-if="filters.tambon_id" @click="filters.tambon_id = ''; loadVillages()" title="ล้าง"
-                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                  class="absolute right-6 sm:right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 tap-transparent">
             <i class="fi-rr-cross-small text-[10px]"></i>
           </button>
         </div>
         <div class="relative min-w-0">
-          <select v-model="filters.village_id" :disabled="!filters.tambon_id" class="w-full min-w-0 pl-2 sm:pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs sm:text-sm disabled:opacity-40">
+          <select v-model="filters.village_id" :disabled="!filters.tambon_id"
+                  class="w-full min-w-0 pl-2 sm:pl-3 pr-7 sm:pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm disabled:opacity-40">
             <option value="">ทุกหมู่บ้าน</option>
             <option v-for="v in villageOpts" :key="v.id" :value="v.id">{{ v.name }}{{ v.moo ? ' (หมู่ '+v.moo+')' : '' }}</option>
           </select>
           <button v-if="filters.village_id" @click="filters.village_id = ''" title="ล้าง"
-                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
+                  class="absolute right-6 sm:right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300 tap-transparent">
             <i class="fi-rr-cross-small text-[10px]"></i>
           </button>
         </div>
-        <button @click="loadAll" :disabled="refreshing" class="col-span-3 md:col-auto md:justify-self-end btn-primary px-3 py-2 text-xs flex items-center justify-center gap-1.5 disabled:opacity-60 whitespace-nowrap">
-          <i :class="['fi-rr-refresh', refreshing && 'animate-spin']"></i> รีเฟรช
+        <!-- รีเฟรช: mobile = ไอคอน square 44px · sm+ = ปุ่มมีข้อความ -->
+        <button @click="loadAll" :disabled="refreshing"
+                class="btn-primary px-3 sm:px-4 py-2.5 text-sm flex items-center justify-center gap-1.5 disabled:opacity-60 whitespace-nowrap tap-transparent shrink-0"
+                title="รีเฟรชข้อมูล">
+          <i :class="['fi-rr-refresh', refreshing && 'animate-spin']"></i>
+          <span class="hidden sm:inline">รีเฟรช</span>
         </button>
       </div>
 
@@ -668,24 +725,24 @@ function statusSegments(row) {
             <span v-else>ยังไม่มีการอัปเดตวันนี้</span>
           </div>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2 sm:gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 sm:gap-3">
           <div v-for="s in statusCards" :key="s.code"
                @click="s.code !== '0' && $router.push({ name: 'targets', query: { status: s.code } })"
-               :class="[s.tint, 'rounded-2xl p-3 min-w-0 transition',
-                        s.code !== '0' && 'cursor-pointer hover:shadow-md hover:-translate-y-0.5']">
+               :class="[s.tint, 'rounded-2xl p-3.5 min-w-0 min-h-[110px] transition tap-transparent',
+                        s.code !== '0' && 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]']">
             <div class="flex items-center justify-between gap-1 mb-2">
-              <span class="text-[10px] opacity-70 font-medium whitespace-nowrap">{{ s.code === '0' ? '—' : s.code }}</span>
-              <i :class="[s.icon, s.accent, 'text-sm']"></i>
+              <span class="text-xs opacity-70 font-mono font-semibold whitespace-nowrap">{{ s.code === '0' ? '—' : s.code }}</span>
+              <i :class="[s.icon, s.accent, 'text-base']"></i>
             </div>
-            <div class="text-[11px] leading-tight opacity-80 truncate" :title="s.label">{{ s.label }}</div>
-            <div :class="['text-xl lg:text-2xl font-bold mt-1 leading-none', s.accent]">{{ formatNumber(s.count) }}</div>
-            <div class="mt-1.5">
-              <div class="flex items-center justify-between text-[10px] opacity-70">
+            <div class="text-xs leading-tight opacity-80 line-clamp-2 min-h-[2.4em]" :title="s.label">{{ s.label }}</div>
+            <div :class="['text-2xl lg:text-2xl font-bold mt-1.5 leading-none tabular-nums', s.accent]">{{ formatNumber(s.count) }}</div>
+            <div class="mt-2">
+              <div class="flex items-center justify-between text-[11px] opacity-70 tabular-nums">
                 <span>{{ s.pct }}%</span>
                 <span>{{ formatNumber(s.count) }}/{{ formatNumber(stats.total) }}</span>
               </div>
-              <div class="mt-1 h-1 rounded-full bg-white/50 dark:bg-slate-900/40 overflow-hidden">
-                <div class="h-full rounded-full" :style="{ width: Math.min(s.pct, 100) + '%', background: s.dot }"></div>
+              <div class="mt-1 h-1.5 rounded-full bg-white/50 dark:bg-slate-900/40 overflow-hidden">
+                <div class="h-full rounded-full transition-all" :style="{ width: Math.min(s.pct, 100) + '%', background: s.dot }"></div>
               </div>
             </div>
           </div>
@@ -740,11 +797,11 @@ function statusSegments(row) {
                 </div>
                 <!-- Edit/Delete (Super Admin) -->
                 <div v-if="auth.isSuperAdmin" class="shrink-0 flex items-center gap-0.5 -mr-1 -mt-1">
-                  <button @click.stop="openSopEdit(p)" class="p-1.5 rounded-lg hover:bg-white/60 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300" title="แก้ไข">
+                  <button @click.stop="openSopEdit(p)" class="btn-icon hover:bg-white/60 dark:hover:bg-slate-700/60 text-slate-600 dark:text-slate-300 tap-transparent" title="แก้ไข">
                     <i class="fi-rr-edit text-xs"></i>
                   </button>
                   <button @click.stop="deleteSopPhase(p)" :disabled="p.is_current"
-                          class="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 disabled:opacity-30 disabled:cursor-not-allowed" title="ลบ">
+                          class="btn-icon hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 disabled:opacity-30 disabled:cursor-not-allowed tap-transparent" title="ลบ">
                     <i class="fi-rr-trash text-xs"></i>
                   </button>
                 </div>
@@ -806,7 +863,7 @@ function statusSegments(row) {
             <i :class="sopForm.id ? 'fi-rr-edit' : 'fi-rr-add'" class="text-blue-700"></i>
             {{ sopForm.id ? 'แก้ไขขั้น SOP' : 'เพิ่มขั้น SOP ใหม่' }}
           </div>
-          <button @click="showSopEdit = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          <button @click="showSopEdit = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
         </div>
 
         <div v-if="sopErr?.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ sopErr.general[0] }}</div>
@@ -864,17 +921,17 @@ function statusSegments(row) {
                   <i :class="[b.icon, 'text-base text-slate-600 dark:text-slate-300 shrink-0 w-5 text-center']"></i>
                   <input v-model="b.text" maxlength="300" placeholder="ข้อความหัวข้อ (เช่น ตรวจสอบสิทธิ์)"
                          class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs">
-                  <button type="button" @click="moveBullet(i, -1)" :disabled="i === 0" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <button type="button" @click="moveBullet(i, -1)" :disabled="i === 0" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 tap-transparent" title="เลื่อนขึ้น">
                     <i class="fi-rr-angle-up text-xs"></i>
                   </button>
-                  <button type="button" @click="moveBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30">
+                  <button type="button" @click="moveBullet(i, 1)" :disabled="i === sopForm.detailsBullets.length - 1" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 tap-transparent" title="เลื่อนลง">
                     <i class="fi-rr-angle-down text-xs"></i>
                   </button>
-                  <button type="button" @click="removeBullet(i)" class="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/30 rounded text-red-600">
+                  <button type="button" @click="removeBullet(i)" class="btn-icon hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 tap-transparent" title="ลบ">
                     <i class="fi-rr-cross-small text-xs"></i>
                   </button>
                 </div>
-                <div class="grid grid-cols-2 gap-1.5 pl-[8.5rem] pr-[6rem]">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:pl-[8.5rem] sm:pr-[6rem]">
                   <input v-model="b.subtitle" maxlength="200" placeholder="หมายเหตุย่อย (เช่น กรมบัญชีกลาง) — ไม่บังคับ"
                          class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] text-slate-500">
                   <input v-model="b.count" type="number" min="0" placeholder="จำนวน (ไม่บังคับ)"
@@ -912,10 +969,10 @@ function statusSegments(row) {
           </div>
         </div>
 
-        <!-- บังคับให้อยู่ในแถวเดียว · ถ้ารวมแล้วเกิน จะ scroll แนวนอน -->
-        <div class="flex gap-3 overflow-x-auto -mx-1 px-1 pb-2 snap-x scroll-chart">
+        <!-- บังคับให้อยู่ในแถวเดียว · ถ้ารวมแล้วเกิน จะ scroll แนวนอน · มี fade mask 2 ฝั่งเป็น hint -->
+        <div class="flex gap-3 overflow-x-auto -mx-1 px-1 pb-2 snap-x scroll-chart fade-x">
           <div v-for="(b, i) in phases.find(p => p.is_current).details.bullets" :key="i"
-               class="card-tint-blue p-4 shrink-0 snap-start flex-1 min-w-[260px]">
+               class="card-tint-blue p-4 shrink-0 snap-start w-[260px] sm:flex-1 sm:min-w-[260px]">
             <div class="flex items-center gap-3 mb-2">
               <div class="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center shrink-0">
                 <i :class="b.icon || 'fi-rr-circle'"></i>
@@ -983,20 +1040,20 @@ function statusSegments(row) {
         </div>
       </div>
 
-      <!-- Status + Channel -->
+      <!-- Status + Channel · mobile ลด height ลง · lg เพิ่ม -->
       <div class="grid lg:grid-cols-2 gap-3">
         <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
           <div class="font-semibold text-sm">สัดส่วนสถานะการลงทะเบียน</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">8 กลุ่ม · รวม "ยังไม่ถูกติดตาม" ด้วย</div>
           <div class="w-full overflow-hidden">
-            <apexchart type="donut" height="280" :options="statusOptions.options" :series="statusOptions.series" />
+            <apexchart type="donut" :height="chartHeight" :options="statusOptions.options" :series="statusOptions.series" />
           </div>
         </div>
         <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
           <div class="font-semibold text-sm">ช่องทางการลงทะเบียน</div>
           <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">4 ช่องทางหลัก</div>
           <div class="w-full overflow-hidden">
-            <apexchart type="bar" height="280" :options="channelOptions.options" :series="channelOptions.series" />
+            <apexchart type="bar" :height="chartHeight" :options="channelOptions.options" :series="channelOptions.series" />
           </div>
         </div>
       </div>
@@ -1006,29 +1063,46 @@ function statusSegments(row) {
         <div class="font-semibold">4 ช่องทางการลงทะเบียน</div>
         <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">ผู้เข้าระบบเลือกได้ตามความสะดวก</div>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div v-for="c in channelsRef" :key="c.id" class="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 text-center">
-            <div class="w-12 h-12 mx-auto rounded-xl card-tint-sky flex items-center justify-center text-sky-700 text-xl mb-2"><i :class="c.icon || 'fi-rr-circle'"></i></div>
-            <div class="font-medium text-sm">{{ c.name }}</div>
-            <div class="text-xl font-bold mt-1">{{ formatNumber(channelCountMap[c.name] || 0) }}</div>
+          <div v-for="c in channelsRef" :key="c.id"
+               :class="[channelStyle(c).tint, channelStyle(c).border, 'border rounded-2xl p-4 text-center transition hover:-translate-y-0.5 hover:shadow-md']">
+            <div :class="['w-12 h-12 mx-auto rounded-xl flex items-center justify-center text-xl mb-2 shadow-sm',
+                          channelStyle(c).iconBg, channelStyle(c).iconText]">
+              <i :class="c.icon || 'fi-rr-circle'"></i>
+            </div>
+            <div :class="['font-medium text-sm', channelStyle(c).accent]">{{ c.name }}</div>
+            <div :class="['text-xl font-bold mt-1', channelStyle(c).accent]">{{ formatNumber(channelCountMap[c.name] || 0) }}</div>
           </div>
         </div>
       </div>
 
-      <!-- 5 ธนาคาร (จาก Overview) -->
+      <!-- 5 ธนาคาร (จาก Overview) — สี Card จาง ๆ ตาม brand + โลโก้ธนาคาร -->
       <div v-if="overview?.by_bank?.length" class="card p-5">
         <div class="font-semibold flex items-center gap-2">
           <i class="fi-rr-bank text-green-700"></i> เจาะลึกช่องทางธนาคาร · 5 แห่ง
         </div>
-        <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">รวม {{ formatNumber(overview.by_bank.reduce((a,b) => a + b.count, 0)) }} รายการที่เลือกธนาคาร</div>
+        <div class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+          รวม {{ formatNumber(overview.by_bank.reduce((a,b) => a + b.count, 0)) }} รายการที่เลือกธนาคาร
+        </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <div v-for="b in overview.by_bank" :key="b.code" class="border border-slate-100 dark:border-slate-800 rounded-2xl p-3 text-center">
-            <div class="w-10 h-10 mx-auto rounded-xl card-tint-green flex items-center justify-center text-green-700 mb-2">
-              <i class="fi-rr-bank"></i>
+          <div v-for="b in overview.by_bank" :key="b.code"
+               :class="[bankStyle(b.code).bg, 'border rounded-2xl p-3 text-center transition hover:-translate-y-0.5 hover:shadow-md']">
+            <!-- Logo (ภาพจริง /img/banks/{code}.png ถ้ามี · fallback เป็น badge ตัวอักษรย่อสี brand) -->
+            <div class="w-12 h-12 mx-auto mb-2 rounded-xl bg-white dark:bg-slate-900 shadow-sm border border-white/60 dark:border-slate-700 flex items-center justify-center overflow-hidden">
+              <img v-if="!bankLogoFailed[b.code]"
+                   :src="bankLogoUrl(b)"
+                   :alt="b.name"
+                   @error="onLogoError(b.code)"
+                   class="w-full h-full object-contain p-1.5" />
+              <div v-else
+                   :class="[bankStyle(b.code).badge, 'w-full h-full rounded-xl flex items-center justify-center text-white font-bold text-[11px] tracking-tight']">
+                {{ bankStyle(b.code).initial }}
+              </div>
             </div>
-            <div class="text-xs font-medium leading-tight">{{ b.name }}</div>
-            <div class="text-lg font-bold mt-1">{{ formatNumber(b.count) }}</div>
+            <div :class="['text-[13px] font-medium leading-tight line-clamp-2 min-h-[2.4em]', bankStyle(b.code).text]">{{ b.name }}</div>
+            <div :class="['text-lg font-bold mt-1 tabular-nums', bankStyle(b.code).value]">{{ formatNumber(b.count) }}</div>
           </div>
         </div>
+        <!-- คำใบ้: วางไฟล์โลโก้ที่ public/img/banks/ktb.png, gsb.png, baac.png, ghb.png, ibank.png ระบบจะใช้รูปแทน badge -->
       </div>
 
       <!-- TOP 5 สรุปยอด — สลับระดับ อำเภอ/ตำบล/หมู่บ้าน · breakdown 7 สถานะ -->
@@ -1044,11 +1118,11 @@ function statusSegments(row) {
         <!-- Level tabs -->
         <div class="flex bg-slate-100 dark:bg-slate-800/60 rounded-xl p-0.5 mb-3 w-full sm:w-fit">
           <button v-for="t in topTabs" :key="t.key" @click="selectTopLevel(t.key)"
-                  :class="['flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5',
+                  :class="['flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 tap-transparent min-h-[36px]',
                            topLevel === t.key
                              ? 'bg-white dark:bg-slate-900 shadow-sm text-blue-700 dark:text-blue-300'
                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200']">
-            <i :class="t.icon"></i> {{ t.label }}
+            <i :class="[t.icon, 'hidden sm:inline-block']"></i> {{ t.label }}
           </button>
         </div>
 

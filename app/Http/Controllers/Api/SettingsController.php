@@ -134,22 +134,50 @@ class SettingsController extends Controller
             'code'       => ['required', 'string', 'max:20', 'unique:banks,code'],
             'name'       => ['required', 'string', 'max:120'],
             'sort_order' => ['nullable', 'integer'],
+            'logo'       => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:1024'], // ≤1MB
         ]);
         $data['sort_order'] ??= ((int) Bank::max('sort_order')) + 1;
+
+        $logoFile = $request->file('logo');
+        unset($data['logo']);
+
         $row = Bank::create($data);
+        if ($logoFile) {
+            $row->logo_path = $this->saveBankLogo($logoFile, $row->code);
+            $row->save();
+        }
         activity('settings')->causedBy(auth()->user())->performedOn($row)->log("เพิ่มธนาคาร: {$row->name}");
-        return response()->json(['data' => $row], 201);
+        return response()->json(['data' => $row->fresh()], 201);
     }
 
     public function updateBank(Request $request, int $id): JsonResponse
     {
         $row = Bank::findOrFail($id);
         $data = $request->validate([
-            'code'       => ['sometimes', 'string', 'max:20', 'unique:banks,code,'.$id],
-            'name'       => ['sometimes', 'string', 'max:120'],
-            'sort_order' => ['sometimes', 'integer'],
+            'code'        => ['sometimes', 'string', 'max:20', 'unique:banks,code,'.$id],
+            'name'        => ['sometimes', 'string', 'max:120'],
+            'sort_order'  => ['sometimes', 'integer'],
+            'logo'        => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:1024'],
+            'remove_logo' => ['sometimes', 'boolean'],
         ]);
+
+        $logoFile   = $request->file('logo');
+        $removeLogo = (bool) ($data['remove_logo'] ?? false);
+        unset($data['logo'], $data['remove_logo']);
+
         $row->update($data);
+
+        if ($logoFile) {
+            // ลบไฟล์เก่าทิ้งถ้าเก็บอยู่ใน public/img/banks/
+            $this->removeBankLogoFile($row->logo_path);
+            $row->logo_path = $this->saveBankLogo($logoFile, $row->code);
+            $row->save();
+        } elseif ($removeLogo && $row->logo_path) {
+            $this->removeBankLogoFile($row->logo_path);
+            $row->logo_path = null;
+            $row->save();
+        }
+
         activity('settings')->causedBy(auth()->user())->performedOn($row)->log("แก้ไขธนาคาร: {$row->name}");
         return response()->json(['data' => $row->fresh()]);
     }
@@ -158,8 +186,31 @@ class SettingsController extends Controller
     {
         $row = Bank::findOrFail($id);
         $name = $row->name;
+        $this->removeBankLogoFile($row->logo_path);
         $row->delete();
         activity('settings')->causedBy(auth()->user())->log("ลบธนาคาร: $name");
         return response()->json(['message' => "ลบธนาคาร '$name' แล้ว"]);
+    }
+
+    /**
+     * บันทึกไฟล์โลโก้ลง public/img/banks/ · คืน URL path เริ่มด้วย "/"
+     * ตั้งชื่อตาม code ของธนาคาร + timestamp กัน cache (เช่น "ktb-1748275811.png")
+     */
+    private function saveBankLogo(\Illuminate\Http\UploadedFile $file, string $code): string
+    {
+        $dir = public_path('img/banks');
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'png');
+        $filename = strtolower($code) . '-' . time() . '.' . $ext;
+        $file->move($dir, $filename);
+        return '/img/banks/' . $filename;
+    }
+
+    /** ลบไฟล์โลโก้เดิม (เฉพาะที่ path เริ่มด้วย /img/banks/ และไฟล์อยู่ใน public_path) */
+    private function removeBankLogoFile(?string $path): void
+    {
+        if (!$path || !str_starts_with($path, '/img/banks/')) return;
+        $full = public_path(ltrim($path, '/'));
+        if (is_file($full)) @unlink($full);
     }
 }

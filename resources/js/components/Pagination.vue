@@ -57,7 +57,7 @@ function go(n) {
       <button
         @click="go(current - 1)"
         :disabled="current <= 1"
-        class="px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40"
+        class="min-w-[40px] h-10 px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40 tap-transparent flex items-center justify-center"
         title="ก่อนหน้า">
         <i class="fi-rr-angle-left"></i>
       </button>
@@ -68,7 +68,7 @@ function go(n) {
           v-else
           @click="go(p)"
           :class="[
-            'min-w-[36px] px-2.5 py-1.5 rounded-lg text-sm font-medium transition',
+            'min-w-[40px] h-10 px-3 rounded-lg text-sm font-medium transition tap-transparent flex items-center justify-center',
             p === current
               ? 'bg-blue-700 text-white shadow-sm shadow-blue-500/30'
               : 'hover:bg-blue-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
@@ -80,7 +80,7 @@ function go(n) {
       <button
         @click="go(current + 1)"
         :disabled="current >= last"
-        class="px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40"
+        class="min-w-[40px] h-10 px-3 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800 disabled:opacity-40 tap-transparent flex items-center justify-center"
         title="ถัดไป">
         <i class="fi-rr-angle-right"></i>
       </button>

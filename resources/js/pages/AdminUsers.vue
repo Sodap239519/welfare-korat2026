@@ -121,11 +121,11 @@ function initials(name) {
   <AppLayout title="จัดการผู้ใช้" subtitle="บัญชี login ของระบบ · อนุมัติ · กำหนด role + scope">
     <div class="space-y-4">
 
-      <div v-if="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div class="card-tint-blue p-4"><div class="text-xs opacity-80">ผู้ใช้ทั้งหมด</div><div class="text-2xl font-bold mt-1">{{ formatNumber(stats.total) }}</div></div>
-        <div class="card-tint-sky p-4"><div class="text-xs opacity-80">Super Admin</div><div class="text-2xl font-bold mt-1 text-sky-800">{{ formatNumber(stats.super_admin) }}</div></div>
-        <div class="card-tint-green p-4"><div class="text-xs opacity-80">ผู้กำกับติดตาม</div><div class="text-2xl font-bold mt-1 text-green-700">{{ formatNumber(stats.tracker) }}</div></div>
-        <div class="card-tint-orange p-4"><div class="text-xs opacity-80">รออนุมัติ</div><div class="text-2xl font-bold mt-1 text-orange-700">{{ formatNumber(stats.pending) }}</div></div>
+      <div v-if="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <div class="card-tint-blue p-3 sm:p-4"><div class="text-xs opacity-80">ผู้ใช้ทั้งหมด</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums">{{ formatNumber(stats.total) }}</div></div>
+        <div class="card-tint-sky p-3 sm:p-4"><div class="text-xs opacity-80">Super Admin</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-sky-800">{{ formatNumber(stats.super_admin) }}</div></div>
+        <div class="card-tint-green p-3 sm:p-4"><div class="text-xs opacity-80">ผู้กำกับติดตาม</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-green-700">{{ formatNumber(stats.tracker) }}</div></div>
+        <div class="card-tint-orange p-3 sm:p-4"><div class="text-xs opacity-80">รออนุมัติ</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-orange-700">{{ formatNumber(stats.pending) }}</div></div>
       </div>
 
       <div class="card p-3">
@@ -203,11 +203,13 @@ function initials(name) {
                 </span>
               </div>
             </div>
-            <div class="flex flex-col sm:flex-row gap-1">
-              <button v-if="!u.active" @click="approve(u)" class="text-xs px-2 py-1 rounded-lg bg-green-600 text-white">อนุมัติ</button>
-              <button v-else @click="suspend(u)" class="text-xs px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">ระงับ</button>
-              <button @click="openEdit(u)" class="p-1.5 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-lg text-blue-700"><i class="fi-rr-edit text-sm"></i></button>
-              <button @click="remove(u)" class="p-1.5 hover:bg-red-50 dark:hover:bg-slate-800 rounded-lg text-red-600"><i class="fi-rr-trash text-sm"></i></button>
+            <div class="flex flex-col sm:flex-row gap-1.5 shrink-0">
+              <button v-if="!u.active" @click="approve(u)" class="text-sm px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 tap-transparent min-h-[36px] whitespace-nowrap">อนุมัติ</button>
+              <button v-else @click="suspend(u)" class="text-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 tap-transparent min-h-[36px] whitespace-nowrap">ระงับ</button>
+              <div class="flex gap-1">
+                <button @click="openEdit(u)" class="btn-icon hover:bg-blue-50 dark:hover:bg-slate-800 text-blue-700 tap-transparent" title="แก้ไข"><i class="fi-rr-edit text-sm"></i></button>
+                <button @click="remove(u)" class="btn-icon hover:bg-red-50 dark:hover:bg-slate-800 text-red-600 tap-transparent" title="ลบ"><i class="fi-rr-trash text-sm"></i></button>
+              </div>
             </div>
           </div>
         </div>

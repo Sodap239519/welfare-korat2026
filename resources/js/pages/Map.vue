@@ -279,8 +279,8 @@ watch(() => filters.tambon_id, loadVillages);
         </div>
       </div>
 
-      <!-- Filter -->
-      <div class="card p-3 grid grid-cols-2 gap-2">
+      <!-- Filter — mobile stack -->
+      <div class="card p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div class="relative min-w-0">
           <select v-model="filters.amphur_id" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <option value="">ทุกอำเภอ</option>
@@ -303,21 +303,24 @@ watch(() => filters.tambon_id, loadVillages);
         </div>
       </div>
 
-      <!-- Legend + Edit mode toggle -->
-      <div class="card p-3 flex flex-wrap items-center gap-3 text-xs">
-        <span class="font-medium">สีตามความคืบหน้า:</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#16a34a"></span> ≥ 80% ดีเยี่ยม</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#f97316"></span> 50-79% ปานกลาง</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#dc2626"></span> &lt; 50% ต้องเร่งรัด</span>
+      <!-- Legend + Edit mode toggle — flex grow legend, shrink edit btn -->
+      <div class="card p-3 flex items-center gap-3 text-xs flex-wrap">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 flex-1 min-w-0">
+          <span class="font-medium">สีตามความคืบหน้า:</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#16a34a"></span> ≥ 80% ดีเยี่ยม</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#f97316"></span> 50-79% ปานกลาง</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:#dc2626"></span> &lt; 50% ต้องเร่งรัด</span>
+        </div>
 
         <!-- Super Admin only: toggle drag-to-edit -->
         <button v-if="auth.isSuperAdmin" @click="toggleEditMode"
-                :class="['ml-auto px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition',
+                :class="['shrink-0 px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition tap-transparent min-h-[36px]',
                          editMode
                            ? 'bg-orange-500 text-white shadow'
                            : 'border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800']">
           <i :class="editMode ? 'fi-rr-check' : 'fi-rr-edit'"></i>
-          {{ editMode ? 'เสร็จสิ้นการแก้พิกัด' : 'แก้พิกัดหมุด (ลากบนแผนที่)' }}
+          <span class="hidden sm:inline">{{ editMode ? 'เสร็จสิ้นการแก้พิกัด' : 'แก้พิกัดหมุด (ลากบนแผนที่)' }}</span>
+          <span class="sm:hidden">{{ editMode ? 'เสร็จสิ้น' : 'แก้พิกัด' }}</span>
         </button>
       </div>
 
@@ -353,9 +356,10 @@ watch(() => filters.tambon_id, loadVillages);
 
       <!-- Map container — isolate stacking context กัน leaflet panes แทรกขึ้น Modal -->
       <div class="card p-0 overflow-hidden relative" style="isolation: isolate;">
-        <div ref="mapEl" class="w-full relative" style="height: 70vh; min-height: 400px; z-index: 0;"></div>
-        <div v-if="loading" class="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm flex items-center justify-center">
+        <div ref="mapEl" class="w-full relative" style="height: clamp(360px, 60vh, 640px); z-index: 0;"></div>
+        <div v-if="loading" class="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
           <i class="fi-rr-spinner animate-spin text-3xl text-blue-700"></i>
+          <div class="text-sm text-slate-600 dark:text-slate-300 font-medium">กำลังโหลดหมู่บ้าน…</div>
         </div>
       </div>
 

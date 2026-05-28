@@ -18,6 +18,81 @@
 
   /* ป้องกัน inline element / image / iframe ขยายเกินกรอบ */
   img, video, canvas, iframe, svg { max-width: 100%; height: auto; }
+
+  /* ────────────────────────────────────────────────────────────
+   * iOS auto-zoom guard
+   * Safari จะ zoom เข้าอัตโนมัติเมื่อแตะ input ที่ font-size < 16px
+   * บังคับ ≥16px บน mobile · บน sm ขึ้นไป ให้ Tailwind text-* ทำงานปกติ
+   * ──────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Touch target ขั้นต่ำสำหรับ icon-only buttons บน mobile (กดง่ายขึ้น) */
+  @media (max-width: 640px) {
+    button:not([class*="btn-"]):not(.no-touch-min),
+    a:not([class*="btn-"]):not(.no-touch-min) {
+      min-height: 36px;        /* ป้องกันปุ่มเล็กเกิน · ปุ่ม inline link ใส่ class no-touch-min ได้ */
+    }
+  }
+}
+
+@layer utilities {
+  /* Icon-only button (edit/trash/close) — touch-friendly · ใช้แทน p-1.5 ทั่วระบบ */
+  .btn-icon {
+    @apply inline-flex items-center justify-center rounded-lg transition;
+    @apply w-9 h-9 sm:w-8 sm:h-8;       /* 36px mobile · 32px desktop */
+  }
+
+  /* Skeleton shimmer — ใช้ใน loading states */
+  .skeleton {
+    @apply bg-slate-100 dark:bg-slate-800 rounded-md;
+    background: linear-gradient(
+      90deg,
+      rgba(0,0,0,0) 0%,
+      rgba(255,255,255,0.6) 50%,
+      rgba(0,0,0,0) 100%
+    ), #e2e8f0;
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+  .dark .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.08) 50%,
+      rgba(255,255,255,0) 100%
+    ), #1e293b;
+    background-size: 200% 100%;
+  }
+
+  /* Soft fade mask 2 ฝั่ง สำหรับ horizontal scroll (ใช้แทน mask ฝั่งเดียว) */
+  .fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
+  }
+
+  /* Sticky table column — shadow ขวาเพื่อแยกออกจาก content ที่ scroll */
+  .sticky-col-shadow {
+    box-shadow: 2px 0 6px -2px rgba(15, 23, 42, 0.08);
+  }
+  .dark .sticky-col-shadow {
+    box-shadow: 2px 0 6px -2px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Tap highlight transparent — กัน flash สีน้ำเงินบน iOS เมื่อแตะปุ่ม */
+  .tap-transparent {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -100% 0; }
+  100% { background-position:  100% 0; }
 }
 
 @layer components {

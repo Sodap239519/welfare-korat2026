@@ -46,6 +46,22 @@ class ReferenceController extends Controller
         ]);
     }
 
+    /**
+     * Public stats สำหรับหน้า Login — แสดงตัวเลขกลุ่มเป้าหมาย/ตำบล/อำเภอ
+     * Cache 5 นาทีเพื่อกัน hit DB ทุกครั้งที่เปิดหน้า login
+     */
+    public function publicStats(): JsonResponse
+    {
+        $stats = \Illuminate\Support\Facades\Cache::remember('login.public_stats', 300, function () {
+            return [
+                'targets' => (int) DB::table('targets')->where('active', true)->count(),
+                'tambons' => (int) Tambon::count(),
+                'amphurs' => (int) Amphur::count(),
+            ];
+        });
+        return response()->json($stats);
+    }
+
     public function tambons(Request $request): JsonResponse
     {
         $q = Tambon::orderBy('name');
@@ -270,13 +286,21 @@ class ReferenceController extends Controller
             ->groupBy('tcs.sub_channel')
             ->pluck(DB::raw('COUNT(*)'), 'tcs.sub_channel');
 
-        $banks = \App\Models\Bank::optionsMap();
+        $banks  = \App\Models\Bank::optionsMap();
+        $logos  = \App\Models\Bank::logoMap();
         $result = [];
         foreach ($banks as $code => $name) {
+            $logoPath = $logos[$code] ?? null;
+            $logoUrl  = $logoPath
+                ? (str_starts_with($logoPath, 'http') || str_starts_with($logoPath, '/')
+                    ? $logoPath
+                    : '/img/banks/' . $logoPath)
+                : null;
             $result[] = [
-                'code'  => $code,
-                'name'  => $name,
-                'count' => (int) ($counts[$code] ?? 0),
+                'code'     => $code,
+                'name'     => $name,
+                'count'    => (int) ($counts[$code] ?? 0),
+                'logo_url' => $logoUrl,
             ];
         }
         return $result;

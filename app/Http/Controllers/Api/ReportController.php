@@ -243,7 +243,8 @@ class ReportController extends Controller
             ->limit(10)
             ->get();
 
-        $inactiveTrackers = DB::table('trackers')
+        // ดึง tracker rows + recent log count ต่อหมู่บ้าน (ยังไม่ filter / ยังไม่ group ตามคน)
+        $trackerRows = DB::table('trackers')
             ->join('villages', 'villages.id', '=', 'trackers.village_id')
             ->leftJoin('targets', 'targets.village_id', '=', 'villages.id')
             ->leftJoin('target_status_logs as logs', function ($j) {
@@ -251,12 +252,40 @@ class ReportController extends Controller
                   ->where('logs.changed_at', '>=', now()->subDays(3));
             })
             ->where('trackers.active', true)
-            ->selectRaw('trackers.id, trackers.full_name, trackers.position, villages.name as village,
+            ->selectRaw('trackers.id, trackers.user_id, trackers.full_name, trackers.position,
+                villages.name as village, villages.moo as village_moo,
                 COUNT(logs.id) as recent_logs')
-            ->groupBy('trackers.id', 'trackers.full_name', 'trackers.position', 'villages.name')
-            ->having('recent_logs', '=', 0)
-            ->limit(15)
+            ->groupBy('trackers.id', 'trackers.user_id', 'trackers.full_name', 'trackers.position',
+                      'villages.name', 'villages.moo')
             ->get();
+
+        // Group ตามคน (user_id เป็นหลัก · fallback: name+position) แล้วรวมพื้นที่ดูแล
+        // ผู้ที่ "ไม่อัปเดตเกิน 3 วัน" = ทุกหมู่ที่ดูแลรวมกันไม่มี log เลย (sum = 0)
+        $inactiveTrackers = $trackerRows
+            ->groupBy(fn ($r) => $r->user_id
+                ? "user:{$r->user_id}"
+                : "name:" . trim($r->full_name) . '|' . trim((string) $r->position))
+            ->map(function ($group) {
+                $first = $group->first();
+                $villages = $group
+                    ->sortBy('village')
+                    ->map(fn ($r) => $r->village . ($r->village_moo ? " (ม.{$r->village_moo})" : ''))
+                    ->unique()
+                    ->values();
+                return (object) [
+                    'id'            => (int) $first->id,
+                    'full_name'     => $first->full_name,
+                    'position'      => $first->position,
+                    'village'       => $villages->first(),       // backward compat
+                    'villages'      => $villages->all(),
+                    'village_count' => $villages->count(),
+                    'recent_logs'   => (int) $group->sum('recent_logs'),
+                ];
+            })
+            ->filter(fn ($p) => $p->recent_logs === 0)
+            ->sortByDesc('village_count')                          // คนที่ดูแลหลายหมู่ขึ้นก่อน
+            ->take(15)
+            ->values();
 
         return response()->json([
             'week' => [
@@ -277,10 +306,12 @@ class ReportController extends Controller
                 'pct'   => $r->total > 0 ? round(($r->done / $r->total) * 100, 1) : 0,
             ]),
             'inactive_trackers' => $inactiveTrackers->map(fn ($r) => [
-                'id'       => (int) $r->id,
-                'name'     => $r->full_name,
-                'position' => $r->position,
-                'village'  => $r->village,
+                'id'            => (int) $r->id,
+                'name'          => $r->full_name,
+                'position'      => $r->position,
+                'village'       => $r->village,          // หมู่แรก (backward compat)
+                'villages'      => $r->villages,         // ทุกหมู่ที่ดูแล
+                'village_count' => $r->village_count,    // จำนวนหมู่
             ]),
         ]);
     }

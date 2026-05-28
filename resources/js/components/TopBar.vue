@@ -219,7 +219,15 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="max-h-[60vh] overflow-y-auto">
-              <div v-if="notif.loading" class="p-6 text-center text-slate-500"><i class="fi-rr-spinner animate-spin text-xl"></i></div>
+              <div v-if="notif.loading" class="p-3 space-y-2.5">
+                <div v-for="i in 3" :key="i" class="flex gap-3 items-start">
+                  <div class="skeleton w-9 h-9 rounded-xl shrink-0"></div>
+                  <div class="flex-1 space-y-1.5">
+                    <div class="skeleton h-3.5 w-3/4 rounded"></div>
+                    <div class="skeleton h-3 w-full rounded"></div>
+                  </div>
+                </div>
+              </div>
               <div v-else-if="notif.items.length === 0" class="p-8 text-center text-sm text-slate-500">
                 <i class="fi-rr-bell-slash text-2xl text-slate-300"></i>
                 <div class="mt-2">ยังไม่มีการแจ้งเตือน</div>
@@ -297,7 +305,7 @@ onBeforeUnmount(() => {
             <div class="font-semibold">แก้ไขข้อมูลส่วนตัว</div>
             <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">การเปลี่ยนชื่อจะไม่ส่งผลต่อประวัติเก่า (เก็บ snapshot ไว้แล้ว)</div>
           </div>
-          <button @click="showProfile = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+          <button @click="showProfile = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent"><i class="fi-rr-cross-small"></i></button>
         </div>
 
         <div v-if="profileFlash" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ profileFlash }}</div>
@@ -309,7 +317,7 @@ onBeforeUnmount(() => {
             <input v-model="profileForm.name" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <div v-if="profileErr?.name" class="text-[11px] text-red-600 mt-1">{{ profileErr.name[0] }}</div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">เบอร์โทร</label>
               <input v-model="profileForm.phone" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
@@ -320,7 +328,7 @@ onBeforeUnmount(() => {
               <input v-model="profileForm.email" type="email" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ตำแหน่ง</label>
               <select v-model="profileForm.position_type" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">

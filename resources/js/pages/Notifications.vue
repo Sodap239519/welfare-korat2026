@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Pagination from '@/components/Pagination.vue';
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
@@ -63,30 +64,30 @@ watch(() => filters.status, () => load(1));
   <AppLayout title="การแจ้งเตือนทั้งหมด" :subtitle="`รวม ${data.total} รายการ · ยังไม่อ่าน ${notif.unread}`">
     <div class="space-y-4">
 
-      <div class="card p-3 flex items-center gap-2 flex-wrap">
-        <div class="relative flex-1 min-w-0">
+      <div class="card p-3 space-y-2">
+        <!-- Search input — full width row -->
+        <div class="relative w-full">
           <i class="fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
           <input v-model="filters.q" placeholder="ค้นหาข้อความแจ้งเตือน"
-            class="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            class="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
           <button v-if="filters.q" @click="filters.q = ''" title="ล้าง"
-                  class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 hover:bg-slate-300 flex items-center justify-center">
+                  class="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200/80 hover:bg-slate-300 flex items-center justify-center tap-transparent">
             <i class="fi-rr-cross-small text-[10px]"></i>
           </button>
         </div>
-        <div class="relative min-w-0">
-          <select v-model="filters.status" class="pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
-            <option value="">ทุกสถานะ</option>
-            <option value="unread">ยังไม่อ่าน</option>
-            <option value="read">อ่านแล้ว</option>
-          </select>
-          <button v-if="filters.status" @click="filters.status = ''" title="ล้าง"
-                  class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 hover:bg-slate-300 flex items-center justify-center">
-            <i class="fi-rr-cross-small text-[10px]"></i>
+        <!-- Filter + bulk action row -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 min-w-0">
+            <select v-model="filters.status" class="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              <option value="">ทุกสถานะ</option>
+              <option value="unread">ยังไม่อ่าน</option>
+              <option value="read">อ่านแล้ว</option>
+            </select>
+          </div>
+          <button v-if="notif.unread > 0" @click="markAll" class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5 shrink-0 tap-transparent">
+            <i class="fi-rr-check"></i> <span class="hidden sm:inline">อ่านทั้งหมด</span>
           </button>
         </div>
-        <button v-if="notif.unread > 0" @click="markAll" class="btn-outline px-3 py-2.5 text-sm flex items-center gap-1.5 shrink-0">
-          <i class="fi-rr-check"></i> อ่านทั้งหมด
-        </button>
       </div>
 
       <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
@@ -115,22 +116,8 @@ watch(() => filters.status, () => load(1));
         </button>
       </div>
 
-      <!-- Pagination -->
-      <div v-if="data.last_page > 1" class="flex items-center justify-between gap-2 text-sm">
-        <div class="text-xs text-slate-500">
-          หน้า {{ data.current_page }} / {{ data.last_page }} · ทั้งหมด {{ data.total }} รายการ
-        </div>
-        <div class="flex gap-1">
-          <button @click="load(data.current_page - 1)" :disabled="data.current_page <= 1"
-                  class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
-            <i class="fi-rr-angle-small-left"></i> ก่อนหน้า
-          </button>
-          <button @click="load(data.current_page + 1)" :disabled="data.current_page >= data.last_page"
-                  class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
-            ถัดไป <i class="fi-rr-angle-small-right"></i>
-          </button>
-        </div>
-      </div>
+      <!-- Pagination — ใช้ shared Pagination component ให้ consistent -->
+      <Pagination :current="data.current_page" :last="data.last_page" :total="data.total" unit="รายการ" @go="load" />
 
     </div>
   </AppLayout>

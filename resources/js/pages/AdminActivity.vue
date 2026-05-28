@@ -92,7 +92,7 @@ const eventIcon = {
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline justify-between gap-2 flex-wrap">
-              <div class="text-sm">
+              <div class="text-sm line-clamp-2 min-w-0" :title="(a.causer || 'ระบบ') + ' ' + a.description + (a.subject ? ' · ' + a.subject : '')">
                 <strong v-if="a.causer">{{ a.causer }}</strong>
                 <span v-else class="text-slate-500">ระบบ</span>
                 <span> {{ a.description }}</span>

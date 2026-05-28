@@ -69,7 +69,7 @@ watchActive.value; // trigger
         </div>
         <div class="text-[10px] text-slate-500 dark:text-slate-400">บัตรสวัสดิการแห่งรัฐ 2569</div>
       </RouterLink>
-      <button class="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" @click="$emit('close')">
+      <button class="lg:hidden btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" @click="$emit('close')" title="ปิดเมนู">
         <i class="fi-rr-cross-small"></i>
       </button>
     </div>
@@ -115,11 +115,12 @@ watchActive.value; // trigger
       </template>
     </nav>
     <div v-if="auth.user" class="p-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-      <div class="text-xs text-slate-600 dark:text-slate-300 truncate">
-        <i class="fi-rr-user text-slate-400"></i> {{ auth.user.name }}
+      <div class="text-sm text-slate-700 dark:text-slate-200 truncate font-medium flex items-center gap-1.5">
+        <i class="fi-rr-user text-slate-400 text-xs"></i> {{ auth.user.name }}
       </div>
-      <div class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-        <i class="fi-rr-info"></i> ออกจากระบบที่รูปโปรไฟล์ขวาบน
+      <div class="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-start gap-1.5 leading-snug">
+        <i class="fi-rr-info text-blue-500 mt-0.5"></i>
+        <span>ออกจากระบบที่รูปโปรไฟล์มุมขวาบน</span>
       </div>
     </div>
   </aside>

@@ -387,8 +387,8 @@ async function submitAdd() {
         </div>
       </div>
 
-      <!-- Status pill counters — แถวเดียว เลื่อนซ้าย-ขวาได้บนมือถือ -->
-      <div class="status-pills flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 snap-x">
+      <!-- Status pill counters — แถวเดียว เลื่อนซ้าย-ขวาได้บนมือถือ · fade 2 ฝั่ง -->
+      <div class="status-pills flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 snap-x fade-x">
         <button @click="filters.status = ''"
                 :class="['shrink-0 snap-start whitespace-nowrap px-3 py-1.5 rounded-full text-xs',
                          !filters.status ? 'bg-blue-700 text-white' : 'border border-slate-100 dark:border-slate-800']">
@@ -412,16 +412,16 @@ async function submitAdd() {
         <table class="w-full text-sm">
           <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
             <tr>
-              <th class="text-left py-3 px-3 w-10">
+              <th class="text-left py-3 px-3 w-10 whitespace-nowrap">
                 <input type="checkbox" class="rounded text-blue-600" :checked="allPageSelected" :indeterminate.prop="someSelected" @change="toggleAllPage">
               </th>
-              <th class="text-left">#</th>
-              <th class="text-left">ชื่อ - สกุล</th>
-              <th class="text-left">หมู่บ้าน / ตำบล</th>
-              <th class="text-left">สถานะ</th>
-              <th class="text-left">ช่องทาง / หมายเหตุ</th>
-              <th class="text-left">อัปเดต</th>
-              <th class="text-right pr-3"></th>
+              <th class="text-left whitespace-nowrap">#</th>
+              <th class="text-left whitespace-nowrap">ชื่อ - สกุล</th>
+              <th class="text-left whitespace-nowrap">หมู่บ้าน / ตำบล</th>
+              <th class="text-left whitespace-nowrap">สถานะ</th>
+              <th class="text-left whitespace-nowrap">ช่องทาง / หมายเหตุ</th>
+              <th class="text-left whitespace-nowrap">อัปเดต</th>
+              <th class="text-right pr-3 whitespace-nowrap"></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
@@ -489,9 +489,9 @@ async function submitAdd() {
       <!-- Pagination -->
       <Pagination :current="data.current_page" :last="data.last_page" :total="data.total" unit="ราย" @go="load" />
 
-      <!-- Bulk action bar (floating) -->
+      <!-- Bulk action bar (floating) — เหนือ BottomNav (~70px) บน mobile · ปกติบน desktop -->
       <div v-if="selectedCount > 0" class="fixed left-0 right-0 z-40 px-4 pointer-events-none"
-           style="bottom: max(env(safe-area-inset-bottom), 5rem);">
+           style="bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);">
         <div class="max-w-3xl mx-auto card-hero p-3 flex items-center gap-3 pointer-events-auto shadow-2xl shadow-blue-900/30">
           <div class="text-sm">
             <div class="font-semibold">เลือก {{ selectedCount }} ราย</div>
@@ -510,7 +510,7 @@ async function submitAdd() {
               <div class="font-semibold">อัปเดตสถานะรายกลุ่ม</div>
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">จะอัปเดต {{ selectedCount }} ราย</div>
             </div>
-            <button @click="showBulkModal = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+            <button @click="showBulkModal = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
           </div>
 
           <div v-if="bulkErrors.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ bulkErrors.general[0] }}</div>
@@ -590,14 +590,14 @@ async function submitAdd() {
               <div class="font-semibold">เพิ่มรายชื่อเป้าหมายใหม่</div>
               <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">กรอกข้อมูลด้านล่าง · ระบบจะรวมเป็นบ้านเดียวกันอัตโนมัติถ้าบ้านเลขที่ + หมู่บ้านตรงกัน</div>
             </div>
-            <button @click="showAddModal = false" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"><i class="fi-rr-cross-small"></i></button>
+            <button @click="showAddModal = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด"><i class="fi-rr-cross-small"></i></button>
           </div>
 
           <div v-if="addErrors.general" class="card-tint-red p-3 text-sm mb-3"><i class="fi-rr-cross-circle"></i> {{ addErrors.general[0] }}</div>
 
           <form @submit.prevent="submitAdd" class="space-y-3">
-            <!-- ชื่อ -->
-            <div class="grid grid-cols-[100px_1fr_1fr] gap-2">
+            <!-- ชื่อ — mobile: stack 1 col / sm: 3 cols -->
+            <div class="grid grid-cols-1 sm:grid-cols-[100px_1fr_1fr] gap-2">
               <div>
                 <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1">คำนำหน้า</label>
                 <select v-model="addForm.prefix" class="w-full min-w-0 px-2 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
