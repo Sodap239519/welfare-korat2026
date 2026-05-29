@@ -313,8 +313,13 @@ onBeforeUnmount(() => {
 
         <form @submit.prevent="saveProfile" class="space-y-3">
           <div>
-            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ชื่อ-สกุล</label>
-            <input v-model="profileForm.name" required class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+            <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">
+              ชื่อ-สกุล
+              <span v-if="auth.roles.includes('bank_staff')" class="text-orange-700 dark:text-orange-300">(ชื่อจริงเจ้าหน้าที่)</span>
+            </label>
+            <input v-model="profileForm.name" required
+                   :placeholder="auth.roles.includes('bank_staff') ? 'เช่น นางสาวสมหญิง ใจดี' : 'ชื่อ-นามสกุล'"
+                   class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <div v-if="profileErr?.name" class="text-[11px] text-red-600 mt-1">{{ profileErr.name[0] }}</div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -328,7 +333,16 @@ onBeforeUnmount(() => {
               <input v-model="profileForm.email" type="email" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             </div>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <!-- bank_staff: แสดงป้ายธนาคารแทน ตำแหน่ง (เพราะ ตำแหน่งคือกำนัน/ผู้ใหญ่บ้านเท่านั้น) -->
+          <div v-if="auth.roles.includes('bank_staff')" class="card-tint-orange p-3 rounded-xl text-sm flex items-center gap-2">
+            <i class="fi-rr-bank text-orange-700 dark:text-orange-300"></i>
+            <div>
+              <div class="text-xs opacity-80">ธนาคารที่รับผิดชอบ</div>
+              <div class="font-medium">{{ (auth.user?.bank_sub_channel || '').toUpperCase() || '—' }}</div>
+            </div>
+          </div>
+          <!-- คนอื่น (tracker/admin): มี ตำแหน่ง dropdown ปกติ -->
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">ตำแหน่ง</label>
               <select v-model="profileForm.position_type" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">

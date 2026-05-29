@@ -13,14 +13,23 @@ const loading = ref(false);
 
 const editing = ref(null);
 const showEdit = ref(false);
-const form = reactive({ name: '', phone: '', email: '', role: 'tracker', position_type: '', position_other: '', password: '', active: true });
+const form = reactive({ name: '', phone: '', email: '', role: 'tracker', position_type: '', position_other: '', password: '', active: true, bank_channel_id: '', bank_sub_channel: '' });
 const formErrors = ref({});
 const saving = ref(false);
 
 // + Create user modal
 const showCreate = ref(false);
-const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true });
+const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '' });
 const createErrors = ref({});
+
+// ─── สำหรับ bank_staff: dropdown ช่องทาง (bank) + ธนาคารย่อย ───
+const channels = ref([]);
+const banks = ref([]);
+async function loadChannelsBanks() {
+  const [c, b] = await Promise.all([axios.get('/api/ref/channels'), axios.get('/api/ref/banks')]);
+  channels.value = c.data.data;
+  banks.value = b.data.data;
+}
 const createSaving = ref(false);
 const createFlash = ref('');
 
@@ -35,7 +44,7 @@ async function load(page = 1) {
   } finally { loading.value = false; }
 }
 
-onMounted(() => load());
+onMounted(() => { load(); loadChannelsBanks(); });
 let timer;
 watch(() => filters.q, () => { clearTimeout(timer); timer = setTimeout(() => load(1), 300); });
 watch(() => [filters.role, filters.status], () => load(1));
@@ -46,6 +55,8 @@ function openEdit(u) {
     name: u.name, phone: u.phone, email: u.email || '',
     role: u.roles[0] || 'tracker',
     position_type: u.position_type || '', position_other: u.position_other || '',
+    bank_channel_id: u.bank_channel_id || '',
+    bank_sub_channel: u.bank_sub_channel || '',
     password: '', active: u.active,
   });
   formErrors.value = {};
@@ -53,7 +64,7 @@ function openEdit(u) {
 }
 
 function openCreate() {
-  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true });
+  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '' });
   createErrors.value = {};
   createFlash.value = '';
   showCreate.value = true;
@@ -105,11 +116,13 @@ const roleColor = {
   super_admin: 'card-tint-blue text-blue-700',
   admin: 'card-tint-sky text-sky-700',
   tracker: 'card-tint-green text-green-700',
+  bank_staff: 'card-tint-orange text-orange-700',
 };
 const ROLE_LABEL = {
   super_admin: 'Super Admin',
   admin:       'Admin',
   tracker:     'ผู้กำกับติดตาม',
+  bank_staff:  'เจ้าหน้าที่ธนาคาร',
 };
 const roleLabel = (code) => ROLE_LABEL[code] || code || '—';
 function initials(name) {
@@ -121,11 +134,12 @@ function initials(name) {
   <AppLayout title="จัดการผู้ใช้" subtitle="บัญชี login ของระบบ · อนุมัติ · กำหนด role + scope">
     <div class="space-y-4">
 
-      <div v-if="stats" class="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div v-if="stats" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
         <div class="card-tint-blue p-3 sm:p-4"><div class="text-xs opacity-80">ผู้ใช้ทั้งหมด</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums">{{ formatNumber(stats.total) }}</div></div>
         <div class="card-tint-sky p-3 sm:p-4"><div class="text-xs opacity-80">Super Admin</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-sky-800">{{ formatNumber(stats.super_admin) }}</div></div>
         <div class="card-tint-green p-3 sm:p-4"><div class="text-xs opacity-80">ผู้กำกับติดตาม</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-green-700">{{ formatNumber(stats.tracker) }}</div></div>
-        <div class="card-tint-orange p-3 sm:p-4"><div class="text-xs opacity-80">รออนุมัติ</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-orange-700">{{ formatNumber(stats.pending) }}</div></div>
+        <div class="card-tint-orange p-3 sm:p-4"><div class="text-xs opacity-80">เจ้าหน้าที่ธนาคาร</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-orange-700">{{ formatNumber(stats.bank_staff || 0) }}</div></div>
+        <div class="card-tint-red p-3 sm:p-4 col-span-2 sm:col-span-1"><div class="text-xs opacity-80">รออนุมัติ</div><div class="text-xl sm:text-2xl font-bold mt-1 tabular-nums text-red-700">{{ formatNumber(stats.pending) }}</div></div>
       </div>
 
       <div class="card p-3">
@@ -150,6 +164,7 @@ function initials(name) {
               <option value="super_admin">Super Admin</option>
               <option value="admin">Admin</option>
               <option value="tracker">ผู้กำกับติดตาม</option>
+              <option value="bank_staff">เจ้าหน้าที่ธนาคาร</option>
             </select>
             <button v-if="filters.role" @click="filters.role = ''" title="ล้าง"
                     class="absolute right-7 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
@@ -247,9 +262,36 @@ function initials(name) {
                   <option value="super_admin">Super Admin</option>
                   <option value="admin">Admin</option>
                   <option value="tracker">ผู้กำกับติดตาม</option>
+                  <option value="bank_staff">เจ้าหน้าที่ธนาคาร</option>
                 </select>
               </div>
             </div>
+
+            <!-- Bank scope (เฉพาะ role = bank_staff) -->
+            <div v-if="form.role === 'bank_staff'" class="card-tint-orange p-3 rounded-xl space-y-2.5">
+              <div class="text-xs font-medium text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
+                <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — เห็นแค่ batch ของสาขานี้
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ช่องทาง</label>
+                  <select v-model="form.bank_channel_id" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                    <option value="">— เลือก —</option>
+                    <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
+                  </select>
+                  <div v-if="formErrors.bank_channel_id" class="text-[11px] text-red-600 mt-1">{{ formErrors.bank_channel_id[0] }}</div>
+                </div>
+                <div>
+                  <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ธนาคารย่อย</label>
+                  <select v-model="form.bank_sub_channel" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                    <option value="">— เลือก —</option>
+                    <option v-for="b in banks" :key="b.code" :value="b.code.toLowerCase()">{{ b.name }}</option>
+                  </select>
+                  <div v-if="formErrors.bank_sub_channel" class="text-[11px] text-red-600 mt-1">{{ formErrors.bank_sub_channel[0] }}</div>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label class="block text-xs text-slate-600 dark:text-slate-400 mb-1.5">อีเมล (ไม่บังคับ)</label>
               <input v-model="form.email" type="email" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
@@ -303,7 +345,33 @@ function initials(name) {
                 <option value="tracker">ผู้กำกับติดตาม</option>
                 <option value="admin">Admin</option>
                 <option value="super_admin">Super Admin</option>
+                <option value="bank_staff">เจ้าหน้าที่ธนาคาร</option>
               </select>
+            </div>
+          </div>
+
+          <!-- Bank scope (เฉพาะ role = bank_staff) — Create form -->
+          <div v-if="createForm.role === 'bank_staff'" class="card-tint-orange p-3 rounded-xl space-y-2.5">
+            <div class="text-xs font-medium text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
+              <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — บัญชีนี้จะเห็นแค่ batch ของสาขา
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ช่องทาง <span class="text-red-600">*</span></label>
+                <select v-model="createForm.bank_channel_id" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <option value="">— เลือก —</option>
+                  <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+                <div v-if="createErrors.bank_channel_id" class="text-[11px] text-red-600 mt-1">{{ createErrors.bank_channel_id[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ธนาคารย่อย <span class="text-red-600">*</span></label>
+                <select v-model="createForm.bank_sub_channel" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <option value="">— เลือก —</option>
+                  <option v-for="b in banks" :key="b.code" :value="b.code.toLowerCase()">{{ b.name }}</option>
+                </select>
+                <div v-if="createErrors.bank_sub_channel" class="text-[11px] text-red-600 mt-1">{{ createErrors.bank_sub_channel[0] }}</div>
+              </div>
             </div>
           </div>
           <div>

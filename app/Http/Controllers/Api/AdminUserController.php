@@ -41,27 +41,35 @@ class AdminUserController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name'           => ['required', 'string', 'max:150'],
-            'phone'          => ['required', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone'],
-            'email'          => ['nullable', 'email', 'max:255', 'unique:users,email'],
-            'position_type'  => ['nullable', 'string', 'max:40'],
-            'position_other' => ['nullable', 'string', 'max:100'],
-            'password'       => ['required', Password::min(6)],
-            'role'           => ['required', 'string', 'in:super_admin,admin,tracker'],
-            'active'         => ['sometimes', 'boolean'],
-            // optional scope (สำหรับ admin/tracker — Super Admin ไม่ต้องผูก scope)
-            'scope_type'     => ['nullable', 'string', 'in:amphur,tambon,village'],
-            'scope_id'       => ['nullable', 'integer'],
+            'name'             => ['required', 'string', 'max:150'],
+            'phone'            => ['required', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone'],
+            'email'            => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'position_type'    => ['nullable', 'string', 'max:40'],
+            'position_other'   => ['nullable', 'string', 'max:100'],
+            'password'         => ['required', Password::min(6)],
+            'role'             => ['required', 'string', 'in:super_admin,admin,tracker,bank_staff'],
+            'active'           => ['sometimes', 'boolean'],
+            // optional scope (สำหรับ admin/tracker)
+            'scope_type'       => ['nullable', 'string', 'in:amphur,tambon,village'],
+            'scope_id'         => ['nullable', 'integer'],
+            // bank scope (สำหรับ bank_staff — บังคับถ้า role = bank_staff)
+            'bank_channel_id'  => ['required_if:role,bank_staff', 'nullable', 'integer', 'exists:channels,id'],
+            'bank_sub_channel' => ['required_if:role,bank_staff', 'nullable', 'string', 'max:50'],
+        ], [
+            'bank_channel_id.required_if'  => 'ต้องเลือกช่องทางธนาคารสำหรับเจ้าหน้าที่ธนาคาร',
+            'bank_sub_channel.required_if' => 'ต้องเลือกธนาคารย่อยสำหรับเจ้าหน้าที่ธนาคาร',
         ]);
 
         $user = User::create([
-            'name'           => $data['name'],
-            'phone'          => $data['phone'],
-            'email'          => $data['email'] ?? null,
-            'position_type'  => $data['position_type'] ?? null,
-            'position_other' => $data['position_other'] ?? null,
-            'password'       => Hash::make($data['password']),
-            'active'         => $data['active'] ?? true,
+            'name'             => $data['name'],
+            'phone'            => $data['phone'],
+            'email'            => $data['email'] ?? null,
+            'position_type'    => $data['position_type'] ?? null,
+            'position_other'   => $data['position_other'] ?? null,
+            'password'         => Hash::make($data['password']),
+            'active'           => $data['active'] ?? true,
+            'bank_channel_id'  => $data['role'] === 'bank_staff' ? $data['bank_channel_id']  : null,
+            'bank_sub_channel' => $data['role'] === 'bank_staff' ? strtolower($data['bank_sub_channel']) : null,
         ]);
         $user->assignRole($data['role']);
 
@@ -82,14 +90,16 @@ class AdminUserController extends Controller
         $user = User::findOrFail($id);
 
         $data = $request->validate([
-            'name'           => ['sometimes', 'string', 'max:150'],
-            'phone'          => ['sometimes', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone,'.$id],
-            'email'          => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email,'.$id],
-            'position_type'  => ['sometimes', 'nullable', 'string', 'max:40'],
-            'position_other' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'active'         => ['sometimes', 'boolean'],
-            'password'       => ['sometimes', 'nullable', Password::min(6)],
-            'role'           => ['sometimes', 'string', 'in:super_admin,admin,tracker'],
+            'name'             => ['sometimes', 'string', 'max:150'],
+            'phone'            => ['sometimes', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone,'.$id],
+            'email'            => ['sometimes', 'nullable', 'email', 'max:255', 'unique:users,email,'.$id],
+            'position_type'    => ['sometimes', 'nullable', 'string', 'max:40'],
+            'position_other'   => ['sometimes', 'nullable', 'string', 'max:100'],
+            'active'           => ['sometimes', 'boolean'],
+            'password'         => ['sometimes', 'nullable', Password::min(6)],
+            'role'             => ['sometimes', 'string', 'in:super_admin,admin,tracker,bank_staff'],
+            'bank_channel_id'  => ['sometimes', 'nullable', 'integer', 'exists:channels,id'],
+            'bank_sub_channel' => ['sometimes', 'nullable', 'string', 'max:50'],
         ]);
 
         if (!empty($data['password'])) {
@@ -100,6 +110,16 @@ class AdminUserController extends Controller
 
         $role = $data['role'] ?? null;
         unset($data['role']);
+
+        // ถ้าเปลี่ยน role ออกจาก bank_staff → เคลียร์ bank fields
+        if ($role && $role !== 'bank_staff') {
+            $data['bank_channel_id'] = null;
+            $data['bank_sub_channel'] = null;
+        }
+        // lower-case bank_sub_channel เพื่อให้ match กับ batch.sub_channel
+        if (!empty($data['bank_sub_channel'])) {
+            $data['bank_sub_channel'] = strtolower($data['bank_sub_channel']);
+        }
 
         $user->update($data);
         if ($role) $user->syncRoles([$role]);
@@ -142,6 +162,7 @@ class AdminUserController extends Controller
             'super_admin'  => User::whereHas('roles', fn ($r) => $r->where('name', 'super_admin'))->count(),
             'admin'        => User::whereHas('roles', fn ($r) => $r->where('name', 'admin'))->count(),
             'tracker'      => User::whereHas('roles', fn ($r) => $r->where('name', 'tracker'))->count(),
+            'bank_staff'   => User::whereHas('roles', fn ($r) => $r->where('name', 'bank_staff'))->count(),
             'pending'      => User::where('active', false)->count(),
         ]);
     }
@@ -166,17 +187,19 @@ class AdminUserController extends Controller
         })->filter(fn($s) => $s['label'])->values();
 
         return [
-            'id'             => $u->id,
-            'name'           => $u->name,
-            'phone'          => $u->phone,
-            'email'          => $u->email,
-            'position_type'  => $u->position_type,
-            'position_other' => $u->position_other,
-            'active'         => (bool) $u->active,
-            'last_login_at'  => $u->last_login_at?->toIso8601String(),
-            'created_at'     => $u->created_at?->toIso8601String(),
-            'roles'          => $u->roles->pluck('name')->all(),
-            'scopes'         => $scopes,
+            'id'               => $u->id,
+            'name'             => $u->name,
+            'phone'            => $u->phone,
+            'email'            => $u->email,
+            'position_type'    => $u->position_type,
+            'position_other'   => $u->position_other,
+            'bank_channel_id'  => $u->bank_channel_id,
+            'bank_sub_channel' => $u->bank_sub_channel,
+            'active'           => (bool) $u->active,
+            'last_login_at'    => $u->last_login_at?->toIso8601String(),
+            'created_at'       => $u->created_at?->toIso8601String(),
+            'roles'            => $u->roles->pluck('name')->all(),
+            'scopes'           => $scopes,
         ];
     }
 }
