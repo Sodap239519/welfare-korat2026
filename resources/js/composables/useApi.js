@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { reactive } from 'vue';
 
 export function useApi() {
   return axios;
@@ -17,18 +18,42 @@ export function statusColorClass(code) {
   return code ? `st-${code.replace('.', '-')}` : 'st-4-1';
 }
 
-// แปลง code "4.1" → label สั้น (ไม่มีหมายเลข) สำหรับแสดง UI
-export const STATUS_SHORT = {
-  '4.1': 'ไม่ประสงค์',
-  '4.2': 'ลงทะเบียน',
-  '4.3': 'เตรียมเอกสาร',
-  '4.4': 'ส่งเอกสารเพิ่ม',
-  '4.5': 'รออุทธรณ์',
-  '4.6': 'รอยืนยันตัวตน',
-  '4.7': 'ใช้สิทธิแล้ว',
-};
+// ─────────────────────────────────────────────────────────────
+// ชื่อสถานะ dynamic — อ่านจาก /api/ref/statuses
+// ผู้ใช้แก้ชื่อใน AdminSettings → ทุกหน้าที่ใช้ statusShort() จะอัปเดตตามทันที
+// (เพราะ STATUS_SHORT เป็น reactive — Vue track การเข้าถึงในแม่แบบ)
+// ─────────────────────────────────────────────────────────────
+export const STATUS_SHORT = reactive({});
+
+let _statusLoadPromise = null;
+
+/** โหลด statuses จาก API แล้ว populate STATUS_SHORT — idempotent + cache */
+export async function loadStatuses(force = false) {
+  if (!force && _statusLoadPromise) return _statusLoadPromise;
+  _statusLoadPromise = axios.get('/api/ref/statuses').then(r => {
+    const list = r.data?.data ?? r.data ?? [];
+    // เคลียร์ key เก่าก่อน (เผื่อโดนลบใน admin)
+    Object.keys(STATUS_SHORT).forEach(k => { delete STATUS_SHORT[k]; });
+    list.forEach(s => { STATUS_SHORT[s.code] = s.label; });
+    return STATUS_SHORT;
+  }).catch(err => {
+    console.warn('[useApi] loadStatuses failed:', err);
+    _statusLoadPromise = null;  // ให้ลองใหม่ครั้งหน้าได้
+    return STATUS_SHORT;
+  });
+  return _statusLoadPromise;
+}
+
+/** แปลง code "4.1" → label สั้น (อ่านจาก DB) — auto-trigger load ครั้งแรก */
 export function statusShort(code) {
+  if (!_statusLoadPromise) loadStatuses();   // lazy-load ครั้งแรกที่ถูกเรียก
   return STATUS_SHORT[code] || code || '—';
+}
+
+/** Invalidate cache — เรียกหลังจาก admin แก้ statuses ใน Settings */
+export function invalidateStatuses() {
+  _statusLoadPromise = null;
+  return loadStatuses(true);
 }
 
 export function formatNumber(n) {

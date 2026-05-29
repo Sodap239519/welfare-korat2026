@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import axios from 'axios';
-import { formatNumber, shortDate, statusShort } from '@/composables/useApi';
+import { formatNumber, shortDate, statusShort, STATUS_SHORT, loadStatuses } from '@/composables/useApi';
 import { useThemeStore } from '@/stores/theme';
 
 const theme = useThemeStore();
@@ -40,6 +40,20 @@ const trackersList = ref({ data: [], total: 0 });
 const tabLoading = ref(false);
 
 const levelLabel = computed(() => ({ amphur: 'อำเภอ', tambon: 'ตำบล', village: 'หมู่บ้าน' }[level.value]));
+
+// ─── สถานะที่จะแสดงเป็นคอลัมน์ในตาราง — มาจาก /api/ref/statuses ผ่าน STATUS_SHORT ───
+// ❗ ไม่ hardcode 4.1-4.7 — admin ลบ/เพิ่มสถานะ → table columns ปรับตาม
+const statusCols = computed(() => {
+  return Object.keys(STATUS_SHORT).sort().map(code => ({
+    code,
+    label: STATUS_SHORT[code],
+    field: 's_' + code.replace('.', ''),     // s_41, s_42, s_44, ...
+    isFail: code === '4.5',                   // อุทธรณ์ผล → แสดงสีแดง
+    isDone: code === '4.7',                   // ใช้สิทธิ → แสดงสีเขียว
+  }));
+});
+// colspan ของแถวเปล่า: 4 fixed (ระดับ, [อำเภอ ถ้าไม่ใช่ amphur], เป้า, ยังไม่ติดตาม) + statusCols + 3 (รวม, %, สถานะ)
+const emptyColspan = computed(() => 4 + (level.value !== 'amphur' ? 1 : 0) + statusCols.value.length + 3 - 1);
 
 function formatThaiDate(d) {
   if (!d) return '';
@@ -190,6 +204,7 @@ function downloadChartPng() {
 function onClickOutside() {} // placeholder — ไม่มี dropdown แล้ว แต่เก็บไว้ backward compat
 
 onMounted(async () => {
+  loadStatuses();   // โหลดชื่อสถานะ dynamic — column ตารางขึ้นกับสิ่งนี้
   amphurOpts.value = (await axios.get('/api/ref/amphurs')).data.data;
   await load();
   document.addEventListener('click', onClickOutside);
@@ -378,13 +393,10 @@ function pctClass(n) {
                 <th v-if="level !== 'amphur'" class="text-left whitespace-nowrap">{{ level === 'village' ? 'ตำบล / อำเภอ' : 'อำเภอ' }}</th>
                 <th class="text-right whitespace-nowrap px-2">เป้า</th>
                 <th class="text-right whitespace-nowrap px-2 text-slate-500" title="ยังไม่ถูกติดตาม">ยังไม่ติดตาม</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.1">ไม่ประสงค์</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.2">ลงทะเบียน</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.3">เตรียมเอกสาร</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.4">ส่งเอกสารเพิ่ม</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.5">รออุทธรณ์</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.6">รอยืนยันตัวตน</th>
-                <th class="text-right whitespace-nowrap px-2" title="4.7">ใช้สิทธิแล้ว</th>
+                <th v-for="s in statusCols" :key="s.code"
+                    class="text-right whitespace-nowrap px-2" :title="s.code">
+                  {{ s.label }}
+                </th>
                 <th class="text-right whitespace-nowrap px-2">รวมลงทะเบียน</th>
                 <th class="text-right whitespace-nowrap px-2">%</th>
                 <th class="text-left whitespace-nowrap pl-4 pr-3">สถานะ</th>
@@ -397,19 +409,16 @@ function pctClass(n) {
                 <td v-else-if="level === 'tambon'" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ r.amphur }}</td>
                 <td class="text-right px-2">{{ formatNumber(r.total) }}</td>
                 <td class="text-right px-2 text-slate-500">{{ formatNumber(r.untracked || 0) }}</td>
-                <td class="text-right px-2 text-slate-500">{{ formatNumber(r.s_41 || 0) }}</td>
-                <td class="text-right px-2">{{ formatNumber(r.s_42 || 0) }}</td>
-                <td class="text-right px-2">{{ formatNumber(r.s_43 || 0) }}</td>
-                <td class="text-right px-2">{{ formatNumber(r.s_44 || 0) }}</td>
-                <td class="text-right px-2 text-red-600">{{ formatNumber(r.s_45 || 0) }}</td>
-                <td class="text-right px-2">{{ formatNumber(r.s_46 || 0) }}</td>
-                <td class="text-right px-2 text-green-700">{{ formatNumber(r.s_47 || 0) }}</td>
+                <td v-for="s in statusCols" :key="s.code"
+                    :class="['text-right px-2', s.code === '4.1' ? 'text-slate-500' : '', s.isFail ? 'text-red-600' : '', s.isDone ? 'text-green-700' : '']">
+                  {{ formatNumber(r[s.field] || 0) }}
+                </td>
                 <td class="text-right px-2 font-medium">{{ formatNumber(r.done) }}</td>
                 <td :class="['text-right px-2 font-semibold whitespace-nowrap', pctClass(r.pct)]">{{ r.pct }}%</td>
                 <td class="pl-4 pr-3"><span :class="['text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap', levelClass(r.level)]">{{ r.level }}</span></td>
               </tr>
               <tr v-if="dailyRows.length === 0">
-                <td :colspan="15" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td>
+                <td :colspan="emptyColspan" class="py-6 text-center text-slate-500 text-sm">ไม่พบข้อมูลตามเงื่อนไข</td>
               </tr>
             </tbody>
             <!-- Summary row -->
@@ -421,13 +430,10 @@ function pctClass(n) {
                 <td v-if="level !== 'amphur'"></td>
                 <td class="text-right px-2">{{ formatNumber(dailySummary.total) }}</td>
                 <td class="text-right px-2 text-slate-600">{{ formatNumber(dailySummary.untracked) }}</td>
-                <td class="text-right px-2 text-slate-600">{{ formatNumber(dailySummary.s_41) }}</td>
-                <td class="text-right px-2">{{ formatNumber(dailySummary.s_42) }}</td>
-                <td class="text-right px-2">{{ formatNumber(dailySummary.s_43) }}</td>
-                <td class="text-right px-2">{{ formatNumber(dailySummary.s_44) }}</td>
-                <td class="text-right px-2 text-red-700">{{ formatNumber(dailySummary.s_45) }}</td>
-                <td class="text-right px-2">{{ formatNumber(dailySummary.s_46) }}</td>
-                <td class="text-right px-2 text-green-700">{{ formatNumber(dailySummary.s_47) }}</td>
+                <td v-for="s in statusCols" :key="s.code"
+                    :class="['text-right px-2', s.code === '4.1' ? 'text-slate-600' : '', s.isFail ? 'text-red-700' : '', s.isDone ? 'text-green-700' : '']">
+                  {{ formatNumber(dailySummary[s.field] || 0) }}
+                </td>
                 <td class="text-right px-2">{{ formatNumber(dailySummary.done) }}</td>
                 <td :class="['text-right px-2', pctClass(dailySummary.pct)]">{{ dailySummary.pct }}%</td>
                 <td></td>

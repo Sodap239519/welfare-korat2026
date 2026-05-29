@@ -4,7 +4,7 @@ import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
-import { formatNumber } from '@/composables/useApi';
+import { formatNumber, invalidateStatuses } from '@/composables/useApi';
 import { effectiveSopDetails } from '@/composables/sopDefaults';
 
 const route = useRoute();
@@ -323,6 +323,10 @@ async function save() {
     } else {
       ep.store.value.push(res.data.data);
     }
+    // ถ้าแก้ status — invalidate cache ของ STATUS_SHORT ให้หน้าอื่นเห็นชื่อใหม่
+    if (editType.value === 'status') {
+      invalidateStatuses();
+    }
     showEdit.value = false;
   } catch (e) {
     editErr.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
@@ -335,6 +339,7 @@ async function remove(type, item) {
   try {
     await axios.delete(`${ep.base}/${item.id}`);
     ep.store.value = ep.store.value.filter(x => x.id !== item.id);
+    if (type === 'status') invalidateStatuses();   // ให้หน้าอื่นรู้ว่ามีสถานะถูกลบ
   } catch (e) {
     alert(e.response?.data?.message || 'ลบไม่สำเร็จ');
   }

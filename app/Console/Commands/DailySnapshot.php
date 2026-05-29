@@ -62,8 +62,11 @@ class DailySnapshot extends Command
             'pct'         => $r->total > 0 ? round(($r->done / $r->total) * 100, 1) : 0,
         ])->all();
 
-        // Generate xlsx file
-        $headings = ['หมู่บ้าน', 'ตำบล', 'อำเภอ', 'เป้า', '4.7 ใช้สิทธิ', '4.6 รอยืนยัน', 'รวม', '%'];
+        // Generate xlsx file — อ่านชื่อสถานะจาก DB (sync กับ AdminSettings)
+        $labels = \App\Models\RegistrationStatus::orderBy('sort_order')->pluck('label', 'code');
+        $headings = ['หมู่บ้าน', 'ตำบล', 'อำเภอ', 'เป้า',
+                     '4.7 ' . ($labels['4.7'] ?? ''), '4.6 ' . ($labels['4.6'] ?? ''),
+                     'รวม', '%'];
         $tableRows = array_map(fn ($r) => [
             $r['village'], $r['tambon'], $r['amphur'],
             $r['total'], $r['kyc_done'], $r['kyc_waiting'], $r['done'], $r['pct'].'%',

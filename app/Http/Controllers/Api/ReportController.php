@@ -70,12 +70,15 @@ class ReportController extends Controller
             ->map(fn ($r) => $this->mapRow($r, $level));
 
         $labelName = $level === 'amphur' ? 'อำเภอ' : ($level === 'tambon' ? 'ตำบล' : 'หมู่บ้าน');
-        $headings = [
-            $labelName, 'อำเภอ', 'ตำบล', 'เป้า',
-            'ยังไม่ถูกติดตาม', '4.1 ไม่ประสงค์', '4.2 ลงทะเบียน', '4.3 เตรียมเอกสาร',
-            '4.4 ส่งเอกสารเพิ่ม', '4.5 รออุทธรณ์', '4.6 รอยืนยัน', '4.7 ใช้สิทธิ',
-            'รวม', '%', 'สถานะ'
-        ];
+        // อ่านชื่อสถานะจาก DB — ตรงกับ AdminSettings เสมอ (ไม่ hardcode)
+        $statusLabels = \App\Models\RegistrationStatus::orderBy('sort_order')->pluck('label', 'code');
+        $headings = array_merge(
+            [$labelName, 'อำเภอ', 'ตำบล', 'เป้า', 'ยังไม่ถูกติดตาม'],
+            collect(['4.1','4.2','4.3','4.4','4.5','4.6','4.7'])
+                ->map(fn ($c) => $c . ' ' . ($statusLabels[$c] ?? ''))
+                ->all(),
+            ['รวม', '%', 'สถานะ']
+        );
         $filename = "สรุปยอดทุกสถานะ_{$level}_".now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
@@ -156,16 +159,16 @@ class ReportController extends Controller
                      'สถานะปัจจุบัน', 'ช่องทาง', 'อัปเดตล่าสุด', 'หมายเหตุ'];
         $filename = "รายชื่อเป้าหมาย+สถานะ_".now()->format('Y-m-d').'.xlsx';
 
-        return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
-            public function __construct(private $rows, private $heads) {}
+        // อ่านชื่อสถานะจาก DB ครั้งเดียว แล้วส่งเข้าไปใน closure ผ่าน constructor
+        $statusMap = \App\Models\RegistrationStatus::orderBy('sort_order')->pluck('label', 'code')->all();
+
+        return Excel::download(new class($rows, $headings, $statusMap) implements FromCollection, WithHeadings, WithMapping {
+            public function __construct(private $rows, private $heads, private $statusMap) {}
             public function collection() { return $this->rows; }
             public function headings(): array { return $this->heads; }
             public function map($t): array {
                 static $i = 0; $i++;
-                $statusMap = [
-                    '4.1' => 'ไม่ประสงค์', '4.2' => 'ลงทะเบียน', '4.3' => 'เตรียมเอกสาร',
-                    '4.4' => 'ส่งเอกสารเพิ่ม', '4.5' => 'รออุทธรณ์', '4.6' => 'รอยืนยันตัวตน', '4.7' => 'ใช้สิทธิแล้ว',
-                ];
+                $statusMap = $this->statusMap;
                 $cs = $t->currentStatus;
                 return [
                     $i,
