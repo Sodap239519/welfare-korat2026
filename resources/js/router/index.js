@@ -9,6 +9,8 @@ const routes = [
   { path: '/overview',      redirect: '/dashboard' },   // รวมเป็นหน้าเดียวแล้ว
   { path: '/targets',       name: 'targets',       component: () => import('@/pages/Targets.vue'),       meta: { auth: true } },
   { path: '/targets/:id',   name: 'target-detail', component: () => import('@/pages/TargetDetail.vue'),  meta: { auth: true } },
+  { path: '/batches',       name: 'batches',       component: () => import('@/pages/Batches.vue'),       meta: { auth: true } },
+  { path: '/batches/:id',   name: 'batch-detail',  component: () => import('@/pages/BatchDetail.vue'),   meta: { auth: true } },
   { path: '/map',           name: 'map',           component: () => import('@/pages/Map.vue'),           meta: { auth: true } },
   { path: '/trackers',      name: 'trackers',      component: () => import('@/pages/Trackers.vue'),      meta: { auth: true } },
   { path: '/import',        name: 'import',        component: () => import('@/pages/Import.vue'),        meta: { auth: true, roles: ['super_admin'] } },

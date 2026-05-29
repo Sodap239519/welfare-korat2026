@@ -38,6 +38,23 @@ const bulkErrors = ref({});
 const bulkSaving = ref(false);
 const flashOk = ref('');
 
+// ─── Batch creation (📦 ใส่ห่อเอกสาร) ───
+const showBatchModal = ref(false);
+const batchForm = reactive({
+  batch_date: new Date().toISOString().slice(0, 10),
+  channel_id: '',
+  sub_channel: '',
+  submitter_role: '',
+  submitter_name: '',
+  notes: '',
+});
+const batchErrors = ref({});
+const batchSaving = ref(false);
+const submitterRoles = ref([]);  // load จาก /api/ref/submitter-roles
+const batchChannelObj = computed(() => channels.value.find(c => c.id === Number(batchForm.channel_id)));
+const batchNeedsBank = computed(() => batchChannelObj.value?.code === 'bank');
+const batchNeedsName = computed(() => batchForm.submitter_role === 'other');
+
 const bulkStatusObj = computed(() => statuses.value.find(s => s.code === bulkForm.status_code));
 const bulkChannelObj = computed(() => channels.value.find(c => c.id === Number(bulkForm.channel_id)));
 const bulkNeedsBank = computed(() => bulkChannelObj.value?.code === 'bank');
@@ -89,17 +106,59 @@ async function submitBulk() {
   } finally { bulkSaving.value = false; }
 }
 
+// ─── Batch modal handlers ───
+function openBatchModal() {
+  // auto-fill ธนาคารถ้ามี channel 'bank' (ส่วนใหญ่ flow คือใส่ห่อไปให้ธนาคาร)
+  const bankCh = channels.value.find(c => c.code === 'bank');
+  Object.assign(batchForm, {
+    batch_date: new Date().toISOString().slice(0, 10),
+    channel_id: bankCh ? bankCh.id : '',
+    sub_channel: '',
+    submitter_role: '',
+    submitter_name: '',
+    notes: '',
+  });
+  batchErrors.value = {};
+  showBatchModal.value = true;
+}
+async function submitBatch() {
+  batchSaving.value = true;
+  batchErrors.value = {};
+  try {
+    const payload = {
+      batch_date:     batchForm.batch_date,
+      channel_id:     Number(batchForm.channel_id),
+      sub_channel:    batchNeedsBank.value ? (batchForm.sub_channel || null) : null,
+      submitter_role: batchForm.submitter_role,
+      submitter_name: batchNeedsName.value ? batchForm.submitter_name : null,
+      notes:          batchForm.notes || null,
+      target_ids:     Array.from(selectedIds.value),
+    };
+    const { data: res } = await axios.post('/api/batches/quick-create', payload);
+    flashOk.value = res.message;
+    showBatchModal.value = false;
+    clearSelection();
+    setTimeout(() => (flashOk.value = ''), 4000);
+    // นำทางไปหน้า BatchDetail เลย — tracker ได้ review/submit ต่อ
+    router.push({ name: 'batch-detail', params: { id: res.data.id } });
+  } catch (e) {
+    batchErrors.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
+  } finally { batchSaving.value = false; }
+}
+
 async function loadOpts() {
-  const [s, a, c, b] = await Promise.all([
+  const [s, a, c, b, r] = await Promise.all([
     axios.get('/api/ref/statuses'),
     axios.get('/api/ref/amphurs'),
     axios.get('/api/ref/channels'),
     axios.get('/api/ref/banks'),
+    axios.get('/api/ref/submitter-roles'),
   ]);
   statuses.value = s.data.data;
   amphurOpts.value = a.data.data;
   channels.value = c.data.data;
   banks.value = b.data.data;
+  submitterRoles.value = r.data.data;
 }
 async function loadTambons() {
   filters.tambon_id = ''; filters.village_id = ''; tambonOpts.value = []; villageOpts.value = [];
@@ -489,17 +548,34 @@ async function submitAdd() {
       <!-- Pagination -->
       <Pagination :current="data.current_page" :last="data.last_page" :total="data.total" unit="ราย" @go="load" />
 
-      <!-- Bulk action bar (floating) — เหนือ BottomNav (~70px) บน mobile · ปกติบน desktop -->
-      <div v-if="selectedCount > 0" class="fixed left-0 right-0 z-40 px-4 pointer-events-none"
-           style="bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);">
-        <div class="max-w-3xl mx-auto card-hero p-3 flex items-center gap-3 pointer-events-auto shadow-2xl shadow-blue-900/30">
-          <div class="text-sm">
-            <div class="font-semibold">เลือก {{ selectedCount }} ราย</div>
-            <button @click="clearSelection" class="text-xs opacity-80 hover:opacity-100 underline">ยกเลิกการเลือก</button>
+      <!-- Bulk action bar (floating) — 2 ปุ่ม: ใส่ห่อเอกสาร + อัปเดตสถานะ -->
+      <div v-if="selectedCount > 0" class="fixed left-0 right-0 z-40 px-3 pointer-events-none"
+           style="bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);">
+        <div class="max-w-3xl mx-auto card-hero p-2.5 lg:p-3 pointer-events-auto shadow-2xl shadow-blue-900/30">
+          <div class="flex items-center justify-between gap-3 mb-2 lg:mb-0 lg:flex-row">
+            <div class="text-sm leading-tight">
+              <div class="font-semibold">เลือก {{ selectedCount }} ราย</div>
+              <button @click="clearSelection" class="text-xs opacity-80 hover:opacity-100 underline tap-transparent">ยกเลิก</button>
+            </div>
+            <!-- DESKTOP: ปุ่มอยู่บรรทัดเดียวกัน -->
+            <div class="hidden lg:flex gap-2 ml-auto">
+              <button @click="openBatchModal" class="px-4 py-2.5 rounded-xl bg-amber-400 text-amber-900 font-medium text-sm flex items-center gap-1.5 hover:bg-amber-300 shadow min-h-[44px]">
+                <i class="fi-rr-box-alt"></i> ใส่ห่อเอกสาร
+              </button>
+              <button @click="openBulkModal" class="px-4 py-2.5 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center gap-1.5 hover:bg-blue-50 shadow min-h-[44px]">
+                <i class="fi-rr-edit"></i> อัปเดตสถานะ
+              </button>
+            </div>
           </div>
-          <button @click="openBulkModal" class="ml-auto px-4 py-2 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center gap-1.5 hover:bg-blue-50">
-            <i class="fi-rr-edit"></i> อัปเดตสถานะ
-          </button>
+          <!-- MOBILE: ปุ่ม 2 อันใต้ counter เต็มกว้าง — กดง่ายด้วยนิ้วโป้ง -->
+          <div class="grid grid-cols-2 gap-2 lg:hidden">
+            <button @click="openBatchModal" class="px-3 py-3 rounded-xl bg-amber-400 text-amber-900 font-medium text-sm flex items-center justify-center gap-1.5 active:bg-amber-500 shadow min-h-[48px]">
+              <i class="fi-rr-box-alt"></i> ใส่ห่อเอกสาร
+            </button>
+            <button @click="openBulkModal" class="px-3 py-3 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center justify-center gap-1.5 active:bg-blue-50 shadow min-h-[48px]">
+              <i class="fi-rr-edit"></i> อัปเดตสถานะ
+            </button>
+          </div>
         </div>
       </div>
 
@@ -581,6 +657,111 @@ async function submitAdd() {
               </button>
             </div>
           </form>
+      </Modal>
+
+      <!-- ─────────────────────────────────────────── -->
+      <!-- 📦 Batch creation modal — ใส่ห่อเอกสารธนาคาร -->
+      <!-- ─────────────────────────────────────────── -->
+      <Modal :show="showBatchModal" max-width="max-w-lg" @close="showBatchModal = false">
+        <form @submit.prevent="submitBatch" class="space-y-4">
+          <div class="flex items-start gap-3 mb-1">
+            <div class="w-11 h-11 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center text-xl">
+              <i class="fi-rr-box-alt"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold">ใส่ห่อเอกสารธนาคาร</div>
+              <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                สร้าง batch ใหม่ + เพิ่ม <strong class="text-amber-700 dark:text-amber-300">{{ selectedCount }} ราย</strong> เป็น draft
+              </div>
+            </div>
+            <button type="button" @click="showBatchModal = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด">
+              <i class="fi-rr-cross-small"></i>
+            </button>
+          </div>
+
+          <!-- วันที่ส่ง -->
+          <div>
+            <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">วันที่ส่งเอกสาร</label>
+            <input type="date" v-model="batchForm.batch_date"
+                   class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+            <div v-if="batchErrors.batch_date" class="text-xs text-red-600 mt-1">{{ batchErrors.batch_date[0] }}</div>
+          </div>
+
+          <!-- ปลายทาง (ธนาคาร) -->
+          <div>
+            <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">ส่งให้</label>
+            <select v-model="batchForm.channel_id"
+                    class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <option value="">— เลือกช่องทาง —</option>
+              <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+            <div v-if="batchErrors.channel_id" class="text-xs text-red-600 mt-1">{{ batchErrors.channel_id[0] }}</div>
+          </div>
+
+          <!-- ธนาคารย่อย (เฉพาะ channel = bank) -->
+          <div v-if="batchNeedsBank">
+            <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">ธนาคาร</label>
+            <select v-model="batchForm.sub_channel"
+                    class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <option value="">— เลือกธนาคาร —</option>
+              <option v-for="b in banks" :key="b.code" :value="b.code">{{ b.name }}</option>
+            </select>
+            <div v-if="batchErrors.sub_channel" class="text-xs text-red-600 mt-1">{{ batchErrors.sub_channel[0] }}</div>
+          </div>
+
+          <!-- ผู้ส่งเอกสาร -->
+          <div>
+            <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">ใครเป็นคนส่งเอกสาร</label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <button v-for="r in submitterRoles" :key="r.code" type="button"
+                      @click="batchForm.submitter_role = r.code"
+                      :class="['px-3 py-2.5 rounded-xl text-sm border transition tap-transparent',
+                               batchForm.submitter_role === r.code
+                                 ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 font-medium'
+                                 : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800']">
+                {{ r.label }}
+              </button>
+            </div>
+            <div v-if="batchErrors.submitter_role" class="text-xs text-red-600 mt-1">{{ batchErrors.submitter_role[0] }}</div>
+          </div>
+
+          <!-- ระบุชื่อผู้ส่ง (เฉพาะ role = other) -->
+          <div v-if="batchNeedsName">
+            <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">ระบุชื่อผู้ส่ง</label>
+            <input v-model="batchForm.submitter_name" type="text" placeholder="เช่น อบต. … / กรรมการหมู่บ้าน …"
+                   class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+            <div v-if="batchErrors.submitter_name" class="text-xs text-red-600 mt-1">{{ batchErrors.submitter_name[0] }}</div>
+          </div>
+
+          <!-- หมายเหตุ (optional) -->
+          <div>
+            <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">หมายเหตุ (ไม่บังคับ)</label>
+            <textarea v-model="batchForm.notes" rows="2" placeholder="เช่น มีเอกสารแนบ 2 แผ่น/คน"
+                      class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"></textarea>
+          </div>
+
+          <!-- info banner -->
+          <div class="card-tint-blue p-3 text-xs leading-snug">
+            <div class="flex items-start gap-2">
+              <i class="fi-rr-info text-blue-700 dark:text-blue-300 mt-0.5"></i>
+              <div>
+                จะสร้าง batch เป็น <strong>draft</strong> · {{ selectedCount }} รายจะขยับเป็น
+                <strong>4.2.2 ส่งแบบฟอร์มแล้ว</strong> ก่อน
+                · คุณรีวิวรายชื่อใน BatchDetail แล้วค่อย <strong>ส่ง</strong> ให้ธนาคารได้
+              </div>
+            </div>
+          </div>
+
+          <div v-if="batchErrors.general" class="text-xs text-red-600">{{ batchErrors.general[0] }}</div>
+
+          <div class="flex gap-2 justify-end pt-2">
+            <button type="button" @click="showBatchModal = false" class="btn-outline px-4 py-2.5 text-sm">ยกเลิก</button>
+            <button type="submit" :disabled="batchSaving" class="btn-primary px-4 py-2.5 text-sm bg-amber-500 hover:bg-amber-600 flex items-center gap-2">
+              <i :class="['fi-rr-box-alt', batchSaving && 'animate-spin']"></i>
+              สร้าง batch + เพิ่ม {{ selectedCount }} ราย
+            </button>
+          </div>
+        </form>
       </Modal>
 
       <!-- Add Target modal -->

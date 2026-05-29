@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DocumentBatchController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\LineWebhookController;
 use App\Http\Controllers\Api\MapController;
@@ -137,6 +138,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Lookups
     Route::get('ref/statuses',         [ReferenceController::class, 'statuses']);
+    Route::get('ref/sub-statuses',     [ReferenceController::class, 'subStatuses']);
+    Route::get('ref/submitter-roles',  [ReferenceController::class, 'submitterRoles']);
     Route::get('ref/channels',         [ReferenceController::class, 'channels']);
     Route::get('ref/banks',            [ReferenceController::class, 'banks']);
     Route::get('ref/amphurs',          [ReferenceController::class, 'amphurs']);
@@ -144,4 +147,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('ref/villages',         [ReferenceController::class, 'villages']);
     Route::get('ref/project-phases',   [ReferenceController::class, 'projectPhases']);
     Route::get('ref/overview-metrics', [ReferenceController::class, 'overviewMetrics']);
+
+    // ─── Document Batches (Tracker + Bank/Admin) ───
+    Route::prefix('batches')->controller(DocumentBatchController::class)->group(function () {
+        Route::get('/',                       'index');                          // ?scope=mine|inbox|all
+        Route::get('summary',                 'summary');                        // KPI 5 ตัว (HERO ของหน้า Batches)
+        Route::get('dashboard',               'dashboard');                      // KPI + bottleneck + 2 leaderboards
+        Route::post('/',                      'store');                          // create draft
+        Route::post('quick-create',           'quickCreate');                    // create + add targets ครั้งเดียว
+        Route::get('{id}',                    'show')->whereNumber('id');
+        Route::patch('{id}',                  'update')->whereNumber('id');
+        Route::delete('{id}',                 'destroy')->whereNumber('id');
+        // targets in batch
+        Route::post('{id}/targets',           'addTargets')->whereNumber('id');
+        Route::delete('{id}/targets/{tid}',   'removeTarget')->whereNumber('id')->whereNumber('tid');
+        // lifecycle
+        Route::post('{id}/submit',            'submit')->whereNumber('id');
+        Route::post('{id}/receive',           'receive')->whereNumber('id');
+        Route::post('{id}/record',            'record')->whereNumber('id');
+        Route::post('{id}/reject',            'reject')->whereNumber('id');
+    });
 });

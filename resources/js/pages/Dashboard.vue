@@ -5,7 +5,7 @@ import { computed, onMounted, ref, reactive, watch } from 'vue';
 import axios from 'axios';
 import { useThemeStore } from '@/stores/theme';
 import { useAuthStore } from '@/stores/auth';
-import { formatNumber, STATUS_SHORT } from '@/composables/useApi';
+import { formatNumber, STATUS_SHORT, statusShort, loadStatuses } from '@/composables/useApi';
 import { DEFAULT_SOP_DETAILS, effectiveSopDetails } from '@/composables/sopDefaults';
 
 const theme = useThemeStore();
@@ -122,16 +122,18 @@ function onLogoError(code) {
   bankLogoFailed[code] = true;
 }
 
-// Tint class + accent text per status (สำหรับ KPI card)
+// Tint class + accent text + icon ต่อสถานะ (visual design — คงที่ตาม code)
+// หมายเหตุ: label ไม่อยู่ใน map นี้แล้ว — ใช้ statusShort(code) ที่อ่านจาก DB แทน
+//          (ผู้ใช้แก้ชื่อใน AdminSettings → ทุกหน้าเปลี่ยนตามทันที)
 const statusTintMap = {
-  '0':   { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-200', icon: 'fi-rr-question', label: 'ยังไม่ถูกติดตาม' },
-  '4.1': { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-300', icon: 'fi-rr-ban',      label: 'ไม่ประสงค์' },
-  '4.2': { tint: 'card-tint-blue',                                                                  accent: 'text-blue-700 dark:text-blue-300',   icon: 'fi-rr-edit',     label: 'ลงทะเบียน' },
-  '4.3': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-folder', label: 'เตรียมเอกสาร' },
-  '4.4': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-paper-plane', label: 'ส่งเอกสารเพิ่ม' },
-  '4.5': { tint: 'card-tint-red',                                                                   accent: 'text-red-700 dark:text-red-300',     icon: 'fi-rr-triangle-warning', label: 'รออุทธรณ์' },
-  '4.6': { tint: 'card-tint-sky',                                                                   accent: 'text-sky-700 dark:text-sky-300',     icon: 'fi-rr-fingerprint', label: 'รอยืนยันตัวตน' },
-  '4.7': { tint: 'card-tint-green',                                                                 accent: 'text-green-700 dark:text-green-300', icon: 'fi-rr-check-circle', label: 'ใช้สิทธิ์แล้ว' },
+  '0':   { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-200', icon: 'fi-rr-question' },
+  '4.1': { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-300', icon: 'fi-rr-ban' },
+  '4.2': { tint: 'card-tint-blue',                                                                  accent: 'text-blue-700 dark:text-blue-300',   icon: 'fi-rr-edit' },
+  '4.3': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-folder' },
+  '4.4': { tint: 'card-tint-orange',                                                                accent: 'text-orange-700 dark:text-orange-300', icon: 'fi-rr-paper-plane' },
+  '4.5': { tint: 'card-tint-red',                                                                   accent: 'text-red-700 dark:text-red-300',     icon: 'fi-rr-triangle-warning' },
+  '4.6': { tint: 'card-tint-sky',                                                                   accent: 'text-sky-700 dark:text-sky-300',     icon: 'fi-rr-fingerprint' },
+  '4.7': { tint: 'card-tint-green',                                                                 accent: 'text-green-700 dark:text-green-300', icon: 'fi-rr-check-circle' },
 };
 
 async function loadOpts() {
@@ -402,7 +404,23 @@ function selectTopLevel(level) {
   loadTop();
 }
 
+// ─── Document Batch dashboard (Phase E) — โหลด lazy ใต้ SOP ───
+const batchDashboard = ref(null);
+async function loadBatchDashboard() {
+  try {
+    const { data } = await axios.get('/api/batches/dashboard');
+    batchDashboard.value = data;
+  } catch (e) {
+    batchDashboard.value = null;
+  }
+}
+function statusLabel(s) {
+  return { submitted: 'รอ ธ.รับ', received: 'รอบันทึก' }[s] || s;
+}
+
 onMounted(async () => {
+  loadStatuses();   // โหลดชื่อสถานะ dynamic จาก /api/ref/statuses (fire-and-forget)
+  loadBatchDashboard();  // โหลด batch dashboard (fire-and-forget)
   await loadOpts();
   await loadAll();
 });
@@ -564,9 +582,9 @@ function makeStackedOverviewChart(rows, levelName) {
     },
     series: [
       { name: 'ยังไม่ถูกติดตาม',     data: rows.map(r => r.by_status?.['0']  || 0) },
-      { name: 'ไม่ประสงค์ลงทะเบียน',  data: rows.map(r => r.by_status?.['4.1'] || 0) },
+      { name: statusShort('4.1'),     data: rows.map(r => r.by_status?.['4.1'] || 0) },
       { name: 'กำลังลงทะเบียน',       data: rows.map(r => sumInProgress(r)) },
-      { name: 'ลงทะเบียนเรียบร้อยแล้ว', data: rows.map(r => r.by_status?.['4.7'] || 0) },
+      { name: statusShort('4.7'),     data: rows.map(r => r.by_status?.['4.7'] || 0) },
     ],
   };
 }
@@ -609,18 +627,21 @@ function pctBar(n) {
   return 'bg-red-500';
 }
 
-// 8 status KPI cards (ยังไม่อัปเดต + 4.1-4.7) — ใช้ stats.by_status + stats.total
+// status KPI cards: '0' (ยังไม่ติดตาม) + ทุกสถานะที่อยู่ใน DB (เรียงตาม code)
+// ❗ ไม่ hardcode 4.1-4.7 — admin ลบ/เพิ่มสถานะ → cards อัปเดตตาม
+const DEFAULT_TINT = { tint: 'bg-slate-50 border border-slate-200 dark:bg-slate-800/40 dark:border-slate-700', accent: 'text-slate-700 dark:text-slate-300', icon: 'fi-rr-flag' };
 const statusCards = computed(() => {
-  const order = ['0', '4.1', '4.2', '4.3', '4.4', '4.5', '4.6', '4.7'];
+  const codes = ['0', ...Object.keys(STATUS_SHORT).sort()];
   const total = Math.max(stats.value?.total || 0, 1);
-  return order.map(code => {
+  return codes.map(code => {
     const count = Number(stats.value?.by_status?.[code] ?? 0);
+    const meta = statusTintMap[code] || DEFAULT_TINT;
     return {
       code,
-      label: statusTintMap[code].label,
-      icon:  statusTintMap[code].icon,
-      tint:  statusTintMap[code].tint,
-      accent: statusTintMap[code].accent,
+      label: code === '0' ? 'ยังไม่ถูกติดตาม' : statusShort(code),
+      icon:  meta.icon,
+      tint:  meta.tint,
+      accent: meta.accent,
       dot:   statusColorMap[code] || '#94a3b8',
       count,
       pct: Math.round((count / total) * 1000) / 10,  // 1 decimal
@@ -628,16 +649,16 @@ const statusCards = computed(() => {
   });
 });
 
-// แตกแถบสีตาม by_status เป็น segments — ครบทั้ง 8 กลุ่ม (รวม ยังไม่ถูกติดตาม + ไม่ประสงค์)
+// แตกแถบสีตาม by_status เป็น segments — order ตาม DB จริง (รวม ยังไม่ถูกติดตาม)
 function statusSegments(row) {
-  const order = ['0','4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
+  const order = ['0', ...Object.keys(STATUS_SHORT).sort()];
   const labelMap = { '0': 'ยังไม่ถูกติดตาม', ...STATUS_SHORT };
   const colorAll = { '0': '#cbd5e1', ...statusColorMap };
   const total = row.total || 1;
   return order.map(code => ({
     code,
     label: labelMap[code] || code,
-    color: colorAll[code],
+    color: colorAll[code] || '#94a3b8',
     count: row.by_status?.[code] || 0,
     width: ((row.by_status?.[code] || 0) / total) * 100,
   })).filter(s => s.count > 0);
@@ -716,32 +737,38 @@ function statusSegments(row) {
         </button>
       </div>
 
-      <!-- KPI · ทุกสถานะการลงทะเบียน (ยังไม่อัปเดต + 4.1-4.7) -->
+      <!-- KPI · ทุกสถานะการลงทะเบียน (ยังไม่ติดตาม + ทุก code ที่อยู่ใน DB) -->
       <div v-if="stats">
-        <div class="flex items-baseline justify-between mb-2 px-1">
+        <div class="flex items-baseline justify-between mb-3 px-1">
           <div class="text-sm font-semibold">สถานะการลงทะเบียน · ทั้งหมด {{ formatNumber(stats.total) }} คน</div>
           <div class="text-xs text-slate-500 dark:text-slate-400">
             <span v-if="stats.today_change > 0" class="text-green-600 dark:text-green-400">+{{ stats.today_change }} วันนี้</span>
             <span v-else>ยังไม่มีการอัปเดตวันนี้</span>
           </div>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 sm:gap-3">
+        <!-- auto-fit: ปรับ column count ตามจำนวน card อัตโนมัติ — ไม่เหลือช่องว่าง -->
+        <div class="grid gap-3 sm:gap-4"
+             :style="{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }">
           <div v-for="s in statusCards" :key="s.code"
                @click="s.code !== '0' && $router.push({ name: 'targets', query: { status: s.code } })"
-               :class="[s.tint, 'rounded-2xl p-3.5 min-w-0 min-h-[110px] transition tap-transparent',
+               :class="[s.tint, 'rounded-2xl p-4 min-w-0 flex flex-col gap-2.5 transition tap-transparent',
                         s.code !== '0' && 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]']">
-            <div class="flex items-center justify-between gap-1 mb-2">
-              <span class="text-xs opacity-70 font-mono font-semibold whitespace-nowrap">{{ s.code === '0' ? '—' : s.code }}</span>
+            <!-- header: code + icon -->
+            <div class="flex items-center justify-between gap-1">
+              <span class="text-[11px] opacity-60 font-mono font-semibold tracking-wide whitespace-nowrap">{{ s.code === '0' ? '—' : s.code }}</span>
               <i :class="[s.icon, s.accent, 'text-base']"></i>
             </div>
-            <div class="text-xs leading-tight opacity-80 line-clamp-2 min-h-[2.4em]" :title="s.label">{{ s.label }}</div>
-            <div :class="['text-2xl lg:text-2xl font-bold mt-1.5 leading-none tabular-nums', s.accent]">{{ formatNumber(s.count) }}</div>
-            <div class="mt-2">
-              <div class="flex items-center justify-between text-[11px] opacity-70 tabular-nums">
+            <!-- label: 2 บรรทัดเสมอ ให้ทุก card สูงเท่ากัน -->
+            <div class="text-xs leading-snug opacity-80 line-clamp-2 min-h-[2.4em]" :title="s.label">{{ s.label }}</div>
+            <!-- count -->
+            <div :class="['text-2xl font-bold leading-none tabular-nums', s.accent]">{{ formatNumber(s.count) }}</div>
+            <!-- footer: % + bar -->
+            <div class="mt-auto pt-1">
+              <div class="flex items-center justify-between text-[11px] opacity-70 tabular-nums mb-1">
                 <span>{{ s.pct }}%</span>
                 <span>{{ formatNumber(s.count) }}/{{ formatNumber(stats.total) }}</span>
               </div>
-              <div class="mt-1 h-1.5 rounded-full bg-white/50 dark:bg-slate-900/40 overflow-hidden">
+              <div class="h-1.5 rounded-full bg-white/50 dark:bg-slate-900/40 overflow-hidden">
                 <div class="h-full rounded-full transition-all" :style="{ width: Math.min(s.pct, 100) + '%', background: s.dot }"></div>
               </div>
             </div>
@@ -997,6 +1024,146 @@ function statusSegments(row) {
         <i class="fi-rr-info text-orange-700"></i>
         ยังไม่ได้ตั้งขั้นปัจจุบัน — กดปุ่ม "ตั้งเป็นขั้นปัจจุบัน" บนการ์ดข้างต้น
       </div>
+
+      <!-- ─────────────────────────────────────────────────────── -->
+      <!-- 📦 Document Batch Dashboard (Phase E)                   -->
+      <!--    KPI 5 ใบ + Bottleneck > 3 วัน + Bank/Tracker leaderboard -->
+      <!-- ─────────────────────────────────────────────────────── -->
+      <section v-if="batchDashboard" class="space-y-3">
+        <div class="flex items-baseline justify-between gap-2 mb-1 px-1">
+          <div>
+            <div class="font-semibold text-sm flex items-center gap-2">
+              <i class="fi-rr-box-alt text-amber-600"></i>
+              Document Batch · กระบวนการส่ง → รับ → บันทึก
+            </div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">รอบส่งเอกสารลงทะเบียนผ่าน tracker → ธนาคาร</div>
+          </div>
+          <RouterLink :to="{ name: 'batches' }" class="text-xs text-blue-700 dark:text-blue-300 hover:underline whitespace-nowrap">
+            ดูทั้งหมด <i class="fi-rr-angle-small-right"></i>
+          </RouterLink>
+        </div>
+
+        <!-- KPI 5 ใบ — auto-fit เหมือน status cards -->
+        <div class="grid gap-3" :style="{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }">
+          <div class="card-tint-blue rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] opacity-70 font-semibold">📤 ส่งวันนี้</span><i class="fi-rr-paper-plane text-blue-700"></i></div>
+            <div class="text-2xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{{ formatNumber(batchDashboard.kpi.submitted_today) }}</div>
+            <div class="text-[11px] opacity-70 mt-1">batch</div>
+          </div>
+          <div class="card-tint-orange rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] opacity-70 font-semibold">⏳ รอ ธ.รับ</span><i class="fi-rr-inbox-out text-orange-700"></i></div>
+            <div class="text-2xl font-bold tabular-nums text-orange-700 dark:text-orange-300">{{ formatNumber(batchDashboard.kpi.pending_receive) }}</div>
+            <div class="text-[11px] opacity-70 mt-1">batch</div>
+          </div>
+          <div class="card-tint-sky rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] opacity-70 font-semibold">📥 รอบันทึก</span><i class="fi-rr-inbox-in text-sky-700"></i></div>
+            <div class="text-2xl font-bold tabular-nums text-sky-700 dark:text-sky-300">{{ formatNumber(batchDashboard.kpi.pending_record) }}</div>
+            <div class="text-[11px] opacity-70 mt-1">batch</div>
+          </div>
+          <div class="card-tint-green rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] opacity-70 font-semibold">✅ บันทึกวันนี้</span><i class="fi-rr-check-double text-green-700"></i></div>
+            <div class="text-2xl font-bold tabular-nums text-green-700 dark:text-green-300">{{ formatNumber(batchDashboard.kpi.recorded_today) }}</div>
+            <div class="text-[11px] opacity-70 mt-1">batch</div>
+          </div>
+          <div class="card-tint-red rounded-2xl p-4">
+            <div class="flex items-center justify-between mb-1.5"><span class="text-[11px] opacity-70 font-semibold">⛔ ปฏิเสธวันนี้</span><i class="fi-rr-cross-circle text-red-700"></i></div>
+            <div class="text-2xl font-bold tabular-nums text-red-700 dark:text-red-300">{{ formatNumber(batchDashboard.kpi.rejected_today) }}</div>
+            <div class="text-[11px] opacity-70 mt-1">batch</div>
+          </div>
+        </div>
+
+        <!-- 3-column grid: Bottleneck · Bank · Tracker — mobile stack, tablet 2col, lg 3col -->
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+
+          <!-- ⏰ Bottleneck (col-span 1 บน mobile, 1 บน lg) -->
+          <div class="card p-4 lg:col-span-1">
+            <div class="flex items-center justify-between mb-3">
+              <div class="font-semibold text-sm flex items-center gap-1.5">
+                <i class="fi-rr-time-past text-red-600"></i> คอขวด > 3 วัน
+              </div>
+              <span class="text-xs text-slate-500 dark:text-slate-400 tabular-nums">{{ batchDashboard.bottleneck.length }} batch</span>
+            </div>
+            <div v-if="batchDashboard.bottleneck.length === 0" class="text-sm text-slate-400 dark:text-slate-500 text-center py-6">
+              <i class="fi-rr-check-circle text-2xl text-green-500 mb-2 block"></i>
+              ไม่มี batch ค้าง — ทุก batch อยู่ในกระบวนการปกติ ✨
+            </div>
+            <ul v-else class="space-y-2 max-h-72 overflow-y-auto">
+              <li v-for="b in batchDashboard.bottleneck" :key="b.id"
+                  class="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
+                  @click="$router.push({ name: 'batch-detail', params: { id: b.id } })">
+                <div class="w-9 h-9 shrink-0 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 flex items-center justify-center text-xs font-bold">
+                  {{ b.days_stuck }}d
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs font-mono font-semibold">#{{ b.batch_no }}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    {{ b.targets_count }} ราย · {{ b.sub_channel }} · {{ statusLabel(b.status) }}
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 🏆 Bank leaderboard -->
+          <div class="card p-4 lg:col-span-1">
+            <div class="flex items-center justify-between mb-3">
+              <div class="font-semibold text-sm flex items-center gap-1.5">
+                <i class="fi-rr-trophy text-amber-500"></i> ธนาคารเร็วสุด (ส่ง→บันทึก)
+              </div>
+              <span class="text-xs text-slate-500 dark:text-slate-400">TOP 5</span>
+            </div>
+            <div v-if="batchDashboard.bank_leaderboard.length === 0" class="text-sm text-slate-400 text-center py-6">
+              ยังไม่มี batch ที่บันทึกครบ
+            </div>
+            <ul v-else class="space-y-2">
+              <li v-for="(r, i) in batchDashboard.bank_leaderboard" :key="r.sub_channel"
+                  class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <div :class="['w-7 h-7 shrink-0 rounded-full text-white text-xs font-bold flex items-center justify-center',
+                              i === 0 ? 'bg-amber-500' : i === 1 ? 'bg-slate-400' : i === 2 ? 'bg-amber-700' : 'bg-slate-300']">
+                  {{ i + 1 }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium truncate">{{ r.bank_name }}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ r.total_batches }} batch บันทึกแล้ว</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-sm font-bold tabular-nums text-green-600">{{ r.avg_days }} <span class="text-[10px] opacity-70">วัน</span></div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- 👥 Tracker leaderboard -->
+          <div class="card p-4 lg:col-span-1">
+            <div class="flex items-center justify-between mb-3">
+              <div class="font-semibold text-sm flex items-center gap-1.5">
+                <i class="fi-rr-user-headset text-blue-600"></i> Tracker ขยันสุด (7 วัน)
+              </div>
+              <span class="text-xs text-slate-500 dark:text-slate-400">TOP 5</span>
+            </div>
+            <div v-if="batchDashboard.tracker_leaderboard.length === 0" class="text-sm text-slate-400 text-center py-6">
+              ยังไม่มีการส่ง batch ใน 7 วันที่ผ่านมา
+            </div>
+            <ul v-else class="space-y-2">
+              <li v-for="(r, i) in batchDashboard.tracker_leaderboard" :key="r.tracker_id"
+                  class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <div :class="['w-7 h-7 shrink-0 rounded-full text-white text-xs font-bold flex items-center justify-center',
+                              i === 0 ? 'bg-amber-500' : i === 1 ? 'bg-slate-400' : i === 2 ? 'bg-amber-700' : 'bg-slate-300']">
+                  {{ i + 1 }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium truncate">{{ r.tracker_name }}</div>
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ r.position }}</div>
+                </div>
+                <div class="text-right shrink-0">
+                  <div class="text-sm font-bold tabular-nums">{{ r.batch_count }}</div>
+                  <div class="text-[10px] text-slate-500 dark:text-slate-400">{{ formatNumber(r.target_count) }} ราย</div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <!-- Trend with day-range tabs + custom date range -->
       <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">

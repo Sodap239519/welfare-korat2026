@@ -32,6 +32,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'password',
         'phone', 'position_type', 'position_other',
+        'bank_channel_id', 'bank_sub_channel',
         'active', 'last_login_at',
     ];
 
@@ -49,4 +50,9 @@ class User extends Authenticatable
 
     public function scopes(): HasMany   { return $this->hasMany(UserScope::class); }
     public function tracker()           { return $this->hasOne(Tracker::class); }
+
+    public function bankChannel()
+    {
+        return $this->belongsTo(\App\Models\Channel::class, 'bank_channel_id');
+    }
 }

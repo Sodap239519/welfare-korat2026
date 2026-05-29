@@ -13,10 +13,12 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             ChannelSeeder::class,
             RegistrationStatusSeeder::class,
+            RegistrationSubStatusSeeder::class,
             ProjectPhaseSeeder::class,
             KoratGeographySeeder::class,
             // accounts
             DemoUserSeeder::class,
+            BankStaffUserSeeder::class,
             // bulk data
             TargetImportSeeder::class,
             // demo (remove or guard for production)

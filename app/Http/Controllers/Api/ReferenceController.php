@@ -22,6 +22,26 @@ class ReferenceController extends Controller
         ]);
     }
 
+    /** GET /api/ref/sub-statuses[?parent=4.2] — ขั้นย่อยของสถานะหลัก */
+    public function subStatuses(\Illuminate\Http\Request $request): JsonResponse
+    {
+        $q = \App\Models\RegistrationSubStatus::active()->orderBy('parent_code')->orderBy('sort_order');
+        if ($request->filled('parent')) $q->childrenOf((string) $request->parent);
+        return response()->json([
+            'data' => $q->get(['code', 'parent_code', 'label', 'icon', 'color', 'actor_role', 'sort_order']),
+        ]);
+    }
+
+    /** GET /api/ref/submitter-roles — list ตำแหน่งผู้ส่งเอกสาร */
+    public function submitterRoles(): JsonResponse
+    {
+        return response()->json([
+            'data' => collect(\App\Models\DocumentBatch::submitterRoleLabels())
+                ->map(fn ($label, $code) => ['code' => $code, 'label' => $label])
+                ->values(),
+        ]);
+    }
+
     public function channels(): JsonResponse
     {
         return response()->json([

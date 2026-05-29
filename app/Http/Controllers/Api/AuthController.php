@@ -192,11 +192,13 @@ class AuthController extends Controller
             'name'           => $user->name,
             'phone'          => $user->phone,
             'email'          => $user->email,
-            'position_type'  => $user->position_type,
-            'position_other' => $user->position_other,
-            'active'         => (bool) $user->active,
-            'last_login_at'  => $user->last_login_at,
-            'roles'          => $user->roles->pluck('name')->all(),
+            'position_type'   => $user->position_type,
+            'position_other'  => $user->position_other,
+            'bank_channel_id' => $user->bank_channel_id,
+            'bank_sub_channel'=> $user->bank_sub_channel,
+            'active'          => (bool) $user->active,
+            'last_login_at'   => $user->last_login_at,
+            'roles'           => $user->roles->pluck('name')->all(),
         ];
     }
 }
