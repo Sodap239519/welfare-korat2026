@@ -33,6 +33,7 @@ class User extends Authenticatable
         'name', 'email', 'password',
         'phone', 'position_type', 'position_other',
         'bank_channel_id', 'bank_sub_channel',
+        'amphur_id',
         'active', 'last_login_at',
     ];
 
@@ -54,5 +55,11 @@ class User extends Authenticatable
     public function bankChannel()
     {
         return $this->belongsTo(\App\Models\Channel::class, 'bank_channel_id');
+    }
+
+    /** Admin ระดับอำเภอ — ผูกกับ 1 อำเภอ */
+    public function amphur()
+    {
+        return $this->belongsTo(\App\Models\Amphur::class, 'amphur_id');
     }
 }

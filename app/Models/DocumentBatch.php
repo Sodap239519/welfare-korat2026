@@ -10,27 +10,42 @@ class DocumentBatch extends Model
 {
     protected $fillable = [
         'batch_no', 'tracker_user_id', 'batch_date',
-        'channel_id', 'sub_channel', 'status',
+        'channel_id', 'sub_channel', 'target_amphur_id', 'status',
         'submitter_role', 'submitter_name',
-        'submitted_at', 'received_at', 'received_by_user_id',
+        'submitted_at',
+        // ขั้นอำเภอ (Path A)
+        'district_received_at', 'district_received_by_user_id',
+        'forwarded_at', 'forwarded_by_user_id',
+        'forwarded_to_channel_id', 'forwarded_to_sub_channel',
+        // ขั้นธนาคาร
+        'received_at', 'received_by_user_id',
         'recorded_at', 'recorded_by_user_id',
         'notes', 'reject_reason', 'photo_paths',
     ];
 
     protected $casts = [
-        'batch_date'   => 'date',
-        'submitted_at' => 'datetime',
-        'received_at'  => 'datetime',
-        'recorded_at'  => 'datetime',
-        'photo_paths'  => 'array',
+        'batch_date'           => 'date',
+        'submitted_at'         => 'datetime',
+        'district_received_at' => 'datetime',
+        'forwarded_at'         => 'datetime',
+        'received_at'          => 'datetime',
+        'recorded_at'          => 'datetime',
+        'photo_paths'          => 'array',
     ];
 
-    // ─── Status constants ───
-    public const ST_DRAFT     = 'draft';
-    public const ST_SUBMITTED = 'submitted';
-    public const ST_RECEIVED  = 'received';
-    public const ST_RECORDED  = 'recorded';
-    public const ST_REJECTED  = 'rejected';
+    // ─── Status constants — 2-path lifecycle ───
+    public const ST_DRAFT                 = 'draft';
+    public const ST_SUBMITTED_TO_DISTRICT = 'submitted_to_district';   // tracker → อำเภอ
+    public const ST_DISTRICT_RECEIVED     = 'district_received';        // อำเภอรับ
+    public const ST_FORWARDED_TO_BANK     = 'forwarded_to_bank';        // อำเภอส่งต่อ
+    public const ST_BANK_RECEIVED         = 'bank_received';            // ธนาคารรับ
+    public const ST_BANK_RECORDED         = 'bank_recorded';            // ธนาคารบันทึกครบ (จบ)
+    public const ST_REJECTED              = 'rejected';
+
+    // ─── Backward-compat (Phase A-F naming) ───
+    public const ST_SUBMITTED = self::ST_SUBMITTED_TO_DISTRICT;
+    public const ST_RECEIVED  = self::ST_BANK_RECEIVED;
+    public const ST_RECORDED  = self::ST_BANK_RECORDED;
 
     // ─── Submitter role constants ───
     public const ROLE_SELF       = 'self';
@@ -57,6 +72,10 @@ class DocumentBatch extends Model
     public function channel(): BelongsTo      { return $this->belongsTo(Channel::class); }
     public function receivedBy(): BelongsTo   { return $this->belongsTo(User::class, 'received_by_user_id'); }
     public function recordedBy(): BelongsTo   { return $this->belongsTo(User::class, 'recorded_by_user_id'); }
+    public function districtReceivedBy(): BelongsTo { return $this->belongsTo(User::class, 'district_received_by_user_id'); }
+    public function forwardedBy(): BelongsTo  { return $this->belongsTo(User::class, 'forwarded_by_user_id'); }
+    public function forwardedToChannel(): BelongsTo { return $this->belongsTo(Channel::class, 'forwarded_to_channel_id'); }
+    public function targetAmphur(): BelongsTo { return $this->belongsTo(\App\Models\Amphur::class, 'target_amphur_id'); }
 
     public function targets(): BelongsToMany
     {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Channel;
+use App\Models\DocumentBatch;
 use App\Models\Household;
 use App\Models\RegistrationStatus;
 use App\Models\Target;
@@ -317,7 +318,9 @@ class TargetController extends Controller
         $logsBatch = [];
         $count = 0;
 
-        DB::transaction(function () use ($data, $userId, $userName, $now, &$logsBatch, &$count) {
+        $autoBatch = null;
+        $wasNewBatch = false;
+        DB::transaction(function () use ($data, $userId, $userName, $user, $now, $selectedChannel, &$logsBatch, &$count, &$autoBatch, &$wasNewBatch) {
             foreach ($data['target_ids'] as $tid) {
                 $logsBatch[] = [
                     'target_id'          => $tid,
@@ -345,15 +348,30 @@ class TargetController extends Controller
                 );
                 $count++;
             }
-            // Bulk insert logs (เร็วกว่า loop create)
             foreach (array_chunk($logsBatch, 200) as $chunk) {
                 TargetStatusLog::insert($chunk);
             }
+            // 🎁 Auto-batch — ถ้าเข้าเงื่อนไข (4.2 + ธนาคาร + เลือก bank) → เพิ่มเข้า draft batch ให้
+            $autoBatch = $this->autoAddToDraftBatch(
+                $data['target_ids'], $user, $data['sub_channel'] ?? null, $data['status_code'], $selectedChannel, $wasNewBatch
+            );
         });
 
+        $msg = "อัปเดตสถานะ {$count} ราย เป็น \"{$rs->label}\" เรียบร้อย";
+        if ($autoBatch) {
+            $msg .= $wasNewBatch
+                ? " · สร้าง batch ใหม่ #{$autoBatch->batch_no} (draft)"
+                : " · เพิ่มเข้า batch #{$autoBatch->batch_no} ที่มีอยู่";
+        }
+
         return response()->json([
-            'message' => "อัปเดตสถานะ {$count} ราย เป็น \"{$rs->label}\" เรียบร้อย",
-            'updated' => $count,
+            'message'    => $msg,
+            'updated'    => $count,
+            'auto_batch' => $autoBatch ? [
+                'id'       => $autoBatch->id,
+                'batch_no' => $autoBatch->batch_no,
+                'is_new'   => $wasNewBatch,
+            ] : null,
         ]);
     }
 
@@ -412,7 +430,9 @@ class TargetController extends Controller
         $userId = $user->id;
         $userName = $user->name;
 
-        DB::transaction(function () use ($target, $data, $userId, $userName) {
+        $autoBatch = null;
+        $wasNewBatch = false;
+        DB::transaction(function () use ($target, $data, $userId, $userName, $user, $selectedChannel, &$autoBatch, &$wasNewBatch) {
             TargetStatusLog::create([
                 'target_id'          => $target->id,
                 'status_code'        => $data['status_code'],
@@ -436,9 +456,27 @@ class TargetController extends Controller
                     'updated_at'      => now(),
                 ]
             );
+
+            // 🎁 Auto-batch — ถ้าเข้าเงื่อนไข
+            $autoBatch = $this->autoAddToDraftBatch(
+                [$target->id], $user, $data['sub_channel'] ?? null, $data['status_code'], $selectedChannel, $wasNewBatch
+            );
         });
 
-        return $this->show($id);
+        $res = $this->show($id);
+        if ($autoBatch) {
+            $resData = $res->getData(true);
+            $resData['auto_batch'] = [
+                'id'        => $autoBatch->id,
+                'batch_no'  => $autoBatch->batch_no,
+                'is_new'    => $wasNewBatch,   // ใหม่ครั้งแรกของวัน → frontend redirect ไปหน้า Batches
+            ];
+            $resData['message'] = $wasNewBatch
+                ? "อัปเดตสถานะแล้ว · สร้าง batch ใหม่ #{$autoBatch->batch_no} (draft) — เปิดดูเลย"
+                : "อัปเดตสถานะแล้ว · เพิ่มเข้า batch #{$autoBatch->batch_no} ที่มีอยู่";
+            return response()->json($resData);
+        }
+        return $res;
     }
 
     /** PATCH /api/targets/{id} — แก้ไขข้อมูลส่วนตัว (ชื่อ/รายได้/บ้านเลขที่/etc.) */
@@ -517,5 +555,94 @@ class TargetController extends Controller
                 'changed_at'      => $h->changed_at?->toIso8601String(),
             ]);
         return response()->json(['data' => $rows]);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // AUTO-BATCH HELPER
+    //   เมื่ออัปเดตสถานะเป็น 4.2 (กำลังลงทะเบียน) ผ่านช่องทาง "ธนาคาร 5 แห่ง"
+    //   ระบบ auto-เพิ่ม target เข้า draft batch ของ tracker × bank × วันนี้
+    //   (ถ้ายังไม่มี draft → สร้างให้)
+    //
+    //   เพื่อให้ tracker ไม่ต้องจำกดปุ่ม "ใส่ห่อเอกสาร" แยก — ระบบ derived ให้เลย
+    //   tracker เปิดดู batch ภายหลังเพื่อกดส่งให้อำเภอ
+    // ─────────────────────────────────────────────────────────────
+    private function autoAddToDraftBatch(array $targetIds, $user, ?string $subChannel, string $statusCode, ?Channel $channel, bool &$wasNewBatch = null): ?DocumentBatch
+    {
+        $wasNewBatch = false;
+
+        if ($statusCode !== '4.2') return null;
+        if (!$channel || $channel->code !== 'bank') return null;
+        if (!$subChannel) return null;
+        if (!$user) return null;
+        if ($user->hasRole('bank_staff')) return null;
+        if (!$user->hasAnyRole(['tracker', 'admin', 'super_admin'])) return null;
+        if (empty($targetIds)) return null;
+
+        $today = today();
+        $subChannel = strtolower($subChannel);
+
+        $batch = DocumentBatch::where('tracker_user_id', $user->id)
+            ->where('status', DocumentBatch::ST_DRAFT)
+            ->where('batch_date', $today)
+            ->where('sub_channel', $subChannel)
+            ->first();
+
+        if (!$batch) {
+            $targetAmphurId = DB::table('targets')->whereIn('id', $targetIds)->value('amphur_id');
+            [$submitterRole, $submitterName] = $this->resolveSubmitterFromUser($user);
+            $batch = DocumentBatch::create([
+                'batch_no'         => DocumentBatch::generateBatchNo($today),
+                'tracker_user_id'  => $user->id,
+                'batch_date'       => $today,
+                'channel_id'       => $channel->id,
+                'sub_channel'      => $subChannel,
+                'target_amphur_id' => $targetAmphurId,
+                'status'           => DocumentBatch::ST_DRAFT,
+                'submitter_role'   => $submitterRole,
+                'submitter_name'   => $submitterName,
+                'notes'            => 'สร้างอัตโนมัติจากการอัปเดตสถานะรายคน — รีวิวก่อนส่งให้อำเภอ',
+            ]);
+            $wasNewBatch = true;   // 🆕 batch นี้พึ่งสร้าง — frontend จะ redirect ไป BatchDetail
+        }
+
+        $existing = $batch->targets()->whereIn('targets.id', $targetIds)->pluck('targets.id')->all();
+        $newIds = array_values(array_diff($targetIds, $existing));
+        if (!empty($newIds)) {
+            $now = now();
+            $pivot = [];
+            foreach ($newIds as $tid) {
+                $pivot[$tid] = ['joined_at' => $now, 'created_at' => $now, 'updated_at' => $now];
+            }
+            $batch->targets()->attach($pivot);
+            TargetCurrentStatus::whereIn('target_id', $newIds)->update([
+                'sub_status_code' => '4.2.2',
+                'updated_at'      => $now,
+            ]);
+        }
+
+        return $batch;
+    }
+
+    private function resolveSubmitterFromUser($user): array
+    {
+        $map = [
+            'กำนัน'              => DocumentBatch::ROLE_KAMNAN,
+            'ผู้ใหญ่บ้าน'        => DocumentBatch::ROLE_PHUYAIBAN,
+            'อสม.'               => DocumentBatch::ROLE_OSM,
+            'ส.อบต.'             => DocumentBatch::ROLE_OPT,
+            'อบต.'               => DocumentBatch::ROLE_OPT,
+            'อปท.'               => DocumentBatch::ROLE_OPT,
+        ];
+
+        $posType = $user->position_type ?? '';
+        $role = $map[$posType] ?? DocumentBatch::ROLE_OTHER;
+
+        // ถ้าเป็น ROLE_OTHER ให้ระบุชื่อตำแหน่งจาก position_type หรือ position_other
+        $name = null;
+        if ($role === DocumentBatch::ROLE_OTHER) {
+            $name = $user->position_other ?: ($posType ?: null);
+        }
+
+        return [$role, $name];
     }
 }

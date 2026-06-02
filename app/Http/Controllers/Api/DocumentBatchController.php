@@ -9,6 +9,8 @@ use App\Models\Target;
 use App\Models\TargetCurrentStatus;
 use App\Models\TargetStatusLog;
 use App\Models\User;
+use App\Notifications\BatchDistrictReceived;
+use App\Notifications\BatchForwardedToBank;
 use App\Notifications\BatchReceived;
 use App\Notifications\BatchRecorded;
 use App\Notifications\BatchRejected;
@@ -19,24 +21,41 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Document Batch — กล่องเอกสารลงทะเบียนต่อรอบส่งให้ธนาคาร
+ * Document Batch — Path A (ผ่านอำเภอ) ใช้ batch
+ *   Path B (walk-in) ไม่ใช้ batch — bank_staff อัปเดต target ตรงเป็น 4.2.7
  *
- * Lifecycle:
- *   draft → submitted → received → recorded
- *                ↓
- *             rejected (ที่จุดใดก็ได้)
+ * Lifecycle Path A (5 จุดยืนยัน):
+ *   draft
+ *     → submitted_to_district  (tracker กดส่ง)
+ *     → district_received       (อำเภอยืนยันรับ)
+ *     → forwarded_to_bank       (อำเภอกดส่งต่อ + เลือกธนาคารปลายทาง)
+ *     → bank_received           (ธนาคารยืนยันรับ)
+ *     → bank_recorded ✓         (ธนาคารยืนยันบันทึก)
+ *     → rejected (ที่จุดใดก็ได้)
  *
  * Sub-status mapping ของ target ใน batch:
- *   add ลง batch → 4.2.2 ส่งแบบฟอร์มเอกสารแล้ว
- *   bank receive → 4.2.3 ธนาคารรับเอกสารแล้ว
- *   bank record  → 4.2.4 ธนาคารบันทึกข้อมูลลงระบบแล้ว
- *   reject       → null (กลับสถานะ tracker ใหม่ตัดสินใจ)
+ *   add ลง batch                → 4.2.2 ผู้นำชุมชน/อปท. รับเอกสาร
+ *   tracker submit              → 4.2.3 ส่งให้อำเภอแล้ว
+ *   district receive            → 4.2.4 อำเภอรับเอกสาร
+ *   district forward to bank    → 4.2.5 อำเภอส่งต่อให้ธนาคาร
+ *   bank receive                → 4.2.6 ธนาคารรับเอกสาร (จากอำเภอ)
+ *   bank record                 → 4.2.7 ธนาคารบันทึกข้อมูลลงระบบ ✓
+ *   reject                      → null (กลับ tracker ตัดสินใจใหม่)
  */
 class DocumentBatchController extends Controller
 {
-    private const SUB_SUBMITTED = '4.2.2';
-    private const SUB_RECEIVED  = '4.2.3';
-    private const SUB_RECORDED  = '4.2.4';
+    private const SUB_TRACKER_RECEIVED   = '4.2.2';
+    private const SUB_SENT_TO_DISTRICT   = '4.2.3';
+    private const SUB_DISTRICT_RECEIVED  = '4.2.4';
+    private const SUB_FORWARDED_TO_BANK  = '4.2.5';
+    private const SUB_BANK_RECEIVED      = '4.2.6';
+    private const SUB_BANK_RECORDED      = '4.2.7';
+    private const SUB_WALKIN_BANK_RECV   = '4.2.1';   // walk-in (Path B)
+
+    // backward-compat alias (used in some legacy code paths)
+    private const SUB_SUBMITTED = self::SUB_TRACKER_RECEIVED;
+    private const SUB_RECEIVED  = self::SUB_BANK_RECEIVED;
+    private const SUB_RECORDED  = self::SUB_BANK_RECORDED;
 
     // ─────────────────────────────────────────────────────────────
     // LIST / INDEX
@@ -56,21 +75,41 @@ class DocumentBatchController extends Controller
         $scope = $request->input('scope', $this->defaultScopeFor($user));
 
         $q = DocumentBatch::query()
-            ->with(['tracker:id,name,role', 'channel:id,code,name', 'receivedBy:id,name', 'recordedBy:id,name'])
+            ->with([
+                'tracker:id,name', 'channel:id,code,name', 'targetAmphur:id,name',
+                'districtReceivedBy:id,name', 'forwardedToChannel:id,code,name',
+                'receivedBy:id,name', 'recordedBy:id,name',
+            ])
             ->withCount('targets')
             ->orderByDesc('batch_date')
             ->orderByDesc('id');
 
         // ─── scope ───
+        $isSuperOrSysAdmin = $user->hasRole('super_admin');
+        $isDistrictAdmin   = $user->hasRole('admin') && !$isSuperOrSysAdmin;
+        $isBankStaff       = $user->hasRole('bank_staff') && !$user->hasAnyRole(['admin','super_admin']);
+
         if ($scope === 'mine') {
             $q->where('tracker_user_id', $user->id);
         } elseif ($scope === 'inbox') {
-            // bank/admin: เห็นเฉพาะที่รอเขาทำ (submitted หรือ received)
-            $q->whereIn('status', [DocumentBatch::ST_SUBMITTED, DocumentBatch::ST_RECEIVED]);
-            // bank_staff: กรองเฉพาะธนาคารตัวเอง (admin/super_admin ไม่กรอง)
-            if ($user->hasRole('bank_staff') && !$user->hasAnyRole(['admin', 'super_admin'])) {
-                $q->where('channel_id', $user->bank_channel_id)
-                  ->where('sub_channel', $user->bank_sub_channel);
+            // แต่ละ role เห็น batch รอ action ของตัวเอง
+            if ($isBankStaff) {
+                // ธนาคารเห็น batch ที่ forward มาถึงสาขา หรือรับแล้วยังไม่บันทึก
+                $q->whereIn('status', [DocumentBatch::ST_FORWARDED_TO_BANK, DocumentBatch::ST_BANK_RECEIVED])
+                  ->where('forwarded_to_channel_id', $user->bank_channel_id)
+                  ->where('forwarded_to_sub_channel', $user->bank_sub_channel);
+            } elseif ($isDistrictAdmin) {
+                // admin อำเภอเห็น batch ของอำเภอตัว ที่ส่งมาให้หรือรับแล้วยังไม่ส่งต่อ
+                $q->whereIn('status', [DocumentBatch::ST_SUBMITTED_TO_DISTRICT, DocumentBatch::ST_DISTRICT_RECEIVED])
+                  ->where('target_amphur_id', $user->amphur_id);
+            } else {
+                // super_admin: เห็นทุก batch ที่อยู่ในกระบวนการ
+                $q->whereIn('status', [
+                    DocumentBatch::ST_SUBMITTED_TO_DISTRICT,
+                    DocumentBatch::ST_DISTRICT_RECEIVED,
+                    DocumentBatch::ST_FORWARDED_TO_BANK,
+                    DocumentBatch::ST_BANK_RECEIVED,
+                ]);
             }
         }
         // 'all' = ไม่กรอง (super_admin)
@@ -93,8 +132,12 @@ class DocumentBatchController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $batch = DocumentBatch::with([
-            'tracker:id,name,role,phone',
+            'tracker:id,name,phone',
             'channel:id,code,name',
+            'targetAmphur:id,name',
+            'districtReceivedBy:id,name',
+            'forwardedBy:id,name',
+            'forwardedToChannel:id,code,name',
             'receivedBy:id,name',
             'recordedBy:id,name',
             'targets:id,prefix,first_name,last_name,village_id,tambon_id,amphur_id',
@@ -153,18 +196,22 @@ class DocumentBatchController extends Controller
         $user = $request->user();
 
         $batch = DB::transaction(function () use ($base, $more, $user) {
+            // derive target_amphur_id จาก first target (อำเภอปลายทาง สำหรับ scope admin)
+            $targetAmphurId = \DB::table('targets')->whereIn('id', $more['target_ids'])->value('amphur_id');
+
             $batch = DocumentBatch::create([
-                'batch_no'        => DocumentBatch::generateBatchNo($base['batch_date']),
-                'tracker_user_id' => $user->id,
-                'batch_date'      => $base['batch_date'],
-                'channel_id'      => $base['channel_id'],
-                'sub_channel'     => $base['sub_channel'] ?? null,
-                'status'          => DocumentBatch::ST_DRAFT,
-                'submitter_role'  => $base['submitter_role'],
-                'submitter_name'  => $base['submitter_name'] ?? null,
-                'notes'           => $base['notes'] ?? null,
+                'batch_no'         => DocumentBatch::generateBatchNo($base['batch_date']),
+                'tracker_user_id'  => $user->id,
+                'batch_date'       => $base['batch_date'],
+                'channel_id'       => $base['channel_id'],
+                'sub_channel'      => $base['sub_channel'] ?? null,
+                'target_amphur_id' => $targetAmphurId,
+                'status'           => DocumentBatch::ST_DRAFT,
+                'submitter_role'   => $base['submitter_role'],
+                'submitter_name'   => $base['submitter_name'] ?? null,
+                'notes'            => $base['notes'] ?? null,
             ]);
-            $this->attachTargetsAndAdvance($batch, $more['target_ids'], self::SUB_SUBMITTED, $user, 'add ลง batch');
+            $this->attachTargetsAndAdvance($batch, $more['target_ids'], self::SUB_TRACKER_RECEIVED, $user, 'ผู้นำชุมชน/อปท. รับเอกสาร');
             return $batch;
         });
 
@@ -225,7 +272,12 @@ class DocumentBatchController extends Controller
             'target_ids.*' => ['integer', 'exists:targets,id'],
         ]);
 
-        $added = $this->attachTargetsAndAdvance($batch, $data['target_ids'], self::SUB_SUBMITTED, $request->user(), 'add ลง batch');
+        $added = $this->attachTargetsAndAdvance($batch, $data['target_ids'], self::SUB_TRACKER_RECEIVED, $request->user(), 'ผู้นำชุมชน/อปท. รับเอกสาร');
+        // ถ้า batch ยังไม่มี target_amphur_id → ตั้งจาก first target ที่เพิ่มเข้ามา
+        if (!$batch->target_amphur_id && $batch->fresh()->targets()->count() > 0) {
+            $firstAmphur = \DB::table('targets')->whereIn('id', $data['target_ids'])->value('amphur_id');
+            if ($firstAmphur) $batch->update(['target_amphur_id' => $firstAmphur]);
+        }
         return response()->json([
             'message' => "เพิ่ม {$added} ราย ลง batch",
             'count'   => $added,
@@ -253,7 +305,7 @@ class DocumentBatchController extends Controller
     // LIFECYCLE — submit / receive / record / reject
     // ─────────────────────────────────────────────────────────────
 
-    /** POST /api/batches/{id}/submit — tracker ยืนยันส่ง (draft → submitted) */
+    /** POST /api/batches/{id}/submit — tracker: draft → submitted_to_district */
     public function submit(Request $request, int $id): JsonResponse
     {
         $batch = DocumentBatch::findOrFail($id);
@@ -263,35 +315,98 @@ class DocumentBatchController extends Controller
         if ($batch->targets()->count() === 0) {
             return response()->json(['message' => 'batch ว่าง — เพิ่มรายชื่อก่อนส่ง'], 422);
         }
-
-        $batch->update([
-            'status'       => DocumentBatch::ST_SUBMITTED,
-            'submitted_at' => now(),
-        ]);
-        $this->notifyBatchSubmitted($batch->fresh());
-
-        return response()->json([
-            'message' => "ส่ง batch #{$batch->batch_no} ({$batch->targets()->count()} ราย) แล้ว — รอธนาคารรับ",
-            'data'    => $batch->fresh(),
-        ]);
-    }
-
-    /** POST /api/batches/{id}/receive — bank/admin: submitted → received */
-    public function receive(Request $request, int $id): JsonResponse
-    {
-        $batch = DocumentBatch::findOrFail($id);
-        $this->authorizeBankAction($batch, $request->user());
-        $this->assertStatus($batch, DocumentBatch::ST_SUBMITTED, 'รับได้เฉพาะที่ส่งมาแล้ว');
+        if (!$batch->target_amphur_id) {
+            return response()->json(['message' => 'batch ไม่มีอำเภอปลายทาง — เพิ่ม target ก่อน'], 422);
+        }
 
         $user = $request->user();
         DB::transaction(function () use ($batch, $user) {
             $batch->update([
-                'status'              => DocumentBatch::ST_RECEIVED,
+                'status'       => DocumentBatch::ST_SUBMITTED_TO_DISTRICT,
+                'submitted_at' => now(),
+            ]);
+            // ทุกราย sub_status → 4.2.3 ส่งให้อำเภอแล้ว
+            $this->advanceBatchTargets($batch, self::SUB_SENT_TO_DISTRICT, $user, 'ส่ง batch ให้อำเภอ #'.$batch->batch_no);
+        });
+        $this->notifyBatchSubmitted($batch->fresh());
+
+        return response()->json([
+            'message' => "ส่ง batch #{$batch->batch_no} ({$batch->targets()->count()} ราย) ให้อำเภอแล้ว — รออำเภอรับ",
+            'data'    => $batch->fresh(),
+        ]);
+    }
+
+    /** POST /api/batches/{id}/district-receive — admin อำเภอ: submitted_to_district → district_received */
+    public function districtReceive(Request $request, int $id): JsonResponse
+    {
+        $batch = DocumentBatch::findOrFail($id);
+        $this->authorizeDistrictAction($batch, $request->user());
+        $this->assertStatus($batch, DocumentBatch::ST_SUBMITTED_TO_DISTRICT, 'อำเภอรับได้เฉพาะ batch ที่ tracker ส่งมา');
+
+        $user = $request->user();
+        DB::transaction(function () use ($batch, $user) {
+            $batch->update([
+                'status'                       => DocumentBatch::ST_DISTRICT_RECEIVED,
+                'district_received_at'         => now(),
+                'district_received_by_user_id' => $user->id,
+            ]);
+            $this->advanceBatchTargets($batch, self::SUB_DISTRICT_RECEIVED, $user, 'อำเภอรับ batch #'.$batch->batch_no);
+        });
+        $this->notifyBatchDistrictReceived($batch->fresh());
+
+        return response()->json([
+            'message' => "อำเภอรับ batch #{$batch->batch_no} ({$batch->targets_count} ราย) เรียบร้อย — กดส่งต่อธนาคารได้",
+            'data'    => $batch->fresh(),
+        ]);
+    }
+
+    /** POST /api/batches/{id}/district-forward — admin อำเภอ: district_received → forwarded_to_bank */
+    public function districtForward(Request $request, int $id): JsonResponse
+    {
+        $batch = DocumentBatch::findOrFail($id);
+        $this->authorizeDistrictAction($batch, $request->user());
+        $this->assertStatus($batch, DocumentBatch::ST_DISTRICT_RECEIVED, 'ส่งต่อได้เฉพาะ batch ที่อำเภอรับแล้ว');
+
+        $bankCodes = array_keys(\App\Models\Bank::optionsMap());
+        $data = $request->validate([
+            'forwarded_to_channel_id'  => ['required', 'integer', 'exists:channels,id'],
+            'forwarded_to_sub_channel' => ['required', 'string', 'in:'.implode(',', array_map('strtolower', $bankCodes))],
+        ]);
+
+        $user = $request->user();
+        DB::transaction(function () use ($batch, $user, $data) {
+            $batch->update([
+                'status'                  => DocumentBatch::ST_FORWARDED_TO_BANK,
+                'forwarded_at'            => now(),
+                'forwarded_by_user_id'    => $user->id,
+                'forwarded_to_channel_id' => $data['forwarded_to_channel_id'],
+                'forwarded_to_sub_channel'=> strtolower($data['forwarded_to_sub_channel']),
+            ]);
+            $this->advanceBatchTargets($batch, self::SUB_FORWARDED_TO_BANK, $user, 'อำเภอส่งต่อให้ธนาคาร batch #'.$batch->batch_no);
+        });
+        $this->notifyBatchForwardedToBank($batch->fresh());
+
+        return response()->json([
+            'message' => "ส่งต่อ batch #{$batch->batch_no} ให้ธนาคาร".strtoupper($data['forwarded_to_sub_channel'])." แล้ว",
+            'data'    => $batch->fresh(),
+        ]);
+    }
+
+    /** POST /api/batches/{id}/receive — bank/admin: forwarded_to_bank → bank_received */
+    public function receive(Request $request, int $id): JsonResponse
+    {
+        $batch = DocumentBatch::findOrFail($id);
+        $this->authorizeBankAction($batch, $request->user());
+        $this->assertStatus($batch, DocumentBatch::ST_FORWARDED_TO_BANK, 'ธนาคารรับได้เฉพาะ batch ที่อำเภอส่งต่อมา');
+
+        $user = $request->user();
+        DB::transaction(function () use ($batch, $user) {
+            $batch->update([
+                'status'              => DocumentBatch::ST_BANK_RECEIVED,
                 'received_at'         => now(),
                 'received_by_user_id' => $user->id,
             ]);
-            // advance target sub_status → 4.2.3
-            $this->advanceBatchTargets($batch, self::SUB_RECEIVED, $user, 'ธนาคารรับเอกสาร batch #'.$batch->batch_no);
+            $this->advanceBatchTargets($batch, self::SUB_BANK_RECEIVED, $user, 'ธนาคารรับเอกสาร batch #'.$batch->batch_no);
         });
         $this->notifyBatchReceived($batch->fresh());
 
@@ -301,22 +416,21 @@ class DocumentBatchController extends Controller
         ]);
     }
 
-    /** POST /api/batches/{id}/record — bank/admin: received → recorded */
+    /** POST /api/batches/{id}/record — bank/admin: bank_received → bank_recorded */
     public function record(Request $request, int $id): JsonResponse
     {
         $batch = DocumentBatch::findOrFail($id);
         $this->authorizeBankAction($batch, $request->user());
-        $this->assertStatus($batch, DocumentBatch::ST_RECEIVED, 'บันทึกได้เฉพาะที่รับมาแล้ว');
+        $this->assertStatus($batch, DocumentBatch::ST_BANK_RECEIVED, 'บันทึกได้เฉพาะที่รับมาแล้ว');
 
         $user = $request->user();
         DB::transaction(function () use ($batch, $user) {
             $batch->update([
-                'status'              => DocumentBatch::ST_RECORDED,
+                'status'              => DocumentBatch::ST_BANK_RECORDED,
                 'recorded_at'         => now(),
                 'recorded_by_user_id' => $user->id,
             ]);
-            // advance target sub_status → 4.2.4 (บันทึกครบ — รอ 4.4 KYC ต่อไป โดย human action)
-            $this->advanceBatchTargets($batch, self::SUB_RECORDED, $user, 'ธนาคารบันทึก batch #'.$batch->batch_no);
+            $this->advanceBatchTargets($batch, self::SUB_BANK_RECORDED, $user, 'ธนาคารบันทึก batch #'.$batch->batch_no);
         });
         $this->notifyBatchRecorded($batch->fresh());
 
@@ -326,20 +440,24 @@ class DocumentBatchController extends Controller
         ]);
     }
 
-    /** POST /api/batches/{id}/reject — bank/admin: ปฏิเสธ (ต้องระบุเหตุผล) */
+    /** POST /api/batches/{id}/reject — district/bank/admin ปฏิเสธ ทุกจุดยกเว้น draft/recorded/rejected */
     public function reject(Request $request, int $id): JsonResponse
     {
         $batch = DocumentBatch::findOrFail($id);
-        $this->authorizeBankAction($batch, $request->user());
-        if (in_array($batch->status, [DocumentBatch::ST_DRAFT, DocumentBatch::ST_RECORDED, DocumentBatch::ST_REJECTED])) {
-            return response()->json(['message' => 'ปฏิเสธไม่ได้ — สถานะปัจจุบัน: '.$batch->status], 422);
-        }
+        $user = $request->user();
+
+        // ใครปฏิเสธได้ตามสถานะ
+        $atDistrict = in_array($batch->status, [DocumentBatch::ST_SUBMITTED_TO_DISTRICT, DocumentBatch::ST_DISTRICT_RECEIVED]);
+        $atBank     = in_array($batch->status, [DocumentBatch::ST_FORWARDED_TO_BANK, DocumentBatch::ST_BANK_RECEIVED]);
+
+        if ($atDistrict) $this->authorizeDistrictAction($batch, $user);
+        elseif ($atBank) $this->authorizeBankAction($batch, $user);
+        else return response()->json(['message' => 'ปฏิเสธไม่ได้ — สถานะปัจจุบัน: '.$batch->status], 422);
 
         $data = $request->validate([
             'reject_reason' => ['required', 'string', 'min:5', 'max:500'],
         ]);
 
-        $user = $request->user();
         DB::transaction(function () use ($batch, $data, $user) {
             $batch->update([
                 'status'        => DocumentBatch::ST_REJECTED,
@@ -350,8 +468,71 @@ class DocumentBatchController extends Controller
         $this->notifyBatchRejected($batch->fresh());
 
         return response()->json([
-            'message' => "ปฏิเสธ batch #{$batch->batch_no} แล้ว · ผู้ติดตามรับแจ้ง",
+            'message' => "ปฏิเสธ batch #{$batch->batch_no} แล้ว · tracker รับแจ้ง",
             'data'    => $batch->fresh(),
+        ]);
+    }
+
+    /**
+     * POST /api/batches/walkin-record — bank_staff: bulk mark 4.2.7 walk-in (Path B)
+     *   ไม่สร้าง batch · target อัปเดต status_code=4.2 + sub_status_code=4.2.7 ทันที
+     */
+    public function walkInBulkRecord(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user->hasRole('bank_staff') && !$user->hasAnyRole(['admin','super_admin'])) {
+            abort(403, 'เฉพาะเจ้าหน้าที่ธนาคารหรือ admin เท่านั้น');
+        }
+
+        $data = $request->validate([
+            'target_ids'   => ['required', 'array', 'min:1', 'max:500'],
+            'target_ids.*' => ['integer', 'exists:targets,id'],
+            'note'         => ['nullable', 'string', 'max:500'],
+        ], ['target_ids.max' => 'อัปเดต walk-in ได้สูงสุด 500 รายต่อครั้ง']);
+
+        $now = now();
+        $bankChannelId  = $user->bank_channel_id;
+        $bankSubChannel = $user->bank_sub_channel;
+        // ถ้า admin/super_admin → ใช้ channel เริ่มต้น (bank)
+        if (!$bankChannelId) {
+            $bankCh = \App\Models\Channel::where('code', 'bank')->first();
+            $bankChannelId = $bankCh?->id;
+            $bankSubChannel = $bankSubChannel ?: 'ktb';   // fallback default
+        }
+
+        DB::transaction(function () use ($data, $user, $now, $bankChannelId, $bankSubChannel) {
+            foreach ($data['target_ids'] as $tid) {
+                TargetCurrentStatus::updateOrCreate(
+                    ['target_id' => $tid],
+                    [
+                        'status_code'     => '4.2',
+                        'sub_status_code' => self::SUB_BANK_RECORDED,  // 4.2.7 จบ
+                        'channel_id'      => $bankChannelId,
+                        'sub_channel'     => $bankSubChannel,
+                        'note'            => $data['note'] ?? 'Walk-in · ธนาคารบันทึกตรง',
+                        'updated_by'      => $user->id,
+                        'updated_by_name' => $user->name,
+                        'updated_at'      => $now,
+                    ]
+                );
+                TargetStatusLog::create([
+                    'target_id'          => $tid,
+                    'status_code'        => '4.2',
+                    'sub_status_code'    => self::SUB_BANK_RECORDED,
+                    'channel_id'         => $bankChannelId,
+                    'sub_channel'        => $bankSubChannel,
+                    'note'               => 'Walk-in · ' . ($data['note'] ?? 'ธนาคารบันทึกตรง'),
+                    'user_id'            => $user->id,
+                    'user_name_snapshot' => $user->name,
+                    'changed_at'         => $now,
+                ]);
+            }
+        });
+
+        $count = count($data['target_ids']);
+        return response()->json([
+            'message' => "บันทึก walk-in {$count} ราย เรียบร้อย",
+            'count'   => $count,
         ]);
     }
 
@@ -359,19 +540,23 @@ class DocumentBatchController extends Controller
     // SUMMARY (for dashboard preview — full dashboard ใน Phase E)
     // ─────────────────────────────────────────────────────────────
 
-    /** GET /api/batches/summary — KPI 5 ตัวสำหรับ HERO ของหน้า Batches list */
+    /** GET /api/batches/summary — KPI สำหรับ HERO ของหน้า Batches list */
     public function summary(Request $request): JsonResponse
     {
         $today = today();
         $base = $this->scopedQuery($request->user());
 
         return response()->json([
-            'submitted_today'  => (clone $base)->whereDate('submitted_at', $today)->count(),
-            'pending_receive'  => (clone $base)->where('status', DocumentBatch::ST_SUBMITTED)->count(),
-            'pending_record'   => (clone $base)->where('status', DocumentBatch::ST_RECEIVED)->count(),
-            'recorded_today'   => (clone $base)->whereDate('recorded_at', $today)->count(),
-            'rejected_today'   => (clone $base)->whereDate('updated_at', $today)
-                                    ->where('status', DocumentBatch::ST_REJECTED)->count(),
+            'submitted_today'   => (clone $base)->whereDate('submitted_at', $today)->count(),
+            'pending_district'  => (clone $base)->where('status', DocumentBatch::ST_SUBMITTED_TO_DISTRICT)->count(),
+            'pending_forward'   => (clone $base)->where('status', DocumentBatch::ST_DISTRICT_RECEIVED)->count(),
+            'pending_bank_recv' => (clone $base)->where('status', DocumentBatch::ST_FORWARDED_TO_BANK)->count(),
+            'pending_record'    => (clone $base)->where('status', DocumentBatch::ST_BANK_RECEIVED)->count(),
+            'recorded_today'    => (clone $base)->whereDate('recorded_at', $today)->count(),
+            'rejected_today'    => (clone $base)->whereDate('updated_at', $today)
+                                       ->where('status', DocumentBatch::ST_REJECTED)->count(),
+            // backward-compat (frontend ใช้อยู่)
+            'pending_receive'   => (clone $base)->where('status', DocumentBatch::ST_FORWARDED_TO_BANK)->count(),
         ]);
     }
 
@@ -388,62 +573,86 @@ class DocumentBatchController extends Controller
         $today = today();
         $base = $this->scopedQuery($user);
 
-        // ─── 1) KPI ───
+        // ─── 1) KPI — รองรับ 5-step lifecycle ───
         $kpi = [
-            'submitted_today' => (clone $base)->whereDate('submitted_at', $today)->count(),
-            'pending_receive' => (clone $base)->where('status', DocumentBatch::ST_SUBMITTED)->count(),
-            'pending_record'  => (clone $base)->where('status', DocumentBatch::ST_RECEIVED)->count(),
-            'recorded_today'  => (clone $base)->whereDate('recorded_at', $today)->count(),
-            'rejected_today'  => (clone $base)->whereDate('updated_at', $today)
-                                    ->where('status', DocumentBatch::ST_REJECTED)->count(),
+            'submitted_today'   => (clone $base)->whereDate('submitted_at', $today)->count(),
+            'pending_district'  => (clone $base)->where('status', DocumentBatch::ST_SUBMITTED_TO_DISTRICT)->count(),
+            'pending_forward'   => (clone $base)->where('status', DocumentBatch::ST_DISTRICT_RECEIVED)->count(),
+            'pending_bank_recv' => (clone $base)->where('status', DocumentBatch::ST_FORWARDED_TO_BANK)->count(),
+            'pending_record'    => (clone $base)->where('status', DocumentBatch::ST_BANK_RECEIVED)->count(),
+            'recorded_today'    => (clone $base)->whereDate('recorded_at', $today)->count(),
+            'rejected_today'    => (clone $base)->whereDate('updated_at', $today)
+                                       ->where('status', DocumentBatch::ST_REJECTED)->count(),
+            // backward-compat
+            'pending_receive'   => (clone $base)->where('status', DocumentBatch::ST_FORWARDED_TO_BANK)->count(),
         ];
 
-        // ─── 2) Bottleneck — submitted หรือ received แต่ค้างเกิน 3 วัน ───
+        // ─── 2) Bottleneck — ค้างเกิน 3 วันในกระบวนการ ───
         $threeDaysAgo = now()->subDays(3);
         $bottleneck = (clone $base)
-            ->with(['tracker:id,name', 'channel:id,code,name'])
+            ->with(['tracker:id,name', 'channel:id,code,name', 'targetAmphur:id,name'])
             ->withCount('targets')
+            ->whereIn('status', [
+                DocumentBatch::ST_SUBMITTED_TO_DISTRICT,
+                DocumentBatch::ST_DISTRICT_RECEIVED,
+                DocumentBatch::ST_FORWARDED_TO_BANK,
+                DocumentBatch::ST_BANK_RECEIVED,
+            ])
             ->where(function ($q) use ($threeDaysAgo) {
                 $q->where(function ($q2) use ($threeDaysAgo) {
-                    $q2->where('status', DocumentBatch::ST_SUBMITTED)
+                    $q2->where('status', DocumentBatch::ST_SUBMITTED_TO_DISTRICT)
                        ->where('submitted_at', '<', $threeDaysAgo);
                 })->orWhere(function ($q2) use ($threeDaysAgo) {
-                    $q2->where('status', DocumentBatch::ST_RECEIVED)
+                    $q2->where('status', DocumentBatch::ST_DISTRICT_RECEIVED)
+                       ->where('district_received_at', '<', $threeDaysAgo);
+                })->orWhere(function ($q2) use ($threeDaysAgo) {
+                    $q2->where('status', DocumentBatch::ST_FORWARDED_TO_BANK)
+                       ->where('forwarded_at', '<', $threeDaysAgo);
+                })->orWhere(function ($q2) use ($threeDaysAgo) {
+                    $q2->where('status', DocumentBatch::ST_BANK_RECEIVED)
                        ->where('received_at', '<', $threeDaysAgo);
                 });
             })
-            ->orderByRaw('LEAST(IFNULL(submitted_at, "9999-12-31"), IFNULL(received_at, "9999-12-31")) ASC')
+            ->orderByRaw('LEAST(IFNULL(submitted_at, "9999-12-31"), IFNULL(district_received_at, "9999-12-31"), IFNULL(forwarded_at, "9999-12-31"), IFNULL(received_at, "9999-12-31")) ASC')
             ->limit(15)
-            ->get(['id', 'batch_no', 'tracker_user_id', 'channel_id', 'sub_channel', 'status', 'submitted_at', 'received_at'])
+            ->get()
             ->map(function ($b) {
-                $stuckSince = $b->status === DocumentBatch::ST_SUBMITTED ? $b->submitted_at : $b->received_at;
+                $stuckSince = match ($b->status) {
+                    DocumentBatch::ST_SUBMITTED_TO_DISTRICT => $b->submitted_at,
+                    DocumentBatch::ST_DISTRICT_RECEIVED     => $b->district_received_at,
+                    DocumentBatch::ST_FORWARDED_TO_BANK     => $b->forwarded_at,
+                    DocumentBatch::ST_BANK_RECEIVED         => $b->received_at,
+                    default => $b->submitted_at,
+                };
                 return [
                     'id'             => $b->id,
                     'batch_no'       => $b->batch_no,
                     'tracker_name'   => $b->tracker?->name ?? '—',
-                    'channel_name'   => $b->channel?->name ?? '—',
-                    'sub_channel'    => strtoupper((string) $b->sub_channel),
+                    'amphur_name'    => $b->targetAmphur?->name ?? '—',
+                    'channel_name'   => $b->forwardedToChannel?->name ?? $b->channel?->name ?? '—',
+                    'sub_channel'    => strtoupper((string) ($b->forwarded_to_sub_channel ?: $b->sub_channel)),
                     'status'         => $b->status,
                     'targets_count'  => $b->targets_count,
-                    'days_stuck'     => (int) round(abs(now()->diffInHours($stuckSince)) / 24),
+                    'days_stuck'     => $stuckSince ? (int) round(abs(now()->diffInHours($stuckSince)) / 24) : 0,
                 ];
             });
 
-        // ─── 3) Bank Leaderboard — เร็วสุด (avg ส่ง→บันทึก) ───
+        // ─── 3) Bank Leaderboard — เร็วสุด (avg ส่ง→บันทึก) ใช้ forwarded_to_* เพราะเป็นธนาคารปลายทาง ───
         $bankBoard = (clone $base)
-            ->where('status', DocumentBatch::ST_RECORDED)
-            ->whereNotNull('submitted_at')->whereNotNull('recorded_at')
-            ->selectRaw('channel_id, sub_channel,
+            ->where('status', DocumentBatch::ST_BANK_RECORDED)
+            ->whereNotNull('forwarded_at')->whereNotNull('recorded_at')
+            ->whereNotNull('forwarded_to_channel_id')
+            ->selectRaw('forwarded_to_channel_id AS channel_id, forwarded_to_sub_channel AS sub_channel,
                          COUNT(*) as total_batches,
-                         AVG(TIMESTAMPDIFF(HOUR, submitted_at, recorded_at)) / 24 as avg_days')
-            ->groupBy('channel_id', 'sub_channel')
+                         AVG(TIMESTAMPDIFF(HOUR, forwarded_at, recorded_at)) / 24 as avg_days')
+            ->groupBy('forwarded_to_channel_id', 'forwarded_to_sub_channel')
             ->having('total_batches', '>', 0)
             ->orderBy('avg_days', 'ASC')
             ->limit(5)
             ->get();
 
         $channelMap = \App\Models\Channel::pluck('name', 'id');
-        $bankMap = \App\Models\Bank::optionsMap();   // ['KTB' => 'ธ.กรุงไทย', ...]
+        $bankMap = \App\Models\Bank::optionsMap();
         $bankLeaderboard = $bankBoard->map(fn ($r) => [
             'channel_name'   => $channelMap[$r->channel_id] ?? '—',
             'sub_channel'    => strtoupper((string) $r->sub_channel),
@@ -493,13 +702,19 @@ class DocumentBatchController extends Controller
         ]);
     }
 
-    /** Helper: scope query ตาม role — bank_staff เห็นแค่ธนาคารตัว, อื่นๆ เห็นทั้งระบบ */
+    /** Helper: scope query ตาม role */
     private function scopedQuery(User $user): \Illuminate\Database\Eloquent\Builder
     {
         $q = DocumentBatch::query();
-        if ($user->hasRole('bank_staff') && !$user->hasAnyRole(['admin', 'super_admin'])) {
-            $q->where('channel_id', $user->bank_channel_id)
-              ->where('sub_channel', $user->bank_sub_channel);
+        if ($user->hasRole('super_admin')) return $q;
+        // district admin → กรองเฉพาะอำเภอตัว
+        if ($user->hasRole('admin') && $user->amphur_id) {
+            $q->where('target_amphur_id', $user->amphur_id);
+        }
+        // bank_staff → กรองเฉพาะ batch ที่ forward มาธนาคารตัว
+        elseif ($user->hasRole('bank_staff') && !$user->hasAnyRole(['admin', 'super_admin'])) {
+            $q->where('forwarded_to_channel_id', $user->bank_channel_id)
+              ->where('forwarded_to_sub_channel', $user->bank_sub_channel);
         }
         return $q;
     }
@@ -536,12 +751,29 @@ class DocumentBatchController extends Controller
 
     private function notifyBatchSubmitted(DocumentBatch $batch): void
     {
-        // notify: bank_staff ของธนาคาร + super_admin คนแรก (รับ LINE)
+        // tracker ส่งให้อำเภอ → notify admin ของอำเภอนั้น
+        $districtAdmins = User::role('admin')->where('amphur_id', $batch->target_amphur_id)->get();
+        $this->notifyBatchEvent($batch, BatchSubmitted::class, $districtAdmins->all());
+    }
+
+    private function notifyBatchDistrictReceived(DocumentBatch $batch): void
+    {
+        // อำเภอรับ → notify tracker เจ้าของ batch
+        $tracker = User::find($batch->tracker_user_id);
+        $this->notifyBatchEvent($batch, BatchDistrictReceived::class, $tracker ? [$tracker] : []);
+    }
+
+    private function notifyBatchForwardedToBank(DocumentBatch $batch): void
+    {
+        // อำเภอส่งต่อ → notify bank_staff ของธนาคารปลายทาง + tracker
         $bankStaff = User::role('bank_staff')
-            ->where('bank_channel_id', $batch->channel_id)
-            ->where('bank_sub_channel', $batch->sub_channel)
+            ->where('bank_channel_id', $batch->forwarded_to_channel_id)
+            ->where('bank_sub_channel', $batch->forwarded_to_sub_channel)
             ->get();
-        $this->notifyBatchEvent($batch, BatchSubmitted::class, $bankStaff->all());
+        $tracker = User::find($batch->tracker_user_id);
+        $recipients = $bankStaff->all();
+        if ($tracker) $recipients[] = $tracker;
+        $this->notifyBatchEvent($batch, BatchForwardedToBank::class, $recipients);
     }
 
     private function notifyBatchReceived(DocumentBatch $batch): void
@@ -569,19 +801,26 @@ class DocumentBatchController extends Controller
 
     private function defaultScopeFor(User $user): string
     {
-        if ($user->hasRole('super_admin') || $user->hasRole('admin')) return 'all';
+        if ($user->hasRole('super_admin')) return 'all';
+        // district admin → inbox (ของอำเภอตัว) · global admin → all
+        if ($user->hasRole('admin')) return $user->amphur_id ? 'inbox' : 'all';
         if ($user->hasRole('bank_staff')) return 'inbox';
         return 'mine';   // tracker
     }
 
     private function authorizeView(DocumentBatch $batch, User $user): void
     {
-        if ($user->hasRole('super_admin') || $user->hasRole('admin')) return;
+        if ($user->hasRole('super_admin')) return;
+        // global admin (no amphur scope) เห็นทุก batch
+        if ($user->hasRole('admin') && !$user->amphur_id) return;
+        // district admin เห็น batch ของอำเภอตัว
+        if ($user->hasRole('admin') && $batch->target_amphur_id === $user->amphur_id) return;
+        // tracker เห็นของตัว
         if ($batch->tracker_user_id === $user->id) return;
-        // bank_staff: ดูได้ถ้า batch ตรงธนาคารตัว
+        // bank_staff: เห็น batch ที่ forward มาธนาคารตัว (รวม recorded/rejected ที่จบแล้ว)
         if ($user->hasRole('bank_staff')
-            && $batch->channel_id === $user->bank_channel_id
-            && $batch->sub_channel === $user->bank_sub_channel) return;
+            && $batch->forwarded_to_channel_id === $user->bank_channel_id
+            && $batch->forwarded_to_sub_channel === $user->bank_sub_channel) return;
         abort(403, 'ไม่มีสิทธิ์ดู batch นี้');
     }
 
@@ -594,13 +833,24 @@ class DocumentBatchController extends Controller
 
     private function authorizeBankAction(DocumentBatch $batch, User $user): void
     {
-        // admin/super_admin ทำได้ทุก batch
-        if ($user->hasRole('super_admin') || $user->hasRole('admin')) return;
-        // bank_staff ทำได้เฉพาะ batch ของธนาคารตัวเอง (channel + sub_channel ตรง)
+        if ($user->hasRole('super_admin')) return;
+        // admin (district) ถ้า batch.target_amphur_id ตรงกับอำเภอตัว → ทำแทนได้
+        if ($user->hasRole('admin') && !$user->amphur_id) return;  // admin ที่ไม่ผูกอำเภอ = global admin
+        if ($user->hasRole('admin') && $batch->target_amphur_id === $user->amphur_id) return;
+        // bank_staff ต้องตรง forwarded_to_channel/sub_channel
         if ($user->hasRole('bank_staff')
-            && $batch->channel_id === $user->bank_channel_id
-            && $batch->sub_channel === $user->bank_sub_channel) return;
-        abort(403, 'เฉพาะเจ้าหน้าที่ธนาคารของสาขานี้เท่านั้น');
+            && $batch->forwarded_to_channel_id === $user->bank_channel_id
+            && $batch->forwarded_to_sub_channel === $user->bank_sub_channel) return;
+        abort(403, 'เฉพาะเจ้าหน้าที่ธนาคารปลายทางเท่านั้น');
+    }
+
+    /** อำเภอ (admin ที่ผูก amphur_id ตรง batch.target_amphur_id) — super_admin/admin ทั่วไปทำได้ทุกอำเภอ */
+    private function authorizeDistrictAction(DocumentBatch $batch, User $user): void
+    {
+        if ($user->hasRole('super_admin')) return;
+        if ($user->hasRole('admin') && !$user->amphur_id) return;  // global admin
+        if ($user->hasRole('admin') && $batch->target_amphur_id === $user->amphur_id) return;
+        abort(403, 'เฉพาะ admin ของอำเภอปลายทางเท่านั้น');
     }
 
     private function assertStatus(DocumentBatch $batch, string $expected, string $message): void

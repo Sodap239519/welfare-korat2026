@@ -6,9 +6,18 @@ import { ref, reactive, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { useRouter, useRoute } from 'vue-router';
 import { formatNumber, shortDate, statusColorClass, statusShort } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
 const route = useRoute();
+const auth = useAuthStore();
+
+// Walk-in feature เห็นเฉพาะ bank_staff (หรือ admin/super_admin ที่ทำแทนได้)
+const canWalkIn = computed(() => auth.roles.includes('bank_staff')
+  || auth.roles.includes('admin') || auth.roles.includes('super_admin'));
+// Tracker tools (batch + bulk status) เห็นเฉพาะ tracker/admin/super_admin (bank_staff ไม่เห็น)
+const canTrackerTools = computed(() => !auth.roles.includes('bank_staff')
+  || auth.roles.includes('admin') || auth.roles.includes('super_admin'));
 const bootstrapping = ref(true);
 
 const statuses = ref([]);
@@ -50,6 +59,7 @@ const batchForm = reactive({
 });
 const batchErrors = ref({});
 const batchSaving = ref(false);
+const batchFromBulk = ref(false);
 const submitterRoles = ref([]);  // load จาก /api/ref/submitter-roles
 const batchChannelObj = computed(() => channels.value.find(c => c.id === Number(batchForm.channel_id)));
 const batchNeedsBank = computed(() => batchChannelObj.value?.code === 'bank');
@@ -101,19 +111,45 @@ async function submitBulk() {
     clearSelection();
     setTimeout(() => (flashOk.value = ''), 4000);
     await load(data.value.current_page);
+    // auto_batch สร้าง/พบอยู่แล้ว → ไป BatchDetail ทันที (ทั้ง is_new และ existing)
+    if (res.auto_batch) {
+      setTimeout(() => router.push({ name: 'batch-detail', params: { id: res.auto_batch.id } }), 1200);
+    }
   } catch (e) {
     bulkErrors.value = e.response?.data?.errors || { general: [e.response?.data?.message || 'ผิดพลาด'] };
   } finally { bulkSaving.value = false; }
 }
 
 // ─── Batch modal handlers ───
-function openBatchModal() {
+// ─── Walk-in flow (Path B) — bank_staff bulk mark 4.2.7 ───
+const walkInSaving = ref(false);
+async function walkInRecord() {
+  if (selectedCount.value === 0) return;
+  if (!confirm(`ยืนยันบันทึก walk-in ${selectedCount.value} ราย?\n\nระบบจะ:\n• อัปเดตทุกรายเป็น "4.2.7 ธนาคารบันทึกข้อมูลครบ" ทันที\n• ไม่สร้าง batch (เพราะเป็น walk-in ตรง)\n• เก็บ log + ระบุชื่อคุณเป็นผู้ทำ`)) return;
+
+  walkInSaving.value = true;
+  try {
+    const { data: res } = await axios.post('/api/batches/walkin-record', {
+      target_ids: Array.from(selectedIds.value),
+      note: 'Walk-in · ประชาชนกรอกที่ธนาคารโดยตรง',
+    });
+    flashOk.value = res.message;
+    clearSelection();
+    setTimeout(() => (flashOk.value = ''), 4000);
+    await load(data.value.current_page);
+  } catch (e) {
+    alert(e.response?.data?.message || 'อัปเดต walk-in ไม่สำเร็จ');
+  } finally { walkInSaving.value = false; }
+}
+
+function openBatchModal(prefilledBank = null) {
   // auto-fill ธนาคารถ้ามี channel 'bank' (ส่วนใหญ่ flow คือใส่ห่อไปให้ธนาคาร)
   const bankCh = channels.value.find(c => c.code === 'bank');
+  batchFromBulk.value = !!prefilledBank;
   Object.assign(batchForm, {
     batch_date: new Date().toISOString().slice(0, 10),
     channel_id: bankCh ? bankCh.id : '',
-    sub_channel: '',
+    sub_channel: prefilledBank || '',
     submitter_role: '',
     submitter_name: '',
     notes: '',
@@ -137,6 +173,7 @@ async function submitBatch() {
     const { data: res } = await axios.post('/api/batches/quick-create', payload);
     flashOk.value = res.message;
     showBatchModal.value = false;
+    batchFromBulk.value = false;
     clearSelection();
     setTimeout(() => (flashOk.value = ''), 4000);
     // นำทางไปหน้า BatchDetail เลย — tracker ได้ review/submit ต่อ
@@ -559,22 +596,33 @@ async function submitAdd() {
             </div>
             <!-- DESKTOP: ปุ่มอยู่บรรทัดเดียวกัน -->
             <div class="hidden lg:flex gap-2 ml-auto">
-              <button @click="openBatchModal" class="px-4 py-2.5 rounded-xl bg-amber-400 text-amber-900 font-medium text-sm flex items-center gap-1.5 hover:bg-amber-300 shadow min-h-[44px]">
+              <button v-if="canWalkIn" @click="walkInRecord" :disabled="walkInSaving"
+                      class="px-4 py-2.5 rounded-xl bg-green-500 text-white font-medium text-sm flex items-center gap-1.5 hover:bg-green-600 shadow min-h-[44px]">
+                <i :class="['fi-rr-bank', walkInSaving && 'animate-spin']"></i> Walk-in (ธ.บันทึกตรง)
+              </button>
+              <button v-if="canTrackerTools" @click="openBatchModal" class="px-4 py-2.5 rounded-xl bg-amber-400 text-amber-900 font-medium text-sm flex items-center gap-1.5 hover:bg-amber-300 shadow min-h-[44px]">
                 <i class="fi-rr-box-alt"></i> ใส่ห่อเอกสาร
               </button>
-              <button @click="openBulkModal" class="px-4 py-2.5 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center gap-1.5 hover:bg-blue-50 shadow min-h-[44px]">
+              <button v-if="canTrackerTools" @click="openBulkModal" class="px-4 py-2.5 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center gap-1.5 hover:bg-blue-50 shadow min-h-[44px]">
                 <i class="fi-rr-edit"></i> อัปเดตสถานะ
               </button>
             </div>
           </div>
-          <!-- MOBILE: ปุ่ม 2 อันใต้ counter เต็มกว้าง — กดง่ายด้วยนิ้วโป้ง -->
-          <div class="grid grid-cols-2 gap-2 lg:hidden">
-            <button @click="openBatchModal" class="px-3 py-3 rounded-xl bg-amber-400 text-amber-900 font-medium text-sm flex items-center justify-center gap-1.5 active:bg-amber-500 shadow min-h-[48px]">
-              <i class="fi-rr-box-alt"></i> ใส่ห่อเอกสาร
+          <!-- MOBILE: ปุ่ม grid เต็มกว้าง — กดง่ายด้วยนิ้วโป้ง -->
+          <div class="grid gap-2 lg:hidden"
+               :class="canWalkIn && canTrackerTools ? 'grid-cols-1' : 'grid-cols-2'">
+            <button v-if="canWalkIn" @click="walkInRecord" :disabled="walkInSaving"
+                    class="px-3 py-3 rounded-xl bg-green-500 text-white font-medium text-sm flex items-center justify-center gap-1.5 active:bg-green-600 shadow min-h-[48px]">
+              <i :class="['fi-rr-bank', walkInSaving && 'animate-spin']"></i> Walk-in (ธ.บันทึกตรง)
             </button>
-            <button @click="openBulkModal" class="px-3 py-3 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center justify-center gap-1.5 active:bg-blue-50 shadow min-h-[48px]">
-              <i class="fi-rr-edit"></i> อัปเดตสถานะ
-            </button>
+            <div v-if="canTrackerTools" class="grid grid-cols-2 gap-2">
+              <button @click="openBatchModal()" class="px-3 py-3 rounded-xl bg-amber-400 text-amber-900 font-medium text-sm flex items-center justify-center gap-1.5 active:bg-amber-500 shadow min-h-[48px]">
+                <i class="fi-rr-box-alt"></i> ใส่ห่อเอกสาร
+              </button>
+              <button @click="openBulkModal" class="px-3 py-3 rounded-xl bg-white text-blue-700 font-medium text-sm flex items-center justify-center gap-1.5 active:bg-blue-50 shadow min-h-[48px]">
+                <i class="fi-rr-edit"></i> อัปเดตสถานะ
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -662,7 +710,7 @@ async function submitAdd() {
       <!-- ─────────────────────────────────────────── -->
       <!-- 📦 Batch creation modal — ใส่ห่อเอกสารธนาคาร -->
       <!-- ─────────────────────────────────────────── -->
-      <Modal :show="showBatchModal" max-width="max-w-lg" @close="showBatchModal = false">
+      <Modal :show="showBatchModal" max-width="max-w-lg" @close="showBatchModal = false; batchFromBulk = false">
         <form @submit.prevent="submitBatch" class="space-y-4">
           <div class="flex items-start gap-3 mb-1">
             <div class="w-11 h-11 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center text-xl">
@@ -677,6 +725,12 @@ async function submitAdd() {
             <button type="button" @click="showBatchModal = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800 tap-transparent" title="ปิด">
               <i class="fi-rr-cross-small"></i>
             </button>
+          </div>
+
+          <!-- banner แจ้ง context เมื่อมาจาก flow อัปเดตสถานะต่อเนื่อง -->
+          <div v-if="batchFromBulk" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-xs text-green-700 dark:text-green-300">
+            <i class="fi-rr-check-circle shrink-0"></i>
+            <span>อัปเดตสถานะ <strong>{{ selectedCount }} ราย</strong> สำเร็จแล้ว · ขั้นต่อไป: ใส่ห่อเอกสารส่งธนาคาร</span>
           </div>
 
           <!-- วันที่ส่ง -->

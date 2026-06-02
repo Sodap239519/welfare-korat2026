@@ -337,11 +337,26 @@ async function submitRegister() {
               <span v-else>เข้าสู่ระบบ <i class="fi-rr-arrow-small-right"></i></span>
             </button>
 
-            <div class="card-tint-sky p-3 text-xs">
-              <div class="font-medium mb-1"><i class="fi-rr-info"></i> บัญชี Demo สำหรับทดลอง</div>
-              <div>Super Admin: <code>0900000001</code> / <code>123456</code></div>
-              <div>Admin: <code>0900000002</code> / <code>123456</code></div>
-              <div>Tracker: <code>0812345678</code> / <code>123456</code></div>
+            <div class="card-tint-sky p-3 text-xs space-y-2">
+              <div class="font-medium"><i class="fi-rr-info"></i> บัญชี Demo สำหรับทดลอง (password ทุกบัญชี: <code>123456</code>)</div>
+
+              <!-- ผู้ดูแล + tracker -->
+              <div>
+                <div class="font-semibold text-sky-800 dark:text-sky-200 text-[11px] uppercase tracking-wide mb-0.5">👥 ผู้ดูแล + ผู้กำกับติดตาม</div>
+                <div>🛡️ Super Admin: <code>0900000001</code></div>
+                <div>🎖️ Admin: <code>0900000002</code></div>
+                <div>🏘️ Tracker: <code>0812345678</code></div>
+              </div>
+
+              <!-- ธนาคาร 5 บัญชี -->
+              <div>
+                <div class="font-semibold text-sky-800 dark:text-sky-200 text-[11px] uppercase tracking-wide mb-0.5">🏦 เจ้าหน้าที่ธนาคาร 5 แห่ง</div>
+                <div>🏦 ธ.กรุงไทย (KTB): <code>0911000001</code></div>
+                <div>🏦 ธ.ออมสิน (GSB): <code>0911000002</code></div>
+                <div>🏦 ธ.ก.ส. (BAAC): <code>0911000003</code></div>
+                <div>🏦 ธ.อาคารสงเคราะห์ (GHB): <code>0911000004</code></div>
+                <div>🏦 ธ.อิสลาม (IBANK): <code>0911000005</code></div>
+              </div>
             </div>
           </form>
 

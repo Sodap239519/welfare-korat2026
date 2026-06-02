@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             // accounts
             DemoUserSeeder::class,
             BankStaffUserSeeder::class,
+            DistrictAdminUserSeeder::class,
             // bulk data
             TargetImportSeeder::class,
             // demo (remove or guard for production)

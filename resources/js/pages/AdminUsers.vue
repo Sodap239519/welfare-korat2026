@@ -13,22 +13,28 @@ const loading = ref(false);
 
 const editing = ref(null);
 const showEdit = ref(false);
-const form = reactive({ name: '', phone: '', email: '', role: 'tracker', position_type: '', position_other: '', password: '', active: true, bank_channel_id: '', bank_sub_channel: '' });
+const form = reactive({ name: '', phone: '', email: '', role: 'tracker', position_type: '', position_other: '', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', amphur_id: '' });
 const formErrors = ref({});
 const saving = ref(false);
 
 // + Create user modal
 const showCreate = ref(false);
-const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '' });
+const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', amphur_id: '' });
 const createErrors = ref({});
 
-// ─── สำหรับ bank_staff: dropdown ช่องทาง (bank) + ธนาคารย่อย ───
+// ─── สำหรับ bank_staff + district admin ───
 const channels = ref([]);
 const banks = ref([]);
+const amphurs = ref([]);
 async function loadChannelsBanks() {
-  const [c, b] = await Promise.all([axios.get('/api/ref/channels'), axios.get('/api/ref/banks')]);
+  const [c, b, a] = await Promise.all([
+    axios.get('/api/ref/channels'),
+    axios.get('/api/ref/banks'),
+    axios.get('/api/ref/amphurs'),
+  ]);
   channels.value = c.data.data;
   banks.value = b.data.data;
+  amphurs.value = a.data.data;
 }
 const createSaving = ref(false);
 const createFlash = ref('');
@@ -56,6 +62,7 @@ function openEdit(u) {
     role: u.roles[0] || 'tracker',
     position_type: u.position_type || '', position_other: u.position_other || '',
     bank_channel_id: u.bank_channel_id || '',
+    amphur_id: u.amphur_id || '',
     bank_sub_channel: u.bank_sub_channel || '',
     password: '', active: u.active,
   });
@@ -64,7 +71,7 @@ function openEdit(u) {
 }
 
 function openCreate() {
-  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '' });
+  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', amphur_id: '' });
   createErrors.value = {};
   createFlash.value = '';
   showCreate.value = true;
@@ -267,6 +274,21 @@ function initials(name) {
               </div>
             </div>
 
+            <!-- District scope (เฉพาะ role = admin) -->
+            <div v-if="form.role === 'admin'" class="card-tint-blue p-3 rounded-xl space-y-2.5">
+              <div class="text-xs font-medium text-blue-800 dark:text-blue-200 flex items-center gap-1.5">
+                <i class="fi-rr-building"></i> ขอบเขตอำเภอ — admin ของอำเภอนี้เห็น/จัดการ batch ของอำเภอตัวเท่านั้น
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">อำเภอ</label>
+                <select v-model="form.amphur_id" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <option value="">— เลือก (ปล่อยว่าง = admin ระดับทุกอำเภอ) —</option>
+                  <option v-for="a in amphurs" :key="a.id" :value="a.id">{{ a.name }}</option>
+                </select>
+                <div v-if="formErrors.amphur_id" class="text-[11px] text-red-600 mt-1">{{ formErrors.amphur_id[0] }}</div>
+              </div>
+            </div>
+
             <!-- Bank scope (เฉพาะ role = bank_staff) -->
             <div v-if="form.role === 'bank_staff'" class="card-tint-orange p-3 rounded-xl space-y-2.5">
               <div class="text-xs font-medium text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
@@ -351,6 +373,21 @@ function initials(name) {
           </div>
 
           <!-- Bank scope (เฉพาะ role = bank_staff) — Create form -->
+          <!-- District scope · Create (เฉพาะ role=admin) -->
+          <div v-if="createForm.role === 'admin'" class="card-tint-blue p-3 rounded-xl space-y-2.5">
+            <div class="text-xs font-medium text-blue-800 dark:text-blue-200 flex items-center gap-1.5">
+              <i class="fi-rr-building"></i> ขอบเขตอำเภอ — admin ของอำเภอนี้เห็น/จัดการ batch ของอำเภอตัวเท่านั้น
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">อำเภอ <span class="text-red-600">*</span></label>
+              <select v-model="createForm.amphur_id" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                <option value="">— เลือก (ปล่อยว่าง = admin ระดับทุกอำเภอ) —</option>
+                <option v-for="a in amphurs" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+              <div v-if="createErrors.amphur_id" class="text-[11px] text-red-600 mt-1">{{ createErrors.amphur_id[0] }}</div>
+            </div>
+          </div>
+
           <div v-if="createForm.role === 'bank_staff'" class="card-tint-orange p-3 rounded-xl space-y-2.5">
             <div class="text-xs font-medium text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
               <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — บัญชีนี้จะเห็นแค่ batch ของสาขา

@@ -148,23 +148,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('ref/project-phases',   [ReferenceController::class, 'projectPhases']);
     Route::get('ref/overview-metrics', [ReferenceController::class, 'overviewMetrics']);
 
-    // ─── Document Batches (Tracker + Bank/Admin) ───
+    // ─── Document Batches (Tracker + District Admin + Bank Staff) ───
     Route::prefix('batches')->controller(DocumentBatchController::class)->group(function () {
-        Route::get('/',                       'index');                          // ?scope=mine|inbox|all
-        Route::get('summary',                 'summary');                        // KPI 5 ตัว (HERO ของหน้า Batches)
-        Route::get('dashboard',               'dashboard');                      // KPI + bottleneck + 2 leaderboards
-        Route::post('/',                      'store');                          // create draft
-        Route::post('quick-create',           'quickCreate');                    // create + add targets ครั้งเดียว
+        Route::get('/',                       'index');
+        Route::get('summary',                 'summary');
+        Route::get('dashboard',               'dashboard');
+        Route::post('/',                      'store');
+        Route::post('quick-create',           'quickCreate');
+        Route::post('walkin-record',          'walkInBulkRecord');               // Path B: bank_staff bulk mark 4.2.7
         Route::get('{id}',                    'show')->whereNumber('id');
         Route::patch('{id}',                  'update')->whereNumber('id');
         Route::delete('{id}',                 'destroy')->whereNumber('id');
         // targets in batch
         Route::post('{id}/targets',           'addTargets')->whereNumber('id');
         Route::delete('{id}/targets/{tid}',   'removeTarget')->whereNumber('id')->whereNumber('tid');
-        // lifecycle
-        Route::post('{id}/submit',            'submit')->whereNumber('id');
-        Route::post('{id}/receive',           'receive')->whereNumber('id');
-        Route::post('{id}/record',            'record')->whereNumber('id');
-        Route::post('{id}/reject',            'reject')->whereNumber('id');
+        // lifecycle — Path A 5 จุดยืนยัน
+        Route::post('{id}/submit',            'submit')->whereNumber('id');             // tracker → district
+        Route::post('{id}/district-receive',  'districtReceive')->whereNumber('id');    // อำเภอรับ
+        Route::post('{id}/district-forward',  'districtForward')->whereNumber('id');    // อำเภอส่งต่อ bank
+        Route::post('{id}/receive',           'receive')->whereNumber('id');            // bank รับ
+        Route::post('{id}/record',            'record')->whereNumber('id');             // bank บันทึก
+        Route::post('{id}/reject',            'reject')->whereNumber('id');             // ปฏิเสธทุกจุด
     });
 });

@@ -1,0 +1,237 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+body {
+  font-family: 'Sarabun', 'TH Sarabun New', 'Tahoma', sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+h1 { color: #1e3a8a; font-size: 22pt; border-bottom: 3px solid #1e40af; padding-bottom: 8px; margin-top: 0; }
+h2 { color: #1e40af; font-size: 16pt; margin-top: 28px; border-left: 5px solid #2563eb; padding-left: 10px; }
+h3 { color: #1d4ed8; font-size: 13pt; margin-top: 20px; }
+h4 { color: #2563eb; font-size: 12pt; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 10.5pt; }
+th, td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: #dbeafe; color: #1e3a8a; font-weight: 600; }
+tr:nth-child(even) { background: #f8fafc; }
+code { background: #f1f5f9; color: #be185d; padding: 1px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 10pt; }
+pre { background: #1e293b; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 9.5pt; line-height: 1.4; }
+pre code { background: transparent; color: #e2e8f0; padding: 0; }
+blockquote { border-left: 4px solid #3b82f6; background: #eff6ff; padding: 8px 14px; margin: 12px 0; color: #1e40af; border-radius: 0 4px 4px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+hr { border: none; border-top: 2px dashed #cbd5e1; margin: 20px 0; }
+strong { color: #1e40af; }
+a { color: #2563eb; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>🎖️ คู่มือ Admin</h1>
+<p>ผู้ดูแลระดับอำเภอ/พื้นที่ — เห็นภาพรวมทุกอำเภอ แต่จัดการระบบไม่ได้</p>
+<h2>สิ่งที่ Admin ทำได้</h2>
+<ul>
+<li>ดู Dashboard ทั้งจังหวัด (ไม่จำกัด scope)</li>
+<li>ดูรายชื่อกลุ่มเป้าหมายทั้งหมด</li>
+<li>อัปเดตสถานะรายคน + bulk</li>
+<li>สร้าง batch + ส่งให้ธนาคาร (เหมือน tracker แต่ทำได้ทุกอำเภอ)</li>
+<li><strong>รับ/บันทึก/ปฏิเสธ batch</strong> (ทำหน้าที่แทน bank_staff ได้)</li>
+<li>ดูแผนที่ + Reports</li>
+<li>รับ LINE notification</li>
+</ul>
+<h2>สิ่งที่ Admin ทำไม่ได้</h2>
+<ul>
+<li>❌ จัดการบัญชีผู้ใช้</li>
+<li>❌ ตั้งค่าระบบ</li>
+<li>❌ นำเข้าข้อมูล Excel</li>
+<li>❌ แก้พิกัดบนแผนที่</li>
+<li>❌ ดู Activity log</li>
+</ul>
+<hr>
+<h2>🔐 Login</h2>
+<pre><code>เบอร์โทร:  0900000002       (demo: Admin ปากช่อง)
+รหัสผ่าน: 123456
+</code></pre>
+<hr>
+<h2>🗂️ เมนูใน Sidebar</h2>
+<table>
+<thead>
+<tr>
+<th>เมนู</th>
+<th>บทบาท</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>📊 Dashboard</td>
+<td>สรุปสถานการณ์ทั้งจังหวัด</td>
+</tr>
+<tr>
+<td>👥 รายชื่อเป้าหมาย</td>
+<td>ดู + แก้สถานะรายคน/bulk</td>
+</tr>
+<tr>
+<td>📦 ห่อเอกสารธนาคาร</td>
+<td>inbox + ของฉัน + ทั้งหมด</td>
+</tr>
+<tr>
+<td>🗺️ แผนที่หมู่บ้าน</td>
+<td>ดูตำแหน่งหมู่บ้าน</td>
+</tr>
+<tr>
+<td>🎖️ ผู้กำกับติดตาม</td>
+<td>รายชื่อ tracker</td>
+</tr>
+<tr>
+<td>📈 รายงาน</td>
+<td>Export Excel</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>📊 หน้า Dashboard — อ่านอย่างไร</h2>
+<h3>ส่วนบน — KPI สถานะ</h3>
+<ul>
+<li>การ์ดสีต่างๆ แสดงจำนวนคนในแต่ละสถานะ (4.1-4.7 + ยังไม่ติดตาม)</li>
+<li>คลิกการ์ดไปที่หน้า Targets แบบ filter ทันที</li>
+</ul>
+<h3>SOP 5 ขั้น</h3>
+<ul>
+<li>เห็นว่าโครงการอยู่ในขั้นไหน (ขั้นปัจจุบันมีกรอบสีน้ำเงิน)</li>
+<li>ขั้นที่ผ่านไปแล้วเป็นสีเขียว ขั้นต่อไปสีเทา</li>
+</ul>
+<h3>📦 Document Batch (ฟีเจอร์ใหม่)</h3>
+<ul>
+<li><strong>KPI 5 ใบ</strong>: ส่งวันนี้/รอ ธ.รับ/รอบันทึก/บันทึกวันนี้/ปฏิเสธ</li>
+<li><strong>คอขวด &gt; 3 วัน</strong>: batch ที่ค้างนานเกินไป (ควรเตือน tracker หรือธนาคาร)</li>
+<li><strong>ธนาคารเร็วสุด TOP 5</strong>: เฉลี่ยกี่วันจากส่ง → บันทึกเสร็จ</li>
+<li><strong>Tracker ขยันสุด TOP 5</strong>: ใครส่งห่อมากสุดใน 7 วัน</li>
+</ul>
+<h3>กราฟแนวโน้ม</h3>
+<ul>
+<li>เลือกช่วงเวลา (7/14/30/60 วัน) หรือกำหนดเอง</li>
+<li>ดู % ความคืบหน้าและจำนวนสะสม</li>
+</ul>
+<hr>
+<h2>👥 การจัดการรายชื่อเป้าหมาย</h2>
+<h3>ค้นหา + Filter</h3>
+<ol>
+<li>กล่องค้นหา: พิมพ์ชื่อ/นามสกุล/เลขบัตร</li>
+<li>ดรอปดาวน์: อำเภอ → ตำบล → หมู่บ้าน (cascade)</li>
+<li>Filter สถานะ: คลิก pill สี (4.1-4.7 + ยังไม่ติดตาม)</li>
+</ol>
+<h3>อัปเดตสถานะรายคน</h3>
+<ul>
+<li>คลิกชื่อ → หน้า TargetDetail</li>
+<li>ดูประวัติสถานะทั้งหมด (timeline)</li>
+<li>กดปุ่ม &quot;อัปเดตสถานะ&quot; → เลือกสถานะ + ช่องทาง + หมายเหตุ</li>
+</ul>
+<h3>อัปเดต Bulk (หลายคนพร้อมกัน)</h3>
+<ol>
+<li>ติ๊กกล่อง ☑️ หน้าชื่อ (เลือกหลายคน)</li>
+<li>Floating bar ด้านล่างจะโผล่ขึ้น</li>
+<li>กดปุ่ม <strong>✏️ อัปเดตสถานะ</strong> → modal เปิด</li>
+<li>เลือกสถานะใหม่ + ช่องทาง + หมายเหตุ (ถ้าจำเป็น)</li>
+<li>กด <strong>ยืนยัน</strong> → อัปเดตทุกคนพร้อมกัน (สูงสุด 500/ครั้ง)</li>
+</ol>
+<hr>
+<h2>📦 จัดการ Document Batch</h2>
+<h3>เห็นอะไรบ้าง</h3>
+<ul>
+<li><strong>Tab &quot;รอดำเนินการ&quot;</strong>: batch ที่ submitted หรือ received ทุกธนาคาร</li>
+<li><strong>Tab &quot;ของฉัน&quot;</strong>: batch ที่ admin สร้างเอง</li>
+<li><strong>Tab &quot;ทั้งหมด&quot;</strong>: ทุก batch ทุกสถานะ</li>
+</ul>
+<h3>สร้าง batch ส่งธนาคาร (เหมือน tracker)</h3>
+<ol>
+<li>ไปหน้า 👥 รายชื่อเป้าหมาย</li>
+<li>Filter หาคนที่ต้องส่งให้ธนาคารดำเนินการ</li>
+<li>ติ๊ก ☑️ เลือก 5-100 คน</li>
+<li>กดปุ่ม <strong>📦 ใส่ห่อเอกสาร</strong> (สีเหลือง)</li>
+<li>เลือก:<ul>
+<li>วันที่ส่ง</li>
+<li>ธนาคารปลายทาง (KTB/GSB/BAAC/GHB/IBANK)</li>
+<li>ตำแหน่งผู้ส่ง (กำนัน/ผู้ใหญ่บ้าน/อสม./อปท./อื่นๆ)</li>
+</ul>
+</li>
+<li>กดสร้าง → ไปที่ BatchDetail → กด <strong>ส่งให้ธนาคาร</strong></li>
+</ol>
+<h3>รับ/บันทึก batch แทน bank_staff</h3>
+<p>ในกรณีที่ admin ต้องการช่วยธนาคาร:</p>
+<ol>
+<li>ไป 📦 ห่อเอกสาร → tab รอดำเนินการ</li>
+<li>คลิก batch → BatchDetail</li>
+<li>กดปุ่ม:<ul>
+<li><strong>✅ ยืนยันรับเอกสาร</strong> (สีฟ้า) — submitted → received</li>
+<li><strong>💾 ยืนยันบันทึกครบ</strong> (สีเขียว) — received → recorded</li>
+<li><strong>⛔ ปฏิเสธ</strong> (สีแดง) + ระบุเหตุผล</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>⚠️ <strong>ระวัง</strong>: Admin ทำได้ทุกธนาคาร ใช้สิทธิ์นี้เฉพาะกรณีจำเป็น (ปกติให้ bank_staff ทำเอง)</p>
+</blockquote>
+<hr>
+<h2>📈 ดูรายงาน + Export</h2>
+<p><strong>ไปที่ 📈 รายงาน</strong> → เลือก tab:</p>
+<ol>
+<li><strong>สรุปยอด</strong> — ตารางสถานะแต่ละอำเภอ/ตำบล/หมู่บ้าน</li>
+<li><strong>รายชื่อต้นฉบับ</strong> — list กลุ่มเป้าหมายดิบ</li>
+<li><strong>รายชื่อ+สถานะ</strong> — รวมสถานะปัจจุบัน</li>
+<li><strong>รายชื่อผู้ติดตาม</strong> — ใครดูแลใคร</li>
+</ol>
+<p>ทุก tab กด <strong>Export Excel</strong> ได้</p>
+<hr>
+<h2>🔔 LINE Notifications</h2>
+<p>Admin จะรับ notification เหมือน super_admin ครบทุก event:</p>
+<ul>
+<li>ผู้ใช้สมัครใหม่</li>
+<li>Batch lifecycle (submitted/received/recorded/rejected)</li>
+<li>Daily snapshot</li>
+<li>3-day report</li>
+</ul>
+<hr>
+<h2>🆘 Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>ปัญหา</th>
+<th>วิธีแก้</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>อัปเดตสถานะแล้วไม่ขึ้น</td>
+<td>ตรวจสอบ flash message สีเขียวด้านบน + รีเฟรชหน้า</td>
+</tr>
+<tr>
+<td>Bulk update เกิน 500 ราย</td>
+<td>แบ่งทำ 2-3 รอบ (ระบบจำกัดที่ 500/ครั้ง)</td>
+</tr>
+<tr>
+<td>คลิก batch แล้ว 403</td>
+<td>คุณไม่ใช่เจ้าของ — Admin มีสิทธิ์ดูทุก batch แต่ถ้า error → relogin</td>
+</tr>
+<tr>
+<td>ปฏิเสธ batch แล้ว tracker ไม่รู้</td>
+<td>ตรวจ LINE bot อยู่ในกลุ่ม + tracker เห็นใน 🔔 ระฆัง</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>📞 ติดต่อ</h2>
+<ul>
+<li><strong>บัญชีถูกระงับ</strong>: Super Admin</li>
+<li><strong>เพิ่มอำเภอใหม่</strong>: Super Admin</li>
+<li><strong>คู่มืออื่น</strong>: <a href="README.md">README.md</a></li>
+</ul>
+
+<hr>
+<p style="text-align:center; color:#94a3b8; font-size:9pt; margin-top:30px;">
+  Welfare Korat 2569 - Document - Generated from Markdown
+</p>
+</body>
+</html>

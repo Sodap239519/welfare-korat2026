@@ -6,41 +6,70 @@ use App\Models\RegistrationSubStatus;
 use Illuminate\Database\Seeder;
 
 /**
- * Sub-status default — ขั้นย่อยของ 4.2 (กำลังลงทะเบียน)
+ * Sub-status — 7 ขั้นย่อยของ 4.2 (กำลังลงทะเบียน) ครอบคลุม 2 path:
  *
- *   4.2.1 ลงทะเบียนด้วยตนเอง          actor: tracker (mark only)
- *   4.2.2 ส่งแบบฟอร์มแล้ว             actor: tracker (เริ่มกระบวนการ batch)
- *   4.2.3 ธนาคารรับเอกสารแล้ว          actor: bank   (รับ batch)
- *   4.2.4 ธนาคารบันทึกข้อมูลแล้ว        actor: bank   (ปิด batch → 4.3+)
+ *  Path A (ผ่านผู้นำชุมชน/อปท. → อำเภอ → ธนาคาร) · 5 จุดยืนยัน:
+ *    4.2.2 ผู้นำชุมชน/อปท. รับเอกสาร       actor: tracker
+ *    4.2.3 ส่งให้อำเภอแล้ว                  actor: tracker
+ *    4.2.4 อำเภอรับเอกสาร                   actor: district (admin)
+ *    4.2.5 อำเภอส่งต่อให้ธนาคาร            actor: district (admin)
+ *    4.2.6 ธนาคารรับเอกสาร (จากอำเภอ)      actor: bank
+ *
+ *  Path B (กรอกที่ธนาคารโดยตรง walk-in) · 1 จุดยืนยัน:
+ *    4.2.1 ธนาคารรับเอกสาร (walk-in)        actor: bank
+ *
+ *  จุดจบ (ทั้ง 2 path):
+ *    4.2.7 ธนาคารบันทึกข้อมูลลงระบบ         actor: bank
  */
 class RegistrationSubStatusSeeder extends Seeder
 {
     public function run(): void
     {
         $items = [
+            // Path B (walk-in)
             [
                 'code' => '4.2.1', 'parent_code' => '4.2',
-                'label' => 'ลงทะเบียนด้วยตนเอง',
-                'icon'  => 'fi-rr-user', 'color' => 'st-4-2',
-                'sort_order' => 1, 'actor_role' => 'tracker',
+                'label' => 'ธนาคารรับเอกสาร (walk-in)',
+                'icon'  => 'fi-rr-bank', 'color' => 'st-4-2',
+                'sort_order' => 1, 'actor_role' => 'bank',
             ],
+            // Path A
             [
                 'code' => '4.2.2', 'parent_code' => '4.2',
-                'label' => 'ส่งแบบฟอร์มเอกสารแล้ว',
-                'icon'  => 'fi-rr-paper-plane', 'color' => 'st-4-2',
+                'label' => 'ผู้นำชุมชน/อปท. รับเอกสารจากประชาชน',
+                'icon'  => 'fi-rr-users-alt', 'color' => 'st-4-2',
                 'sort_order' => 2, 'actor_role' => 'tracker',
             ],
             [
                 'code' => '4.2.3', 'parent_code' => '4.2',
-                'label' => 'ธนาคารรับเอกสารแล้ว',
-                'icon'  => 'fi-rr-inbox-in', 'color' => 'st-4-2',
-                'sort_order' => 3, 'actor_role' => 'bank',
+                'label' => 'ส่งให้อำเภอแล้ว',
+                'icon'  => 'fi-rr-paper-plane', 'color' => 'st-4-2',
+                'sort_order' => 3, 'actor_role' => 'tracker',
             ],
             [
                 'code' => '4.2.4', 'parent_code' => '4.2',
-                'label' => 'ธนาคารบันทึกข้อมูลลงระบบแล้ว',
+                'label' => 'อำเภอรับเอกสาร',
+                'icon'  => 'fi-rr-inbox-in', 'color' => 'st-4-2',
+                'sort_order' => 4, 'actor_role' => 'district',
+            ],
+            [
+                'code' => '4.2.5', 'parent_code' => '4.2',
+                'label' => 'อำเภอส่งต่อให้ธนาคารแล้ว',
+                'icon'  => 'fi-rr-paper-plane', 'color' => 'st-4-2',
+                'sort_order' => 5, 'actor_role' => 'district',
+            ],
+            [
+                'code' => '4.2.6', 'parent_code' => '4.2',
+                'label' => 'ธนาคารรับเอกสาร (จากอำเภอ)',
+                'icon'  => 'fi-rr-inbox-in', 'color' => 'st-4-2',
+                'sort_order' => 6, 'actor_role' => 'bank',
+            ],
+            // จบทั้ง 2 path
+            [
+                'code' => '4.2.7', 'parent_code' => '4.2',
+                'label' => 'ธนาคารบันทึกข้อมูลลงระบบครบ',
                 'icon'  => 'fi-rr-check-double', 'color' => 'st-4-2',
-                'sort_order' => 4, 'actor_role' => 'bank',
+                'sort_order' => 7, 'actor_role' => 'bank',
             ],
         ];
 

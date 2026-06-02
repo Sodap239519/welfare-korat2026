@@ -1,0 +1,288 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>bank-staff</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+body {
+  font-family: 'Sarabun', 'TH Sarabun New', 'Tahoma', sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+h1 { color: #1e3a8a; font-size: 22pt; border-bottom: 3px solid #1e40af; padding-bottom: 8px; margin-top: 0; }
+h2 { color: #1e40af; font-size: 16pt; margin-top: 28px; border-left: 5px solid #2563eb; padding-left: 10px; }
+h3 { color: #1d4ed8; font-size: 13pt; margin-top: 20px; }
+h4 { color: #2563eb; font-size: 12pt; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 10.5pt; }
+th, td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: #dbeafe; color: #1e3a8a; font-weight: 600; }
+tr:nth-child(even) { background: #f8fafc; }
+code { background: #f1f5f9; color: #be185d; padding: 1px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 10pt; }
+pre { background: #1e293b; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 9.5pt; line-height: 1.4; }
+pre code { background: transparent; color: #e2e8f0; padding: 0; }
+blockquote { border-left: 4px solid #3b82f6; background: #eff6ff; padding: 8px 14px; margin: 12px 0; color: #1e40af; border-radius: 0 4px 4px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+hr { border: none; border-top: 2px dashed #cbd5e1; margin: 20px 0; }
+strong { color: #1e40af; }
+a { color: #2563eb; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>🏦 คู่มือ Bank Staff (เจ้าหน้าที่ธนาคาร)</h1>
+<p>สำหรับเจ้าหน้าที่ธนาคารทั้ง 5 ธนาคาร: <strong>KTB / GSB / BAAC / GHB / IBANK</strong></p>
+<blockquote>
+<p>💡 <strong>บัญชีของคุณ</strong> ถูกสร้างโดย Super Admin ของระบบ — ไม่ต้องสมัครเอง</p>
+</blockquote>
+<hr>
+<h2>🎯 บทบาทของคุณในกระบวนการ</h2>
+<p>คุณคือ <strong>&quot;ปลายทาง&quot;</strong> ของการลงทะเบียนบัตรสวัสดิการ — รับเอกสารจาก tracker (กำนัน/ผู้ใหญ่บ้าน/อสม./อปท.) แล้วบันทึกลงระบบของธนาคาร</p>
+<h3>4 ขั้นของห่อเอกสาร — บทบาทของคุณ</h3>
+<pre><code>👤 Tracker                       🏦 คุณ (เจ้าหน้าที่ธนาคาร)
+────────────                     ─────────────────────
+[ร่าง draft]
+    ↓ กด &quot;ส่งให้ธนาคาร&quot;
+[ส่งแล้ว submitted]  ────► ปรากฏใน &quot;รอดำเนินการ&quot;
+                              ↓ คุณตรวจซองเอกสาร + กด &quot;ยืนยันรับเอกสาร&quot; ✅
+                          [ธ.รับ received]
+                              ↓ คุณบันทึกข้อมูลลง core ของธนาคาร
+                              ↓ กด &quot;ยืนยันบันทึกครบ&quot; 🎉
+                          [บันทึกครบ recorded] — จบงานของคุณ
+</code></pre>
+<h2>สิ่งที่คุณทำได้</h2>
+<ul>
+<li>✅ <strong>ยืนยันรับเอกสาร</strong> (submitted → received)</li>
+<li>✅ <strong>ยืนยันบันทึกครบ</strong> (received → recorded)</li>
+<li>✅ <strong>ปฏิเสธ</strong> ถ้าเอกสารมีปัญหา (พร้อมเหตุผล)</li>
+<li>✅ ดู Dashboard เฉพาะธนาคารของคุณ</li>
+<li>✅ ดู Reports</li>
+</ul>
+<h2>สิ่งที่คุณทำไม่ได้</h2>
+<ul>
+<li>❌ เห็น batch ของธนาคารอื่น</li>
+<li>❌ สร้าง batch (เป็นงานของ tracker)</li>
+<li>❌ อัปเดตสถานะรายคน</li>
+<li>❌ จัดการบัญชีผู้ใช้</li>
+<li>❌ ตั้งค่าระบบ</li>
+</ul>
+<hr>
+<h2>🔐 Login</h2>
+<pre><code>เบอร์โทร: 0911000001          (demo: ธ.กรุงไทย)
+รหัสผ่าน: 123456
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>เปลี่ยนรหัสผ่านครั้งแรก</strong> — Topbar → 👤 → แก้ไขข้อมูลส่วนตัว</p>
+</blockquote>
+<h3>❓ ตั้งชื่อโปรไฟล์เป็นชื่อจริง</h3>
+<p>หน้า &quot;แก้ไขข้อมูลส่วนตัว&quot;:</p>
+<ul>
+<li><strong>ชื่อ-สกุล</strong>: ใส่ชื่อจริงของคุณ (เช่น &quot;นางสาวสมหญิง ใจดี&quot;)</li>
+<li><strong>ป้ายส้ม &quot;ธนาคารที่รับผิดชอบ&quot;</strong>: KTB / GSB / BAAC / GHB / IBANK (กำหนดโดย Super Admin)</li>
+<li>❌ <strong>ไม่มีช่อง &quot;ตำแหน่ง&quot;</strong> — เพราะระบบรู้ว่าคุณคือเจ้าหน้าที่ธนาคารแล้ว</li>
+</ul>
+<hr>
+<h2>🗂️ เมนูใน Sidebar</h2>
+<table>
+<thead>
+<tr>
+<th>เมนู</th>
+<th>ใช้ทำอะไร</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>📊 <strong>Dashboard</strong></td>
+<td>สรุปยอดธนาคารของคุณ</td>
+</tr>
+<tr>
+<td>📦 <strong>ห่อเอกสารธนาคาร</strong> ⭐</td>
+<td>inbox + กดยืนยันรับ/บันทึก</td>
+</tr>
+<tr>
+<td>👥 รายชื่อเป้าหมาย</td>
+<td>ดู scope จำกัด</td>
+</tr>
+<tr>
+<td>🗺️ แผนที่หมู่บ้าน</td>
+<td>ดูตำแหน่ง</td>
+</tr>
+<tr>
+<td>📈 รายงาน</td>
+<td>Export</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>🎯 <strong>เมนูที่ใช้บ่อยสุด</strong>: 📦 ห่อเอกสารธนาคาร</p>
+</blockquote>
+<hr>
+<h2>🎯 งานหลักของ Bank Staff — Flow ปกติ</h2>
+<h3>Step 1: เปิดหน้า &quot;ห่อเอกสารธนาคาร&quot;</h3>
+<ul>
+<li>Login เสร็จ ระบบจะพาคุณมาที่ <strong>tab &quot;รอดำเนินการ&quot;</strong> อัตโนมัติ</li>
+<li>เห็นเฉพาะ batch ของธนาคารของคุณเท่านั้น (ระบบกรองให้แล้ว)</li>
+</ul>
+<h3>Step 2: เมื่อ Tracker มาส่งเอกสารที่สาขา</h3>
+<ol>
+<li>ตรวจ <strong>เลขที่ batch</strong> (เช่น #2026-05-29-001) บนหน้าเอกสารที่ tracker เอามา</li>
+<li>ค้นหาในระบบ → คลิกการ์ดที่ตรงกัน</li>
+<li>ดูรายชื่อใน batch → <strong>นับเอกสารจริง</strong> ตรงกันไหม</li>
+<li>ถ้าครบ → กดปุ่ม <strong>✅ ยืนยันรับเอกสาร</strong> (สีฟ้า)</li>
+</ol>
+<h3>Step 3: เมื่อบันทึกข้อมูลลง core ของธนาคารครบทุกราย</h3>
+<ol>
+<li>กลับมาที่ batch เดิม (ตอนนี้สถานะ &quot;ธ.รับแล้ว&quot;)</li>
+<li>กดปุ่ม <strong>💾 ยืนยันบันทึกครบ</strong> (สีเขียว)</li>
+<li>ระบบส่ง LINE แจ้ง tracker: &quot;บันทึกครบแล้ว&quot;</li>
+<li><strong>จบงานของคุณ</strong> — batch จะเป็น &quot;บันทึกครบ&quot;</li>
+</ol>
+<hr>
+<h2>⛔ ปฏิเสธ batch (กรณีเอกสารผิด)</h2>
+<h3>เมื่อไหร่ที่ใช้</h3>
+<ul>
+<li>เอกสารไม่ครบ (เช่น ขาดสำเนาบัตร ปชช.)</li>
+<li>ข้อมูลในเอกสารผิด (เลขประจำตัวไม่ตรง)</li>
+<li>เอกสารหมดอายุ / ไม่อ่านชัด</li>
+<li>มีรายชื่อที่ไม่เกี่ยวข้อง</li>
+</ul>
+<h3>ขั้นตอน</h3>
+<ol>
+<li>คลิก batch ที่มีปัญหา</li>
+<li>กดปุ่ม <strong>⛔ ปฏิเสธ</strong> (สีแดง)</li>
+<li>กรอก <strong>เหตุผล</strong> (≥ 5 ตัวอักษร) ให้ชัดเจน เช่น:<ul>
+<li>&quot;ขาดสำเนาบัตร ปชช. 3 ราย&quot;</li>
+<li>&quot;ลายเซ็นไม่ครบใน 5 ฉบับ&quot;</li>
+</ul>
+</li>
+<li>กด <strong>ยืนยันปฏิเสธ</strong></li>
+</ol>
+<h3>ผลที่ตามมา</h3>
+<ul>
+<li>batch → สถานะ &quot;ปฏิเสธ&quot;</li>
+<li><strong>รายชื่อในนั้นกลับสถานะเดิม</strong> (sub_status_code = null)</li>
+<li>LINE แจ้ง tracker พร้อมเหตุผล</li>
+<li>Tracker จะแก้แล้วส่ง batch ใหม่มา</li>
+</ul>
+<hr>
+<h2>📊 อ่าน Dashboard ของคุณ</h2>
+<p>ระบบจะกรองให้คุณเห็นเฉพาะข้อมูลของธนาคารคุณ:</p>
+<h3>KPI 5 ใบ</h3>
+<table>
+<thead>
+<tr>
+<th>ตัวเลข</th>
+<th>ความหมาย</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>📤 <strong>ส่งวันนี้</strong></td>
+<td>tracker ส่งเข้ามาวันนี้กี่ห่อ</td>
+</tr>
+<tr>
+<td>⏳ <strong>รอ ธ.รับ</strong></td>
+<td>คุณยังไม่กดรับกี่ห่อ (ต้องรีบ!)</td>
+</tr>
+<tr>
+<td>📥 <strong>รอบันทึก</strong></td>
+<td>คุณรับแล้วแต่ยังไม่บันทึกครบ</td>
+</tr>
+<tr>
+<td>✅ <strong>บันทึก</strong></td>
+<td>บันทึกครบวันนี้กี่ห่อ</td>
+</tr>
+<tr>
+<td>⛔ <strong>ปฏิเสธ</strong></td>
+<td>ปฏิเสธวันนี้กี่ห่อ</td>
+</tr>
+</tbody></table>
+<h3>คอขวด &gt; 3 วัน</h3>
+<ul>
+<li>batch ของธนาคารคุณที่ค้างนานเกิน 3 วัน</li>
+<li>ควรเร่งดำเนินการเพื่อไม่ให้ tracker รอนาน</li>
+</ul>
+<hr>
+<h2>🔔 LINE Notifications</h2>
+<p>คุณจะ<strong>ไม่ได้รับ</strong> notification ทาง LINE โดยตรง — เพราะคุณดูที่ระบบเป็นหลัก</p>
+<p>แต่ถ้า Super Admin เพิ่มคุณเข้ากลุ่ม LINE Admin ก็จะเห็น event ทั้งหมด</p>
+<hr>
+<h2>❓ Tips</h2>
+<h3>🎯 รับ batch ครั้งละหลายๆ ห่อ</h3>
+<ul>
+<li>ถ้า tracker หลายคนมาส่งวันเดียวกัน → กดรับทีละ batch</li>
+<li>ไม่จำเป็นต้องกดทันที — ปุ่มอยู่ตลอด</li>
+</ul>
+<h3>📋 ใช้ที่อยู่ดูเร็ว</h3>
+<ul>
+<li>คลิกชื่อในรายการ batch → ไปดู TargetDetail</li>
+<li>เห็นที่อยู่หมู่บ้าน + ตำบล + อำเภอ ครบ</li>
+</ul>
+<h3>🕐 บันทึกครบใน 1-2 วัน</h3>
+<ul>
+<li>ระบบนับ &quot;ธนาคารเร็วสุด&quot; จากเวลาส่ง→บันทึก</li>
+<li>ทำเร็ว = ขึ้น TOP ใน Dashboard ผู้บริหาร</li>
+</ul>
+<hr>
+<h2>🆘 Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>ปัญหา</th>
+<th>วิธีแก้</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ไม่เห็น batch ใหม่</td>
+<td>กดรีเฟรชหน้า (F5) — หรือสลับ tab แล้วกลับมา</td>
+</tr>
+<tr>
+<td>รับ batch ผิด (ยังไม่ตรง)</td>
+<td>บอก tracker ให้แก้ไข + แจ้ง Super Admin ใน chat</td>
+</tr>
+<tr>
+<td>ลืมว่าใครอยู่ใน batch</td>
+<td>คลิก batch → เห็นรายชื่อครบ</td>
+</tr>
+<tr>
+<td>รหัสผ่านหาย</td>
+<td>ติดต่อ Super Admin ของระบบ</td>
+</tr>
+<tr>
+<td>เห็น batch ของธนาคารอื่น (ไม่ควรเห็น)</td>
+<td>แจ้ง Super Admin — อาจเป็น bug</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>📞 ติดต่อ</h2>
+<ul>
+<li><strong>ขอเปลี่ยนสาขา/ธนาคาร</strong>: Super Admin</li>
+<li><strong>บัญชีถูกระงับ</strong>: Super Admin</li>
+<li><strong>คู่มืออื่น</strong>: <a href="README.md">README.md</a></li>
+</ul>
+<hr>
+<h2>📋 Cheat Sheet (พิมพ์แปะหน้าจอ)</h2>
+<pre><code>┌──────────────────────────────────────┐
+│  🏦 Bank Staff Quick Reference      │
+├──────────────────────────────────────┤
+│  1. tracker มาส่ง                    │
+│  → คลิก batch → ✅ ยืนยันรับเอกสาร   │
+│                                      │
+│  2. บันทึกใน core ธนาคารเสร็จ        │
+│  → กลับมา batch → 💾 บันทึกครบ      │
+│                                      │
+│  3. ถ้าเอกสารมีปัญหา                │
+│  → ⛔ ปฏิเสธ + กรอกเหตุผล           │
+│                                      │
+│  📊 ดูภาพรวมที่ Dashboard            │
+│  🔔 เช็คระฆังบ่อยๆ                   │
+└──────────────────────────────────────┘
+</code></pre>
+
+<hr>
+<p style="text-align:center; color:#94a3b8; font-size:9pt; margin-top:30px;">
+  Welfare Korat 2569 - Document - Generated from Markdown
+</p>
+</body>
+</html>

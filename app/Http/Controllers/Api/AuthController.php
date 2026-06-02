@@ -196,6 +196,7 @@ class AuthController extends Controller
             'position_other'  => $user->position_other,
             'bank_channel_id' => $user->bank_channel_id,
             'bank_sub_channel'=> $user->bank_sub_channel,
+            'amphur_id'       => $user->amphur_id,
             'active'          => (bool) $user->active,
             'last_login_at'   => $user->last_login_at,
             'roles'           => $user->roles->pluck('name')->all(),

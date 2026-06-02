@@ -55,9 +55,12 @@ class AdminUserController extends Controller
             // bank scope (สำหรับ bank_staff — บังคับถ้า role = bank_staff)
             'bank_channel_id'  => ['required_if:role,bank_staff', 'nullable', 'integer', 'exists:channels,id'],
             'bank_sub_channel' => ['required_if:role,bank_staff', 'nullable', 'string', 'max:50'],
+            // amphur scope (สำหรับ admin ระดับอำเภอ — บังคับถ้า role = admin)
+            'amphur_id'        => ['required_if:role,admin', 'nullable', 'integer', 'exists:amphurs,id'],
         ], [
             'bank_channel_id.required_if'  => 'ต้องเลือกช่องทางธนาคารสำหรับเจ้าหน้าที่ธนาคาร',
             'bank_sub_channel.required_if' => 'ต้องเลือกธนาคารย่อยสำหรับเจ้าหน้าที่ธนาคาร',
+            'amphur_id.required_if'        => 'ต้องเลือกอำเภอที่ Admin ดูแล',
         ]);
 
         $user = User::create([
@@ -70,6 +73,7 @@ class AdminUserController extends Controller
             'active'           => $data['active'] ?? true,
             'bank_channel_id'  => $data['role'] === 'bank_staff' ? $data['bank_channel_id']  : null,
             'bank_sub_channel' => $data['role'] === 'bank_staff' ? strtolower($data['bank_sub_channel']) : null,
+            'amphur_id'        => $data['role'] === 'admin' ? $data['amphur_id'] : null,
         ]);
         $user->assignRole($data['role']);
 
@@ -100,6 +104,7 @@ class AdminUserController extends Controller
             'role'             => ['sometimes', 'string', 'in:super_admin,admin,tracker,bank_staff'],
             'bank_channel_id'  => ['sometimes', 'nullable', 'integer', 'exists:channels,id'],
             'bank_sub_channel' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'amphur_id'        => ['sometimes', 'nullable', 'integer', 'exists:amphurs,id'],
         ]);
 
         if (!empty($data['password'])) {
@@ -115,6 +120,10 @@ class AdminUserController extends Controller
         if ($role && $role !== 'bank_staff') {
             $data['bank_channel_id'] = null;
             $data['bank_sub_channel'] = null;
+        }
+        // ถ้าเปลี่ยน role ออกจาก admin → เคลียร์ amphur_id
+        if ($role && $role !== 'admin') {
+            $data['amphur_id'] = null;
         }
         // lower-case bank_sub_channel เพื่อให้ match กับ batch.sub_channel
         if (!empty($data['bank_sub_channel'])) {
@@ -195,6 +204,8 @@ class AdminUserController extends Controller
             'position_other'   => $u->position_other,
             'bank_channel_id'  => $u->bank_channel_id,
             'bank_sub_channel' => $u->bank_sub_channel,
+            'amphur_id'        => $u->amphur_id,
+            'amphur_name'      => $u->amphur?->name,
             'active'           => (bool) $u->active,
             'last_login_at'    => $u->last_login_at?->toIso8601String(),
             'created_at'       => $u->created_at?->toIso8601String(),

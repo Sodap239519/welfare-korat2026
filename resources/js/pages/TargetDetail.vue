@@ -126,8 +126,18 @@ async function submit() {
     };
     const { data } = await axios.patch(`/api/targets/${id}/status`, payload);
     target.value = data;
-    flashOk.value = 'บันทึกสถานะเรียบร้อย';
-    setTimeout(() => (flashOk.value = ''), 3000);
+    // ── Smart redirect ตาม auto-batch ──
+    // มี auto_batch (ใหม่หรือเดิม) → ไป BatchDetail เสมอ ให้ผู้ใช้รีวิวรายชื่อ/ส่งให้อำเภอ
+    if (data.auto_batch?.is_new) {
+      flashOk.value = data.message || `สร้าง batch ใหม่ #${data.auto_batch.batch_no} — กำลังพาไปดู...`;
+      setTimeout(() => router.push({ name: 'batch-detail', params: { id: data.auto_batch.id } }), 900);
+    } else if (data.auto_batch) {
+      flashOk.value = data.message || `เพิ่มเข้า batch #${data.auto_batch.batch_no} แล้ว`;
+      setTimeout(() => router.push({ name: 'batch-detail', params: { id: data.auto_batch.id } }), 900);
+    } else {
+      flashOk.value = 'บันทึกสถานะเรียบร้อย';
+      setTimeout(() => router.push({ name: 'targets' }), 900);
+    }
   } catch (e) {
     errors.value = e.response?.data?.errors || {};
     if (!Object.keys(errors.value).length) {

@@ -24,10 +24,9 @@ class DashboardController extends Controller
 
         $byStatus = DB::table('targets')
             ->leftJoin('target_current_status', 'targets.id', '=', 'target_current_status.target_id')
-            ->when($request->filled('amphur_id'),  fn ($q) => $q->where('targets.amphur_id',  (int) $request->amphur_id))
-            ->when($request->filled('tambon_id'),  fn ($q) => $q->where('targets.tambon_id',  (int) $request->tambon_id))
-            ->when($request->filled('village_id'), fn ($q) => $q->where('targets.village_id', (int) $request->village_id))
-            ->where('targets.active', true)
+            ->where('targets.active', true);
+        $this->applyScope($byStatus, $request, 'targets');
+        $byStatus = $byStatus
             ->groupBy('target_current_status.status_code')
             ->selectRaw('COALESCE(target_current_status.status_code, "0") as code, COUNT(*) as n')
             ->pluck('n', 'code');
@@ -278,10 +277,32 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function applyScope($query, Request $request): void
+    private function applyScope($query, Request $request, string $tablePrefix = ''): void
     {
-        $query->when($request->filled('amphur_id'),  fn ($q) => $q->where('amphur_id',  (int) $request->amphur_id))
-              ->when($request->filled('tambon_id'),  fn ($q) => $q->where('tambon_id',  (int) $request->tambon_id))
-              ->when($request->filled('village_id'), fn ($q) => $q->where('village_id', (int) $request->village_id));
+        $prefix = $tablePrefix ? "{$tablePrefix}." : '';
+        $query->when($request->filled('amphur_id'),  fn ($q) => $q->where($prefix.'amphur_id',  (int) $request->amphur_id))
+              ->when($request->filled('tambon_id'),  fn ($q) => $q->where($prefix.'tambon_id',  (int) $request->tambon_id))
+              ->when($request->filled('village_id'), fn ($q) => $q->where($prefix.'village_id', (int) $request->village_id));
+
+        // Auto-scope สำหรับ tracker — เห็นเฉพาะหมู่บ้าน/ตำบล/อำเภอที่อยู่ใน user_scopes
+        $user = $request->user();
+        if ($user && !$user->hasRole('super_admin') && !$user->hasRole('admin')) {
+            $scopes = \App\Models\UserScope::where('user_id', $user->id)->get();
+            if ($scopes->isEmpty()) {
+                // ไม่มี scope → บล็อกทุกอย่าง
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where(function ($w) use ($scopes, $prefix) {
+                    foreach ($scopes as $s) {
+                        $col = match ($s->scope_type) {
+                            'village' => $prefix.'village_id',
+                            'tambon'  => $prefix.'tambon_id',
+                            'amphur'  => $prefix.'amphur_id',
+                        };
+                        $w->orWhere($col, $s->scope_id);
+                    }
+                });
+            }
+        }
     }
 }

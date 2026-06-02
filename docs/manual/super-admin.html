@@ -1,0 +1,245 @@
+﻿<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>super-admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+body {
+  font-family: 'Sarabun', 'TH Sarabun New', 'Tahoma', sans-serif;
+  font-size: 11pt;
+  line-height: 1.55;
+  color: #1f2937;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+h1 { color: #1e3a8a; font-size: 22pt; border-bottom: 3px solid #1e40af; padding-bottom: 8px; margin-top: 0; }
+h2 { color: #1e40af; font-size: 16pt; margin-top: 28px; border-left: 5px solid #2563eb; padding-left: 10px; }
+h3 { color: #1d4ed8; font-size: 13pt; margin-top: 20px; }
+h4 { color: #2563eb; font-size: 12pt; }
+table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 10.5pt; }
+th, td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: left; vertical-align: top; }
+th { background: #dbeafe; color: #1e3a8a; font-weight: 600; }
+tr:nth-child(even) { background: #f8fafc; }
+code { background: #f1f5f9; color: #be185d; padding: 1px 6px; border-radius: 3px; font-family: 'Consolas', monospace; font-size: 10pt; }
+pre { background: #1e293b; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 9.5pt; line-height: 1.4; }
+pre code { background: transparent; color: #e2e8f0; padding: 0; }
+blockquote { border-left: 4px solid #3b82f6; background: #eff6ff; padding: 8px 14px; margin: 12px 0; color: #1e40af; border-radius: 0 4px 4px 0; }
+ul, ol { padding-left: 24px; }
+li { margin: 4px 0; }
+hr { border: none; border-top: 2px dashed #cbd5e1; margin: 20px 0; }
+strong { color: #1e40af; }
+a { color: #2563eb; text-decoration: none; }
+</style>
+</head>
+<body>
+<h1>🛡️ คู่มือ Super Admin</h1>
+<p>ผู้ดูแลระบบสูงสุด — รับผิดชอบตั้งค่าระบบ + จัดการบัญชีผู้ใช้ + นำเข้าข้อมูล</p>
+<h2>สิ่งที่ Super Admin ทำได้ (สิทธิ์เต็ม 100%)</h2>
+<ul>
+<li>จัดการบัญชีผู้ใช้ทั้งหมด (เพิ่ม/แก้/ลบ/อนุมัติ/พักงาน)</li>
+<li>ตั้งค่าระบบ (สถานะลงทะเบียน, ช่องทาง, ธนาคาร, ขั้นตอน SOP)</li>
+<li>นำเข้ารายชื่อกลุ่มเป้าหมายจาก Excel</li>
+<li>ดู/แก้ข้อมูลทุกระดับ (อำเภอ/ตำบล/หมู่บ้าน)</li>
+<li>ดู Activity Log (ใครทำอะไรเมื่อไหร่)</li>
+<li>แก้พิกัดหมู่บ้านบนแผนที่</li>
+<li>รับ LINE notification ทุกเหตุการณ์</li>
+</ul>
+<hr>
+<h2>🔐 Login ครั้งแรก (Demo)</h2>
+<pre><code>เบอร์โทร:  0900000001
+รหัสผ่าน: 123456
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>เปลี่ยนรหัสผ่านทันที</strong> — Topbar → 👤 → แก้ไขข้อมูลส่วนตัว → กรอกรหัสผ่านใหม่</p>
+</blockquote>
+<hr>
+<h2>🗂️ เมนูใน Sidebar</h2>
+<table>
+<thead>
+<tr>
+<th>เมนู</th>
+<th>ใช้ทำอะไร</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>📊 <strong>Dashboard · ภาพรวม</strong></td>
+<td>สรุปสถานการณ์ทั้งจังหวัด</td>
+</tr>
+<tr>
+<td>👥 <strong>รายชื่อเป้าหมาย</strong></td>
+<td>ค้นหา + แก้ไขสถานะรายคน</td>
+</tr>
+<tr>
+<td>📦 <strong>ห่อเอกสารธนาคาร</strong></td>
+<td>ติดตามทุก batch ในระบบ</td>
+</tr>
+<tr>
+<td>🗺️ <strong>แผนที่หมู่บ้าน</strong></td>
+<td>ดู + แก้ไขพิกัด GPS</td>
+</tr>
+<tr>
+<td>🎖️ <strong>ผู้กำกับติดตาม</strong></td>
+<td>รายชื่อ tracker ทุกคน</td>
+</tr>
+<tr>
+<td>📥 <strong>นำเข้าข้อมูล</strong></td>
+<td>upload Excel กลุ่มเป้าหมาย</td>
+</tr>
+<tr>
+<td>📈 <strong>รายงาน</strong></td>
+<td>Export Excel + Bottleneck</td>
+</tr>
+<tr>
+<td>👤 <strong>จัดการผู้ใช้</strong></td>
+<td>เพิ่ม/แก้บัญชี login</td>
+</tr>
+<tr>
+<td>📝 <strong>ประวัติการใช้งาน</strong></td>
+<td>Audit log</td>
+</tr>
+<tr>
+<td>⚙️ <strong>ตั้งค่าข้อมูล</strong></td>
+<td>สถานะ/ช่องทาง/ธนาคาร/SOP</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>📋 งานที่ต้องทำตอนเริ่มระบบ (ครั้งแรก)</h2>
+<h3>Step 1: ตั้งค่าระบบพื้นฐาน</h3>
+<p><strong>ไปที่ ⚙️ ตั้งค่าข้อมูล</strong> → ตรวจสอบ 4 tab:</p>
+<ol>
+<li><strong>ช่องทางลงทะเบียน</strong> — มีช่องทางครบหรือยัง (ผ่านธนาคาร, ลงตนเอง, ผ่านอำเภอ...)</li>
+<li><strong>สถานะลงทะเบียน</strong> — 4.1-4.7 ครบหรือไม่ ปรับชื่อตามที่หน่วยงานใช้</li>
+<li><strong>ธนาคาร</strong> — 5 ธนาคาร (KTB/GSB/BAAC/GHB/IBANK) พร้อมโลโก้</li>
+<li><strong>ขั้นตอน SOP</strong> — 5 ขั้นของกระบวนการ ตั้ง &quot;ขั้นปัจจุบัน&quot; ว่าตอนนี้อยู่ขั้นไหน</li>
+</ol>
+<h3>Step 2: นำเข้ารายชื่อกลุ่มเป้าหมาย</h3>
+<p><strong>ไปที่ 📥 นำเข้าข้อมูล</strong>:</p>
+<ol>
+<li>กดเลือกไฟล์ Excel (.xlsx)</li>
+<li>กด <strong>Preview</strong> ดูว่าข้อมูลถูกต้องไหม</li>
+<li>กด <strong>Run Import</strong> เพื่อนำเข้าจริง</li>
+<li>ระบบจะตรวจ duplicate + บันทึก log</li>
+</ol>
+<blockquote>
+<p>💡 <strong>กับดักวันที่ Excel</strong>: บ้านเลขที่ &quot;27/1&quot; Excel แปลงเป็น &quot;27-ม.ค.&quot; อัตโนมัติ → ต้องแก้ใน Excel ก่อน upload</p>
+</blockquote>
+<h3>Step 3: สร้างบัญชีให้ทีมงาน</h3>
+<p><strong>ไปที่ 👤 จัดการผู้ใช้</strong> → กด <strong>+ เพิ่มผู้ใช้</strong>:</p>
+<h4>สร้าง Admin (ผู้ดูแลระดับอำเภอ)</h4>
+<ul>
+<li>Role: <strong>Admin</strong></li>
+<li>ใส่ชื่อ-นามสกุล + เบอร์โทร + password</li>
+<li>ไม่ต้องผูก scope</li>
+</ul>
+<h4>สร้าง Bank Staff (เจ้าหน้าที่ธนาคาร)</h4>
+<ul>
+<li>Role: <strong>เจ้าหน้าที่ธนาคาร</strong></li>
+<li>กล่องส้ม &quot;ขอบเขตธนาคาร&quot; จะโผล่ขึ้น → เลือก:<ul>
+<li>ช่องทาง: ธนาคาร 5 แห่ง</li>
+<li>ธนาคารย่อย: KTB / GSB / BAAC / GHB / IBANK</li>
+</ul>
+</li>
+<li>บัญชีจะเห็นแค่ batch ของธนาคารที่กำหนด</li>
+</ul>
+<h4>Tracker — สมัครเองได้</h4>
+<p>ไม่ต้องสร้าง — แจ้งให้กำนัน/ผู้ใหญ่บ้าน/อสม./อปท. ไปที่หน้า <strong>สมัครสมาชิก</strong> เอง → ระบบจะรอ Super Admin อนุมัติ</p>
+<hr>
+<h2>🔔 อนุมัติ Tracker ใหม่</h2>
+<p>เมื่อมี tracker สมัครใหม่:</p>
+<ol>
+<li>🔔 ระฆังจะเด้ง + LINE แจ้งเตือน &quot;มีผู้ใช้รออนุมัติ&quot;</li>
+<li>ไปที่ 👤 <strong>จัดการผู้ใช้</strong> → filter Role = &quot;ผู้กำกับติดตาม&quot; + Status = &quot;รออนุมัติ&quot;</li>
+<li>ตรวจชื่อ + เบอร์ + หมู่บ้านที่เลือก</li>
+<li>กดปุ่ม <strong>✅ อนุมัติ</strong> หรือ <strong>❌ พักงาน</strong></li>
+</ol>
+<hr>
+<h2>⚙️ การจัดการสถานะลงทะเบียน</h2>
+<p><strong>ตั้งค่าข้อมูล → tab สถานะลงทะเบียน</strong></p>
+<ul>
+<li><strong>เพิ่มสถานะใหม่</strong>: กด &quot;+ เพิ่มสถานะ&quot; → กรอก code (เช่น 4.8) + ชื่อ + สี</li>
+<li><strong>แก้ไขชื่อ</strong>: กดไอคอน ✏️ → แก้แล้ว save → <strong>ทุกหน้าเปลี่ยนทันที</strong> (dynamic)</li>
+<li><strong>ลบสถานะ</strong>: กดไอคอน 🗑️ (ระวัง — ถ้ามี target ใช้อยู่จะลบไม่ได้)</li>
+</ul>
+<blockquote>
+<p>🎯 <strong>Tip</strong>: สี pill ของ code 4.x ใช้ class CSS <code>st-4-X</code> (เช่น <code>st-4-1</code>, <code>st-4-7</code>)</p>
+</blockquote>
+<hr>
+<h2>📈 ดู Reports + Export</h2>
+<p><strong>ไปที่ 📈 รายงาน</strong>:</p>
+<ul>
+<li>4 tab: สรุปยอด / รายชื่อต้นฉบับ / รายชื่อ+สถานะ / รายชื่อผู้ติดตาม</li>
+<li>Filter: ระดับ (อำเภอ/ตำบล/หมู่บ้าน) + วันที่</li>
+<li>Pagination 35 รายการ/หน้า</li>
+<li>กดปุ่ม <strong>Export Excel</strong> ดาวน์โหลด</li>
+</ul>
+<hr>
+<h2>🗺️ แก้พิกัดหมู่บ้าน</h2>
+<p><strong>ไปที่ 🗺️ แผนที่หมู่บ้าน</strong>:</p>
+<ul>
+<li>คลิกหมุดสีน้ำเงิน → ดูข้อมูลหมู่บ้าน</li>
+<li><strong>ลากหมุดได้</strong> (เฉพาะ Super Admin) → save อัตโนมัติ</li>
+<li>กดปุ่ม 🔍 ใส่ที่อยู่ → Geocode อัตโนมัติผ่าน OSM</li>
+<li>กด ⏪ Undo ถ้าลากผิด</li>
+</ul>
+<hr>
+<h2>🔄 LINE Notifications ที่ Super Admin จะได้รับ</h2>
+<p>ส่งเข้ากลุ่ม LINE Admin:</p>
+<ul>
+<li>👤 ผู้ใช้สมัครใหม่ → รออนุมัติ</li>
+<li>📦 Tracker ส่ง batch → ธนาคารต้องรับ</li>
+<li>✅ ธนาคารรับ batch</li>
+<li>🎉 ธนาคารบันทึก batch ครบ</li>
+<li>⛔ ธนาคารปฏิเสธ batch + เหตุผล</li>
+<li>📊 Report ราย 3 วัน (TOP 5 อำเภอ + ตำบลย่อย)</li>
+</ul>
+<p>ส่งเข้ากลุ่ม LINE Report:</p>
+<ul>
+<li>📅 Daily snapshot (ทุกวัน 16:30)</li>
+<li>📉 Weekly bottleneck (ทุกจันทร์ 06:00)</li>
+</ul>
+<hr>
+<h2>🆘 Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>ปัญหา</th>
+<th>วิธีแก้</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>user สมัครแล้วไม่เห็นในระบบ</td>
+<td>ตรวจ filter — อาจถูกซ่อนเพราะ status pending</td>
+</tr>
+<tr>
+<td>Excel import พัง</td>
+<td>ตรวจคอลัมน์: ต้องตรงกับ template (เลขประจำตัวประชาชน, ชื่อ, สกุล, อำเภอ, ตำบล, หมู่บ้าน, หมู่ที่)</td>
+</tr>
+<tr>
+<td>สถานะแก้แล้วไม่อัปเดต</td>
+<td>กด Ctrl+F5 ล้าง browser cache</td>
+</tr>
+<tr>
+<td>LINE ไม่แจ้งเตือน</td>
+<td>ตรวจ .env: <code>LINE_MESSAGING_TOKEN</code> + <code>LINE_ADMIN_TARGET_ID</code> ครบ + bot อยู่ในกลุ่ม</td>
+</tr>
+<tr>
+<td>ลบ tracker ไม่ได้</td>
+<td>tracker อาจมี batch ค้างอยู่ — ปิด batch ก่อน</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>📞 ติดต่อ</h2>
+<ul>
+<li><strong>ระบบล่ม / DB error</strong>: admin มหาวิทยาลัย NRRU</li>
+<li><strong>ขอ feature เพิ่ม</strong>: ทีมพัฒนาระบบ</li>
+<li><strong>คู่มืออื่น</strong>: <a href="README.md">README.md</a></li>
+</ul>
+
+<hr>
+<p style="text-align:center; color:#94a3b8; font-size:9pt; margin-top:30px;">
+  Welfare Korat 2569 - Document - Generated from Markdown
+</p>
+</body>
+</html>
