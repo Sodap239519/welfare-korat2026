@@ -24,11 +24,18 @@ echo "$PATH"
 echo ""
 
 echo "── PROBE: PHP binaries ──"
-for p in /opt/plesk/php/8.3/bin/php /opt/plesk/php/8.2/bin/php /opt/plesk/php/8.1/bin/php /usr/bin/php /usr/bin/php8.3 /usr/bin/php8.2 /usr/local/bin/php; do
+for p in \
+    /opt/plesk/php/8.4/bin/php /opt/plesk/php/8.3/bin/php \
+    /opt/plesk/php/8.2/bin/php /opt/plesk/php/8.1/bin/php /opt/plesk/php/8.0/bin/php \
+    /usr/bin/php8.4 /usr/bin/php8.3 /usr/bin/php8.2 /usr/bin/php8.1 \
+    /usr/bin/php /usr/local/bin/php /usr/sbin/php; do
     if [ -x "$p" ]; then
         echo "  EXISTS: $p"
     fi
 done
+echo "  which php: $(which php 2>/dev/null || echo 'not found')"
+echo "  find /opt/plesk/php: $(find /opt/plesk/php -name 'php' -type f 2>/dev/null | tr '\n' ' ' || echo 'not found')"
+echo "  ls /opt/plesk: $(ls /opt/plesk/ 2>/dev/null || echo 'empty')"
 
 echo ""
 echo "── PROBE: Composer binaries ──"
@@ -61,12 +68,27 @@ done
 echo ""
 echo "── DETECT: php ──"
 PHP_BIN=""
-for p in /opt/plesk/php/8.3/bin/php /opt/plesk/php/8.2/bin/php /opt/plesk/php/8.1/bin/php /usr/bin/php8.3 /usr/bin/php8.2 /usr/bin/php /usr/local/bin/php; do
+for p in \
+    /opt/plesk/php/8.4/bin/php \
+    /opt/plesk/php/8.3/bin/php \
+    /opt/plesk/php/8.2/bin/php \
+    /opt/plesk/php/8.1/bin/php \
+    /opt/plesk/php/8.0/bin/php \
+    /usr/bin/php8.4 /usr/bin/php8.3 /usr/bin/php8.2 /usr/bin/php8.1 /usr/bin/php8.0 \
+    /usr/bin/php /usr/local/bin/php /usr/sbin/php; do
     if [ -x "$p" ]; then
         PHP_BIN="$p"
         break
     fi
 done
+# fallback: ลองหาจาก PATH โดยตรง
+if [ -z "$PHP_BIN" ]; then
+    PHP_BIN=$(command -v php 2>/dev/null || which php 2>/dev/null || true)
+fi
+# probe เพิ่มเติม: ค้นหา php ใน /opt/plesk ทั้งหมด
+if [ -z "$PHP_BIN" ]; then
+    PHP_BIN=$(find /opt/plesk/php -name "php" -type f 2>/dev/null | sort -rV | head -1)
+fi
 if [ -z "$PHP_BIN" ]; then
     echo "  [FATAL] ไม่พบ php — ดู PROBE ด้านบน"
     exit 1
