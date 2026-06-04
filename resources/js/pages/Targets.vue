@@ -927,7 +927,7 @@ async function submitAdd() {
 
             <div class="card-tint-orange text-xs p-3 flex items-start gap-2">
               <i class="fi-rr-info mt-0.5"></i>
-              <div>หลังเพิ่มแล้ว สามารถอัปเดตสถานะการลงทะเบียน 4.1-4.7 ได้ที่หน้ารายละเอียดบุคคล</div>
+              <div>หลังเพิ่มแล้ว สามารถอัปเดตสถานะการลงทะเบียน ได้ที่หน้ารายละเอียดบุคคล</div>
             </div>
 
             <div class="flex gap-2 justify-end">

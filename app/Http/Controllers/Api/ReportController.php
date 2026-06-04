@@ -114,7 +114,7 @@ class ReportController extends Controller
 
         $headings = ['ลำดับ', 'คำนำหน้า', 'ชื่อ', 'นามสกุล', 'เลขประจำตัวประชาชน',
                      'บ้านเลขที่', 'รหัสบ้าน', 'หมู่ที่', 'หมู่บ้าน', 'ตำบล', 'อำเภอ',
-                     'รายได้/ปี', 'ปี (พ.ศ.)', 'เคยได้รับบัตร'];
+                     'รายได้/ปี', 'ปี (พ.ศ.)', 'เคยได้รับบัตร', 'ที่มา'];
         $filename = "รายชื่อเป้าหมายต้นฉบับ_".now()->format('Y-m-d').'.xlsx';
 
         return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
@@ -138,6 +138,7 @@ class ReportController extends Controller
                     $t->annual_income ?? 0,
                     $t->year ?? '',
                     $t->has_old_welfare ? 'เคย' : '—',
+                    $t->source === 'manual' ? 'เพิ่มใหม่ (ภาคสนาม)' : 'มีในระบบ (นำเข้า)',
                 ];
             }
         }, $filename);
@@ -156,7 +157,7 @@ class ReportController extends Controller
 
         $rows = $q->get();
         $headings = ['ลำดับ', 'ชื่อ-สกุล', 'หมู่บ้าน', 'หมู่ที่', 'ตำบล', 'อำเภอ',
-                     'สถานะปัจจุบัน', 'ช่องทาง', 'อัปเดตล่าสุด', 'หมายเหตุ'];
+                     'สถานะปัจจุบัน', 'ช่องทาง', 'อัปเดตล่าสุด', 'หมายเหตุ', 'ที่มา'];
         $filename = "รายชื่อเป้าหมาย+สถานะ_".now()->format('Y-m-d').'.xlsx';
 
         // อ่านชื่อสถานะจาก DB ครั้งเดียว แล้วส่งเข้าไปใน closure ผ่าน constructor
@@ -181,6 +182,7 @@ class ReportController extends Controller
                     $cs?->channel?->name ?? '',
                     $cs?->updated_at?->format('d/m/Y H:i') ?? '',
                     $cs?->note ?? '',
+                    $t->source === 'manual' ? 'เพิ่มใหม่ (ภาคสนาม)' : 'มีในระบบ (นำเข้า)',
                 ];
             }
         }, $filename);

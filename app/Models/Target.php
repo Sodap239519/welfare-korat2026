@@ -17,7 +17,7 @@ class Target extends Model
     protected $fillable = [
         'household_id', 'village_id', 'tambon_id', 'amphur_id',
         'member_seq', 'year', 'prefix', 'first_name', 'last_name',
-        'poverty_level', 'has_old_welfare', 'annual_income', 'active',
+        'poverty_level', 'has_old_welfare', 'annual_income', 'active', 'source',
     ];
 
     public function getActivitylogOptions(): LogOptions

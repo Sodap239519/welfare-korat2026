@@ -252,6 +252,7 @@ class TargetController extends Controller
             'has_old_welfare' => $data['has_old_welfare'] ?? false,
             'annual_income'   => $data['annual_income'] ?? 0,
             'active'          => true,
+            'source'          => 'manual',   // เพิ่มเองภาคสนาม (กลุ่มเป้าหมายใหม่) — สำหรับรายงานเปรียบเทียบ
         ]);
 
         return response()->json([
