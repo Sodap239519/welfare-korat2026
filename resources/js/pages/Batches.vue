@@ -98,8 +98,24 @@ onMounted(async () => {
 
 watch([scope, status], () => load(1));
 
-// ─── View mode (เฉพาะ district admin) ───
-const viewMode = ref('list');  // 'list' | 'date' | 'bank'
+// ─── View mode ───
+//   admin/super_admin เห็นปุ่มมุมมอง · super_admin + admin ส่วนกลาง (เห็นหลายอำเภอ) เห็น "แยกอำเภอ" เพิ่ม
+const isSuperOrGlobal = computed(() => auth.roles.includes('super_admin')
+  || (auth.roles.includes('admin') && !auth.user?.amphur_id));
+const canViewModes = computed(() => isDistrictAdmin || isSuperOrGlobal.value);
+const viewMode = ref('list');  // 'list' | 'date' | 'bank' | 'amphur'
+
+// จัดกลุ่ม batch สำหรับ view แยกอำเภอ (super_admin / admin ส่วนกลาง)
+const batchesByAmphur = computed(() => {
+  const groups = {};
+  for (const b of data.value.data) {
+    const name = b.target_amphur?.name || 'ไม่ระบุอำเภอ';
+    if (!groups[name]) groups[name] = { name, items: [], totalTargets: 0 };
+    groups[name].items.push(b);
+    groups[name].totalTargets += b.targets_count || 0;
+  }
+  return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+});
 
 // จัดกลุ่ม batch สำหรับ view รายวัน
 const batchesByDate = computed(() => {
@@ -161,12 +177,17 @@ function rowClick(b) {
           {{ t.label }}
         </button>
 
-        <!-- view mode (เฉพาะ district admin) — มือถือ: ไอคอนล้วน · Desktop: ไอคอน+ข้อความ -->
-        <div v-if="isDistrictAdmin" class="shrink-0 ml-auto flex items-center gap-0.5 rounded-xl border border-slate-200 dark:border-slate-700 p-0.5">
+        <!-- view mode (admin/super_admin) — มือถือ: ไอคอนล้วน · Desktop: ไอคอน+ข้อความ -->
+        <div v-if="canViewModes" class="shrink-0 ml-auto flex items-center gap-0.5 rounded-xl border border-slate-200 dark:border-slate-700 p-0.5">
           <button @click="viewMode = 'list'" title="รายการ"
                   :class="['h-8 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition',
                            viewMode === 'list' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800']">
             <i class="fi-rr-list"></i><span class="hidden lg:inline">รายการ</span>
+          </button>
+          <button v-if="isSuperOrGlobal" @click="viewMode = 'amphur'" title="แยกอำเภอ"
+                  :class="['h-8 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition',
+                           viewMode === 'amphur' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800']">
+            <i class="fi-rr-building"></i><span class="hidden lg:inline">แยกอำเภอ</span>
           </button>
           <button @click="viewMode = 'date'" title="แยกรายวัน"
                   :class="['h-8 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition',
@@ -301,6 +322,41 @@ function rowClick(b) {
                     <i class="fi-rr-user-headset mr-1"></i> {{ b.tracker?.name || '—' }}
                     <span class="mx-1.5">·</span>
                     <i class="fi-rr-calendar mr-1"></i> {{ shortDate(b.batch_date) }}
+                    <span class="mx-1.5">·</span>
+                    <strong>{{ formatNumber(b.targets_count) }}</strong> ราย
+                  </div>
+                </div>
+                <i class="fi-rr-angle-right text-slate-300 dark:text-slate-600 mt-1.5"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── View: แยกอำเภอ (super_admin / admin ส่วนกลาง) ─── -->
+      <div v-else-if="viewMode === 'amphur'" class="space-y-4">
+        <div v-for="group in batchesByAmphur" :key="group.name">
+          <div class="flex items-center gap-2 px-1 mb-2">
+            <i class="fi-rr-building text-slate-400"></i>
+            <span class="text-sm font-semibold">{{ group.name }}</span>
+            <span class="text-xs text-slate-400">· {{ group.items.length }} ห่อ · {{ group.totalTargets }} ราย</span>
+          </div>
+          <div class="space-y-2">
+            <div v-for="b in group.items" :key="b.id" @click="rowClick(b)"
+                 class="card p-4 cursor-pointer hover:shadow-md hover:border-blue-300 dark:hover:border-blue-700 transition tap-transparent">
+              <div class="flex items-start gap-3">
+                <div :class="['w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-lg', statusMeta[b.status]?.tint || 'bg-slate-100']">
+                  <i :class="statusMeta[b.status]?.icon || 'fi-rr-document'"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <div class="font-mono font-semibold text-sm">#{{ b.batch_no }}</div>
+                    <span :class="['text-xs px-2 py-0.5 rounded-full font-medium', statusMeta[b.status]?.tint]">{{ statusMeta[b.status]?.label }}</span>
+                  </div>
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <i class="fi-rr-user-headset mr-1"></i> {{ b.tracker?.name || '—' }}
+                    <span class="mx-1.5">·</span>
+                    <i class="fi-rr-bank mr-1"></i> {{ b.channel?.name || '—' }} {{ b.sub_channel ? `(${b.sub_channel.toUpperCase()})` : '' }}
                     <span class="mx-1.5">·</span>
                     <strong>{{ formatNumber(b.targets_count) }}</strong> ราย
                   </div>

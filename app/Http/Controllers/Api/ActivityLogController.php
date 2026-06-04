@@ -19,8 +19,15 @@ class ActivityLogController extends Controller
             $q->where(fn ($w) => $w->where('description', 'like', "%$term%")
                                   ->orWhere('log_name', 'like', "%$term%"));
         }
-        if ($request->filled('event')) {
-            $q->where('event', $request->event);
+        // ตัวกรองประเภท (multi-select) — รวมทั้ง event (created/updated/deleted) และ log_name (settings/sop_phase/village_coords)
+        if ($request->filled('types')) {
+            $types = (array) $request->input('types');
+            $events   = array_values(array_intersect($types, ['created', 'updated', 'deleted']));
+            $logNames = array_values(array_diff($types, ['created', 'updated', 'deleted']));
+            $q->where(function ($w) use ($events, $logNames) {
+                if ($events)   $w->orWhereIn('event', $events);
+                if ($logNames) $w->orWhereIn('log_name', $logNames);
+            });
         }
         if ($request->filled('date')) {
             $q->whereDate('created_at', $request->date);
