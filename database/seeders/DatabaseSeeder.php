@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             DistrictAdminUserSeeder::class,
             // bulk data
             TargetImportSeeder::class,
+            MissedTargetSeeder::class,
             // demo (remove or guard for production)
             DemoTrackerSeeder::class,
             DemoStatusSeeder::class,

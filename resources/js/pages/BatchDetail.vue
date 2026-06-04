@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
 import Modal from '@/components/Modal.vue';
+import Loader from '@/components/Loader.vue';
 import { ref, reactive, computed, onMounted } from 'vue';
 import axios from 'axios';
 import { useRoute, useRouter } from 'vue-router';
@@ -63,26 +64,48 @@ const canDistrictReceive = computed(() => st.value === 'submitted_to_district' &
 const canDistrictForward = computed(() => st.value === 'district_received' && canDistrictAction.value);
 const canReceive         = computed(() => st.value === 'forwarded_to_bank' && canBankAction.value);
 const canRecord          = computed(() => st.value === 'bank_received' && canBankAction.value);
-const canReject          = computed(() => ['submitted_to_district', 'district_received', 'forwarded_to_bank', 'bank_received'].includes(st.value)
-  && (canDistrictAction.value || canBankAction.value));
+// ปฏิเสธ: อำเภอปฏิเสธช่วงก่อนส่งต่อ · ธนาคารปฏิเสธช่วงหลัง forward (หลังส่งต่อแล้ว อำเภอยกเลิกได้ ไม่ใช่ปฏิเสธ)
+const canReject          = computed(() => {
+  if (['submitted_to_district', 'district_received'].includes(st.value)) return canDistrictAction.value;
+  if (['forwarded_to_bank', 'bank_received'].includes(st.value)) return canBankAction.value;
+  return false;
+});
+// อำเภอยกเลิกการส่งต่อได้ ถ้าธนาคารยังไม่รับ
+const canUndoForward     = computed(() => st.value === 'forwarded_to_bank' && canDistrictAction.value);
 const canDelete          = computed(() => canEditDraft.value);
+// เจ้าของห่อเป็นอำเภอ (admin) → กด "ส่ง" แล้วไปธนาคารตรงเลย (ไม่ส่งให้ตัวเองรับ)
+const submitDirectToBank = computed(() => isOwner.value
+  && auth.roles.includes('admin') && !auth.roles.includes('super_admin'));
+// ปฏิเสธรายคน — อำเภอ (ตอนรอรับ/รับแล้ว) หรือ ธนาคาร (ตอน forward มา/รับแล้ว)
+const canBounceTarget    = computed(() => {
+  if (['submitted_to_district', 'district_received'].includes(st.value)) return canDistrictAction.value;
+  if (['forwarded_to_bank', 'bank_received'].includes(st.value)) return canBankAction.value;
+  return false;
+});
 
 // Forward modal state
 const showForwardModal = ref(false);
 const forwardForm = reactive({ forwarded_to_channel_id: '', forwarded_to_sub_channel: '' });
 const channels = ref([]);
 const banks = ref([]);
+const forwardOverride = ref(false);  // เปิดให้เลือกธนาคารอื่น (กรณีพิเศษ)
+// ชื่อธนาคารปลายทางที่ pre-fill จาก batch (ห่อถูกแบ่งตามธนาคารมาแล้ว)
+const forwardBankName = computed(() => {
+  const code = (forwardForm.forwarded_to_sub_channel || '').toLowerCase();
+  return banks.value.find(b => b.code.toLowerCase() === code)?.name || (code ? code.toUpperCase() : '');
+});
 async function loadForwardOpts() {
   if (channels.value.length) return;
   const [c, b] = await Promise.all([axios.get('/api/ref/channels'), axios.get('/api/ref/banks')]);
   channels.value = c.data.data;
   banks.value = b.data.data;
-  const bankCh = channels.value.find(c => c.code === 'bank');
-  if (bankCh) forwardForm.forwarded_to_channel_id = bankCh.id;
 }
 function openForward() {
   loadForwardOpts();
-  forwardForm.forwarded_to_sub_channel = '';
+  // ห่อถูกแบ่งตามธนาคารมาแล้ว → ใช้ปลายทางเดิมของ batch เลย ไม่ต้องเลือกใหม่
+  forwardForm.forwarded_to_channel_id = batch.value?.channel_id || '';
+  forwardForm.forwarded_to_sub_channel = (batch.value?.sub_channel || '').toLowerCase();
+  forwardOverride.value = !batch.value?.sub_channel;  // ถ้าไม่มีธนาคารเดิม → บังคับให้เลือก
   showForwardModal.value = true;
 }
 async function submitForward() {
@@ -110,9 +133,43 @@ async function load() {
 }
 onMounted(load);
 
-function confirmSubmit() {
-  if (!confirm(`ยืนยันส่ง batch #${batch.value?.batch_no} (${batch.value?.targets?.length || 0} ราย) ให้อำเภอ?\n\nหลังส่งแล้ว รอให้อำเภอกดยืนยันรับก่อนจึงจะส่งต่อธนาคารได้`)) return;
-  callAction('submit');
+const showSubmitConfirm = ref(false);
+function confirmSubmit() { showSubmitConfirm.value = true; }
+function doSubmit() { showSubmitConfirm.value = false; callAction('submit'); }
+
+const showUndoConfirm = ref(false);
+function confirmUndo() { showUndoConfirm.value = true; }
+function doUndo() { showUndoConfirm.value = false; callAction('undo-forward'); }
+
+// ─── ปฏิเสธรายคน (ตีกลับ tracker) ───
+const showBounceModal = ref(false);
+const bounceTargetId = ref(null);
+const bounceTargetName = ref('');
+const bounceReason = ref('');
+const bounceErr = ref('');
+const bounceSaving = ref(false);
+function openBounce(t) {
+  bounceTargetId.value = t.id;
+  bounceTargetName.value = [t.prefix, t.first_name, t.last_name].filter(Boolean).join(' ');
+  bounceReason.value = '';
+  bounceErr.value = '';
+  showBounceModal.value = true;
+}
+async function submitBounce() {
+  if (!bounceReason.value.trim()) { bounceErr.value = 'กรุณาระบุเหตุผล'; return; }
+  bounceSaving.value = true;
+  bounceErr.value = '';
+  try {
+    const { data } = await axios.post(`/api/batches/${id.value}/targets/${bounceTargetId.value}/bounce`, { reason: bounceReason.value });
+    showBounceModal.value = false;
+    flash.value = data.message || 'ปฏิเสธรายนี้ออกจากห่อแล้ว';
+    await load();
+    setTimeout(() => (flash.value = ''), 4000);
+  } catch (e) {
+    bounceErr.value = e.response?.data?.message || 'ปฏิเสธไม่สำเร็จ';
+  } finally {
+    bounceSaving.value = false;
+  }
 }
 
 async function callAction(action, payload = null) {
@@ -123,6 +180,10 @@ async function callAction(action, payload = null) {
     flash.value = data.message || 'ทำเรียบร้อย';
     if (data.data) batch.value = { ...batch.value, ...data.data };
     await load();
+    // ส่งให้อำเภอ / รับ / บันทึก → กลับหน้ารายการ batch
+    if (['submit', 'record'].includes(action)) {
+      setTimeout(() => router.push({ name: 'batches' }), 1500);
+    }
   } catch (e) {
     flashErr.value = e.response?.data?.message || 'ทำไม่สำเร็จ';
   } finally {
@@ -176,9 +237,7 @@ async function submitReject() {
       </button>
 
       <!-- Loading -->
-      <div v-if="loading" class="text-center py-20 text-slate-500">
-        <i class="fi-rr-spinner animate-spin text-3xl"></i>
-      </div>
+      <Loader v-if="loading" label="กำลังโหลดรายละเอียดห่อ..." py="py-24" />
 
       <!-- Error (โหลดไม่ได้) -->
       <div v-else-if="flashErr && !batch" class="card-tint-red p-3 text-sm flex items-center gap-2">
@@ -256,77 +315,86 @@ async function submitReject() {
 
         <!-- Action buttons · DESKTOP -->
         <div class="card p-4 hidden lg:flex flex-wrap gap-2">
-          <button v-if="canSubmit" @click="confirmSubmit" :disabled="acting"
+          <button v-if="canSubmit" @click="confirmSubmit" :disabled="!!acting"
                   class="btn-primary px-4 py-2.5 text-sm flex items-center gap-2 bg-amber-500 hover:bg-amber-600 min-h-[44px]">
             <i :class="['fi-rr-paper-plane', acting === 'submit' && 'animate-spin']"></i>
-            ส่งให้อำเภอ ({{ batch.targets?.length || 0 }} ราย)
+            {{ submitDirectToBank ? 'ส่งตรงธนาคาร' : 'ส่งให้อำเภอ' }} ({{ batch.targets?.length || 0 }} ราย)
           </button>
-          <button v-if="canDistrictReceive" @click="callAction('district-receive')" :disabled="acting"
+          <button v-if="canDistrictReceive" @click="callAction('district-receive')" :disabled="!!acting"
                   class="btn-primary px-4 py-2.5 text-sm flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 min-h-[44px]">
             <i :class="['fi-rr-building', acting === 'district-receive' && 'animate-spin']"></i>
             ยืนยันรับเอกสาร (อำเภอ)
           </button>
-          <button v-if="canDistrictForward" @click="openForward" :disabled="acting"
+          <button v-if="canDistrictForward" @click="openForward" :disabled="!!acting"
                   class="btn-primary px-4 py-2.5 text-sm flex items-center gap-2 bg-amber-600 hover:bg-amber-700 min-h-[44px]">
             <i :class="['fi-rr-paper-plane', acting === 'district-forward' && 'animate-spin']"></i>
             ส่งต่อให้ธนาคาร
           </button>
-          <button v-if="canReceive" @click="callAction('receive')" :disabled="acting"
+          <button v-if="canUndoForward" @click="confirmUndo" :disabled="!!acting"
+                  class="btn-outline px-4 py-2.5 text-sm flex items-center gap-2 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-50 min-h-[44px]">
+            <i :class="['fi-rr-undo', acting === 'undo-forward' && 'animate-spin']"></i>
+            ยกเลิกส่ง (ธ.ยังไม่รับ)
+          </button>
+          <button v-if="canReceive" @click="callAction('receive')" :disabled="!!acting"
                   class="btn-primary px-4 py-2.5 text-sm flex items-center gap-2 bg-sky-600 hover:bg-sky-700 min-h-[44px]">
             <i :class="['fi-rr-inbox-in', acting === 'receive' && 'animate-spin']"></i>
             ยืนยันรับ (ธนาคาร)
           </button>
-          <button v-if="canRecord" @click="callAction('record')" :disabled="acting"
+          <button v-if="canRecord" @click="callAction('record')" :disabled="!!acting"
                   class="btn-primary px-4 py-2.5 text-sm flex items-center gap-2 bg-green-600 hover:bg-green-700 min-h-[44px]">
             <i :class="['fi-rr-check-double', acting === 'record' && 'animate-spin']"></i>
             ยืนยันบันทึกครบ
           </button>
-          <button v-if="canReject" @click="openReject" :disabled="acting"
+          <button v-if="canReject" @click="openReject" :disabled="!!acting"
                   class="btn-outline px-4 py-2.5 text-sm flex items-center gap-2 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 hover:bg-red-50 min-h-[44px]">
             <i class="fi-rr-cross-circle"></i> ปฏิเสธ
           </button>
-          <button v-if="canDelete" @click="deleteBatch" :disabled="acting"
+          <button v-if="canDelete" @click="deleteBatch" :disabled="!!acting"
                   class="btn-outline px-4 py-2.5 text-sm flex items-center gap-2 ml-auto text-red-700 dark:text-red-300 min-h-[44px]">
             <i class="fi-rr-trash"></i> ลบ draft
           </button>
         </div>
 
         <!-- Action buttons · MOBILE — sticky bottom -->
-        <div v-if="canSubmit || canDistrictReceive || canDistrictForward || canReceive || canRecord || canReject || canDelete"
-             class="lg:hidden fixed left-0 right-0 z-30 px-3"
-             style="bottom: calc(env(safe-area-inset-bottom, 0px) + 4.5rem);">
+        <div v-if="canSubmit || canDistrictReceive || canDistrictForward || canUndoForward || canReceive || canRecord || canReject || canDelete"
+             class="lg:hidden fixed left-0 right-0 z-40 px-3"
+             style="bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem);">
           <div class="card p-2.5 shadow-2xl shadow-slate-900/20 border-2 border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
-            <button v-if="canSubmit" @click="confirmSubmit" :disabled="acting"
+            <button v-if="canSubmit" @click="confirmSubmit" :disabled="!!acting"
                     class="btn-primary px-3 py-3 text-sm flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 min-h-[48px]">
-              <i :class="['fi-rr-paper-plane', acting === 'submit' && 'animate-spin']"></i> ส่งให้อำเภอ
+              <i :class="['fi-rr-paper-plane', acting === 'submit' && 'animate-spin']"></i> {{ submitDirectToBank ? 'ส่งตรงธนาคาร' : 'ส่งให้อำเภอ' }}
             </button>
-            <button v-if="canDistrictReceive" @click="callAction('district-receive')" :disabled="acting"
+            <button v-if="canDistrictReceive" @click="callAction('district-receive')" :disabled="!!acting"
                     class="btn-primary px-3 py-3 text-sm flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 min-h-[48px]">
               <i :class="['fi-rr-building', acting === 'district-receive' && 'animate-spin']"></i> รับ (อำเภอ)
             </button>
-            <button v-if="canDistrictForward" @click="openForward" :disabled="acting"
+            <button v-if="canDistrictForward" @click="openForward" :disabled="!!acting"
                     class="btn-primary px-3 py-3 text-sm flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 min-h-[48px]">
               <i class="fi-rr-paper-plane"></i> ส่งต่อธนาคาร
             </button>
-            <button v-if="canReceive" @click="callAction('receive')" :disabled="acting"
+            <button v-if="canUndoForward" @click="confirmUndo" :disabled="!!acting"
+                    class="btn-outline px-3 py-3 text-sm flex-1 min-w-[140px] flex items-center justify-center gap-2 text-amber-700 border-amber-300 min-h-[48px]">
+              <i :class="['fi-rr-undo', acting === 'undo-forward' && 'animate-spin']"></i> ยกเลิกส่ง
+            </button>
+            <button v-if="canReceive" @click="callAction('receive')" :disabled="!!acting"
                     class="btn-primary px-3 py-3 text-sm flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 min-h-[48px]">
               <i :class="['fi-rr-inbox-in', acting === 'receive' && 'animate-spin']"></i> รับ (ธ.)
             </button>
-            <button v-if="canRecord" @click="callAction('record')" :disabled="acting"
+            <button v-if="canRecord" @click="callAction('record')" :disabled="!!acting"
                     class="btn-primary px-3 py-3 text-sm flex-1 min-w-[140px] flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 min-h-[48px]">
               <i :class="['fi-rr-check-double', acting === 'record' && 'animate-spin']"></i> บันทึก
             </button>
-            <button v-if="canReject" @click="openReject" :disabled="acting"
+            <button v-if="canReject" @click="openReject" :disabled="!!acting"
                     class="btn-outline px-3 py-3 text-sm flex items-center justify-center gap-1.5 text-red-700 border-red-200 min-h-[48px]">
               <i class="fi-rr-cross-circle"></i> ปฏิเสธ
             </button>
-            <button v-if="canDelete" @click="deleteBatch" :disabled="acting"
+            <button v-if="canDelete" @click="deleteBatch" :disabled="!!acting"
                     class="btn-outline px-3 py-3 text-sm flex items-center justify-center gap-1.5 text-red-700 min-h-[48px]" title="ลบ draft">
               <i class="fi-rr-trash"></i>
             </button>
           </div>
         </div>
-        <div v-if="canSubmit || canDistrictReceive || canDistrictForward || canReceive || canRecord || canReject || canDelete" class="lg:hidden h-20"></div>
+        <div v-if="canSubmit || canDistrictReceive || canDistrictForward || canUndoForward || canReceive || canRecord || canReject || canDelete" class="lg:hidden h-20"></div>
 
         <!-- Targets list -->
         <div class="card overflow-hidden">
@@ -361,6 +429,11 @@ async function submitReject() {
                       title="เอาออกจาก batch">
                 <i class="fi-rr-cross-small"></i>
               </button>
+              <button v-else-if="canBounceTarget" @click="openBounce(t)"
+                      class="px-2.5 py-1.5 rounded-lg text-xs flex items-center gap-1 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 shrink-0"
+                      title="ปฏิเสธรายนี้ — ตีกลับให้ผู้กำกับติดตาม">
+                <i class="fi-rr-ban"></i> ปฏิเสธ
+              </button>
             </li>
           </ul>
         </div>
@@ -374,29 +447,48 @@ async function submitReject() {
           <i class="fi-rr-paper-plane text-2xl text-amber-600"></i>
           <div>
             <div class="font-semibold">ส่งต่อ batch #{{ batch?.batch_no }} ให้ธนาคาร</div>
-            <div class="text-xs text-slate-500 mt-0.5">เลือกธนาคารปลายทาง — เจ้าหน้าที่ธนาคารจะรับ batch ต่อ</div>
+            <div class="text-xs text-slate-500 mt-0.5">เจ้าหน้าที่ธนาคารปลายทางจะรับ batch ต่อ</div>
           </div>
         </div>
-        <div>
-          <label class="text-xs text-slate-500 mb-1 block">ช่องทาง</label>
-          <select v-model="forwardForm.forwarded_to_channel_id" class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-            <option value="">— เลือก —</option>
-            <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="text-xs text-slate-500 mb-1 block">ธนาคาร</label>
-          <div class="grid grid-cols-2 gap-2">
-            <button v-for="b in banks" :key="b.code" type="button"
-                    @click="forwardForm.forwarded_to_sub_channel = b.code.toLowerCase()"
-                    :class="['px-3 py-2.5 rounded-xl text-sm border transition tap-transparent',
-                             forwardForm.forwarded_to_sub_channel === b.code.toLowerCase()
-                               ? 'border-amber-500 bg-amber-50 text-amber-800 font-medium'
-                               : 'border-slate-200 hover:bg-slate-50']">
-              {{ b.name }}
-            </button>
+
+        <!-- ปลายทางที่ระบบกำหนดให้แล้ว (ห่อแบ่งตามธนาคารมาตั้งแต่ต้นทาง) -->
+        <div v-if="!forwardOverride" class="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">ธนาคารปลายทาง (กำหนดจากห่อเอกสาร)</div>
+          <div class="flex items-center gap-2">
+            <i class="fi-rr-bank text-amber-600"></i>
+            <span class="font-semibold text-amber-800 dark:text-amber-200">{{ forwardBankName || '— ไม่ระบุ —' }}</span>
+            <span v-if="forwardForm.forwarded_to_sub_channel" class="text-xs font-mono text-amber-700 dark:text-amber-300">({{ forwardForm.forwarded_to_sub_channel.toUpperCase() }})</span>
           </div>
+          <button type="button" @click="forwardOverride = true"
+                  class="mt-2 text-xs text-blue-700 dark:text-blue-300 hover:underline flex items-center gap-1">
+            <i class="fi-rr-pencil"></i> เปลี่ยนธนาคารปลายทาง (กรณีพิเศษ)
+          </button>
         </div>
+
+        <!-- เลือกเอง (เปิดเมื่อกดเปลี่ยน หรือ batch ไม่มีธนาคารเดิม) -->
+        <template v-else>
+          <div>
+            <label class="text-xs text-slate-500 mb-1 block">ช่องทาง</label>
+            <select v-model="forwardForm.forwarded_to_channel_id" class="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <option value="">— เลือก —</option>
+              <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-500 mb-1 block">ธนาคาร</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button v-for="b in banks" :key="b.code" type="button"
+                      @click="forwardForm.forwarded_to_sub_channel = b.code.toLowerCase()"
+                      :class="['px-3 py-2.5 rounded-xl text-sm border transition tap-transparent',
+                               forwardForm.forwarded_to_sub_channel === b.code.toLowerCase()
+                                 ? 'border-amber-500 bg-amber-50 text-amber-800 font-medium'
+                                 : 'border-slate-200 hover:bg-slate-50']">
+                {{ b.name }}
+              </button>
+            </div>
+          </div>
+        </template>
+
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" @click="showForwardModal = false" class="btn-outline px-4 py-2.5 text-sm">ยกเลิก</button>
           <button type="submit" :disabled="acting === 'district-forward'" class="btn-primary bg-amber-600 hover:bg-amber-700 px-4 py-2.5 text-sm flex items-center gap-2">
@@ -430,6 +522,88 @@ async function submitReject() {
           </button>
         </div>
       </form>
+    </Modal>
+
+    <!-- Modal ยืนยันส่งให้อำเภอ -->
+    <Modal :show="showSubmitConfirm" max-width="max-w-sm" @close="showSubmitConfirm = false">
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-11 h-11 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center text-xl">
+            <i class="fi-rr-paper-plane"></i>
+          </div>
+          <div>
+            <div class="font-semibold">{{ submitDirectToBank ? 'ยืนยันส่งตรงธนาคาร' : 'ยืนยันส่งให้อำเภอ' }}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Batch <span class="font-mono font-bold">#{{ batch?.batch_no }}</span> · {{ batch?.targets?.length || 0 }} ราย
+            </div>
+          </div>
+        </div>
+        <div class="text-sm text-slate-600 dark:text-slate-400">
+          {{ submitDirectToBank
+             ? 'ห่อนี้อำเภอเป็นผู้ส่งเอง → ส่งตรงให้ธนาคารทันที (ข้ามขั้นอำเภอรับ) · รอธนาคารกดรับ'
+             : 'หลังส่งแล้วรอให้อำเภอกดยืนยันรับ ก่อนส่งต่อธนาคารได้' }}
+        </div>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="showSubmitConfirm = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+          <button @click="doSubmit" :disabled="!!acting" class="btn-primary px-4 py-2 text-sm bg-amber-500 hover:bg-amber-600 flex items-center gap-2">
+            <i :class="['fi-rr-paper-plane', acting === 'submit' && 'animate-spin']"></i> ยืนยันส่ง
+          </button>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Modal ยืนยันยกเลิกส่งต่อ -->
+    <Modal :show="showUndoConfirm" max-width="max-w-sm" @close="showUndoConfirm = false">
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-11 h-11 shrink-0 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center text-xl">
+            <i class="fi-rr-undo"></i>
+          </div>
+          <div>
+            <div class="font-semibold">ยกเลิกการส่งต่อธนาคาร</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Batch <span class="font-mono font-bold">#{{ batch?.batch_no }}</span></div>
+          </div>
+        </div>
+        <div class="text-sm text-slate-600 dark:text-slate-400">
+          ดึงห่อกลับมาที่อำเภอ (สถานะ "อำเภอรับแล้ว") — ทำได้เฉพาะตอนธนาคารยังไม่กดรับ · จากนั้นส่งต่อใหม่ได้
+        </div>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="showUndoConfirm = false" class="btn-outline px-4 py-2 text-sm">ปิด</button>
+          <button @click="doUndo" :disabled="!!acting" class="btn-primary px-4 py-2 text-sm bg-amber-600 hover:bg-amber-700 flex items-center gap-2">
+            <i :class="['fi-rr-undo', acting === 'undo-forward' && 'animate-spin']"></i> ยืนยันยกเลิกส่ง
+          </button>
+        </div>
+      </div>
+    </Modal>
+
+    <!-- Modal ปฏิเสธรายคน (ตีกลับ tracker) -->
+    <Modal :show="showBounceModal" max-width="max-w-sm" @close="showBounceModal = false">
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <div class="w-11 h-11 shrink-0 rounded-xl bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-300 flex items-center justify-center text-xl">
+            <i class="fi-rr-ban"></i>
+          </div>
+          <div class="min-w-0">
+            <div class="font-semibold">ปฏิเสธรายนี้ออกจากห่อ</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{{ bounceTargetName }}</div>
+          </div>
+        </div>
+        <div class="text-sm text-slate-600 dark:text-slate-400">
+          รายนี้จะถูกเอาออกจากห่อ และ <strong>ตีกลับให้ผู้กำกับติดตาม</strong> จัดการใหม่ (ห่อที่เหลือเดินหน้าต่อได้ตามปกติ)
+        </div>
+        <div>
+          <label class="text-xs text-slate-500 dark:text-slate-400 mb-1 block">เหตุผล <span class="text-red-600">*</span></label>
+          <textarea v-model="bounceReason" rows="2" placeholder="เช่น เอกสารไม่ครบ / ไม่มีตัวจริง / เกินมาจากห่ออื่น"
+                    class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"></textarea>
+          <div v-if="bounceErr" class="text-xs text-red-600 mt-1">{{ bounceErr }}</div>
+        </div>
+        <div class="flex gap-2 justify-end pt-1">
+          <button @click="showBounceModal = false" class="btn-outline px-4 py-2 text-sm">ยกเลิก</button>
+          <button @click="submitBounce" :disabled="bounceSaving" class="btn-primary px-4 py-2 text-sm bg-red-600 hover:bg-red-700 flex items-center gap-2">
+            <i :class="['fi-rr-ban', bounceSaving && 'animate-spin']"></i> ยืนยันปฏิเสธ
+          </button>
+        </div>
+      </div>
     </Modal>
   </AppLayout>
 </template>

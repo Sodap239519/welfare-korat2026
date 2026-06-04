@@ -344,7 +344,8 @@ async function submitRegister() {
               <div>
                 <div class="font-semibold text-sky-800 dark:text-sky-200 text-[11px] uppercase tracking-wide mb-0.5">👥 ผู้ดูแล + ผู้กำกับติดตาม</div>
                 <div>🛡️ Super Admin: <code>0900000001</code></div>
-                <div>🎖️ Admin: <code>0900000002</code></div>
+                <div>🎖️ Admin (ส่วนกลาง): <code>0900000002</code></div>
+                <div>🏢 Admin อำเภอ (จักราช): <code>0930070001</code></div>
                 <div>🏘️ Tracker: <code>0812345678</code></div>
               </div>
 

@@ -16,6 +16,7 @@ async function doLogout() {
 }
 const allItems = [
   { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม',  roles: ['*'] },
+  { name: 'missed-targets', icon: 'fi-rr-search-heart',     label: 'กลุ่มเป้าหมายผู้ตกหล่น', roles: ['*'] },
   { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย',     roles: ['*'] },
   { name: 'batches',        icon: 'fi-rr-box-alt',          label: 'ห่อเอกสารธนาคาร',   roles: ['*'] },
   { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: ['*'] },

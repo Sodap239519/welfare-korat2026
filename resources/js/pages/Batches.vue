@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
+import Loader from '@/components/Loader.vue';
 import { ref, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
@@ -11,13 +12,13 @@ const router = useRouter();
 const auth = useAuthStore();
 
 // scope default ตาม role:
-//   - tracker → mine
+//   - admin (ทุกระดับ) → all (ทั้งหมด เป็นค่าเริ่มต้น)
 //   - bank_staff → inbox (เฉพาะธนาคารตัว)
-//   - admin อำเภอ (มี amphur_id) → inbox (เฉพาะอำเภอตัว)
-//   - super_admin / admin global → all
-const isPureBank = auth.roles.includes('bank_staff') && !auth.roles.includes('admin') && !auth.roles.includes('super_admin');
+//   - tracker → mine
+const isAdminRole = auth.roles.includes('admin') || auth.roles.includes('super_admin');
+const isPureBank = auth.roles.includes('bank_staff') && !isAdminRole;
 const isDistrictAdmin = auth.roles.includes('admin') && !!auth.user?.amphur_id;
-const defaultScope = isPureBank || isDistrictAdmin ? 'inbox' : 'mine';
+const defaultScope = isAdminRole ? 'all' : (isPureBank ? 'inbox' : 'mine');
 const scope = ref(defaultScope);
 const status = ref('');   // CSV filter: draft,submitted,received,recorded,rejected
 const data = ref({ data: [], total: 0, current_page: 1, last_page: 1 });
@@ -40,32 +41,40 @@ const statusMeta = {
   rejected:                { label: 'ปฏิเสธ', tint: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300', icon: 'fi-rr-cross-circle' },
 };
 
-// scope tabs ขึ้นกับ role
+// scope tabs ขึ้นกับ role — "ทั้งหมด" อยู่หน้าสุดสำหรับ admin
 const scopeTabs = computed(() => {
   const tabs = [];
   const isBank = auth.roles.includes('bank_staff');
   const isAdmin = auth.roles.includes('super_admin') || auth.roles.includes('admin');
 
+  // admin เห็น "ทั้งหมด" เป็นตัวแรก
+  if (isAdmin) tabs.push({ key: 'all', label: 'ทั้งหมด', icon: 'fi-rr-apps' });
   // tracker เห็น "ของฉัน" · bank_staff ไม่เห็น (ไม่ใช่ผู้สร้าง batch)
   if (!isBank || isAdmin) tabs.push({ key: 'mine', label: 'ของฉัน', icon: 'fi-rr-user' });
   // bank_staff + admin เห็น inbox
   if (isBank || isAdmin) tabs.push({ key: 'inbox', label: 'รอดำเนินการ', icon: 'fi-rr-inbox' });
-  // admin เห็นทั้งหมด
-  if (isAdmin) tabs.push({ key: 'all', label: 'ทั้งหมด', icon: 'fi-rr-apps' });
 
   return tabs;
 });
 
-const statusTabs = [
-  { key: '',                       label: 'ทั้งหมด' },
-  { key: 'draft',                  label: 'ร่าง' },
-  { key: 'submitted_to_district',  label: 'รออำเภอ' },
-  { key: 'district_received',      label: 'อำเภอรับแล้ว' },
-  { key: 'forwarded_to_bank',      label: 'รอธนาคาร' },
-  { key: 'bank_received',          label: 'ธ.รับ' },
-  { key: 'bank_recorded',          label: 'บันทึกครบ' },
-  { key: 'rejected',               label: 'ปฏิเสธ' },
-];
+const statusTabs = computed(() => {
+  const all = [
+    { key: '',                       label: 'ทั้งหมด' },
+    { key: 'draft',                  label: 'ร่าง' },
+    { key: 'submitted_to_district',  label: 'รออำเภอ' },
+    { key: 'district_received',      label: 'อำเภอรับแล้ว' },
+    { key: 'forwarded_to_bank',      label: 'รอธนาคาร' },
+    { key: 'bank_received',          label: 'ธ.รับ' },
+    { key: 'bank_recorded',          label: 'บันทึกครบ' },
+    { key: 'rejected',               label: 'ปฏิเสธ' },
+  ];
+  const isPureBankStaff = auth.roles.includes('bank_staff') && !auth.roles.includes('admin') && !auth.roles.includes('super_admin');
+  // ธนาคารสนใจเฉพาะช่วงของตัวเอง — ตัด draft/รออำเภอ/อำเภอรับ ออก
+  if (isPureBankStaff) {
+    return all.filter(t => ['', 'forwarded_to_bank', 'bank_received', 'bank_recorded', 'rejected'].includes(t.key));
+  }
+  return all;
+});
 
 async function load(page = 1) {
   loading.value = true;
@@ -141,34 +150,35 @@ function rowClick(b) {
         </div>
       </div>
 
-      <!-- Scope tabs (mine/inbox/all) -->
-      <div class="flex gap-2 overflow-x-auto -mx-1 px-1">
+      <!-- ตัวกรอง scope (dropdown สั้น) + View mode (segmented icon-only) — แถวเดียว ไม่ scroll -->
+      <div class="flex gap-2 items-center">
+        <!-- ตัวกรอง scope: 3 ปุ่มข้อความ ทั้งหมด/ของฉัน/รอดำเนินการ -->
         <button v-for="t in scopeTabs" :key="t.key" @click="scope = t.key"
-                :class="['shrink-0 px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition',
+                :class="['shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-medium transition',
                          scope === t.key
                            ? 'bg-blue-700 text-white shadow'
                            : 'border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800']">
-          <i :class="t.icon"></i> {{ t.label }}
+          {{ t.label }}
         </button>
-      </div>
 
-      <!-- View mode tabs — เฉพาะ district admin -->
-      <div v-if="isDistrictAdmin" class="flex gap-2 overflow-x-auto -mx-1 px-1">
-        <button @click="viewMode = 'list'"
-                :class="['shrink-0 px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition border',
-                         viewMode === 'list' ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800']">
-          <i class="fi-rr-list"></i> รายการ
-        </button>
-        <button @click="viewMode = 'date'"
-                :class="['shrink-0 px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition border',
-                         viewMode === 'date' ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800']">
-          <i class="fi-rr-calendar"></i> แยกรายวัน
-        </button>
-        <button @click="viewMode = 'bank'"
-                :class="['shrink-0 px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition border',
-                         viewMode === 'bank' ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800']">
-          <i class="fi-rr-bank"></i> แยกธนาคาร
-        </button>
+        <!-- view mode (เฉพาะ district admin) — มือถือ: ไอคอนล้วน · Desktop: ไอคอน+ข้อความ -->
+        <div v-if="isDistrictAdmin" class="shrink-0 ml-auto flex items-center gap-0.5 rounded-xl border border-slate-200 dark:border-slate-700 p-0.5">
+          <button @click="viewMode = 'list'" title="รายการ"
+                  :class="['h-8 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition',
+                           viewMode === 'list' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800']">
+            <i class="fi-rr-list"></i><span class="hidden lg:inline">รายการ</span>
+          </button>
+          <button @click="viewMode = 'date'" title="แยกรายวัน"
+                  :class="['h-8 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition',
+                           viewMode === 'date' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800']">
+            <i class="fi-rr-calendar"></i><span class="hidden lg:inline">แยกรายวัน</span>
+          </button>
+          <button @click="viewMode = 'bank'" title="แยกธนาคาร"
+                  :class="['h-8 px-2.5 rounded-lg flex items-center justify-center gap-1.5 text-xs transition',
+                           viewMode === 'bank' ? 'bg-slate-800 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800']">
+            <i class="fi-rr-bank"></i><span class="hidden lg:inline">แยกธนาคาร</span>
+          </button>
+        </div>
       </div>
 
       <!-- Status filter pills -->
@@ -183,9 +193,7 @@ function rowClick(b) {
       </div>
 
       <!-- Loading -->
-      <div v-if="loading" class="text-center py-12 text-slate-500">
-        <i class="fi-rr-spinner animate-spin text-2xl"></i>
-      </div>
+      <Loader v-if="loading" label="กำลังโหลดห่อเอกสาร..." />
 
       <!-- Empty state · ข้อความและ CTA เปลี่ยนตาม role -->
       <div v-else-if="data.data.length === 0" class="card p-12 text-center">

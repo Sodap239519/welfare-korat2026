@@ -112,7 +112,21 @@ class DocumentBatchController extends Controller
                 ]);
             }
         }
-        // 'all' = ไม่กรอง (super_admin)
+        // 'all' = เห็นทั้งหมด · แต่ admin อำเภอ จำกัดเฉพาะอำเภอตัวเอง (+ ห่อที่ตัวเองสร้าง)
+        if ($scope === 'all' && $isDistrictAdmin && $user->amphur_id) {
+            $q->where(function ($w) use ($user) {
+                $w->where('target_amphur_id', $user->amphur_id)
+                  ->orWhere('tracker_user_id', $user->id);
+            });
+        }
+
+        // ร่าง (draft) เห็นได้เฉพาะเจ้าของ + super_admin — อำเภอ/ธนาคารห้ามเห็น draft ของ tracker คนอื่น
+        if (!$isSuperOrSysAdmin) {
+            $q->where(function ($w) use ($user) {
+                $w->where('status', '!=', DocumentBatch::ST_DRAFT)
+                  ->orWhere('tracker_user_id', $user->id);
+            });
+        }
 
         // ─── filters ───
         if ($request->filled('status')) {
@@ -301,11 +315,69 @@ class DocumentBatchController extends Controller
         return response()->json(['message' => 'เอาออกจาก batch แล้ว']);
     }
 
+    /**
+     * POST /api/batches/{id}/targets/{tid}/bounce
+     *   อำเภอ/ธนาคาร ปฏิเสธรายคน (เอกสารไม่ตรง/เกินมา) → ตีกลับให้ tracker จัดการใหม่
+     *   - เอาออกจาก batch · status คง 4.2 · sub_status → null (รอใส่ห่อรอบใหม่)
+     *   - batch ที่เหลือเดินหน้าต่อได้ตามปกติ
+     */
+    public function bounceTarget(Request $request, int $id, int $tid): JsonResponse
+    {
+        $batch = DocumentBatch::findOrFail($id);
+        $user  = $request->user();
+
+        // ปฏิเสธรายคนได้เฉพาะช่วงที่ห่ออยู่ในมืออำเภอ/ธนาคาร (จุดที่ตรวจรับเอกสารจริง)
+        $atDistrict = in_array($batch->status, [DocumentBatch::ST_SUBMITTED_TO_DISTRICT, DocumentBatch::ST_DISTRICT_RECEIVED], true);
+        $atBank     = in_array($batch->status, [DocumentBatch::ST_FORWARDED_TO_BANK, DocumentBatch::ST_BANK_RECEIVED], true);
+
+        if ($atDistrict) {
+            $this->authorizeDistrictAction($batch, $user);
+        } elseif ($atBank) {
+            $this->authorizeBankAction($batch, $user);
+        } else {
+            return response()->json([
+                'message' => 'ปฏิเสธรายคนได้เฉพาะตอนที่ห่ออยู่ระหว่างอำเภอ/ธนาคารตรวจรับ',
+            ], 422);
+        }
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ], [
+            'reason.required' => 'กรุณาระบุเหตุผลที่ปฏิเสธรายนี้',
+        ]);
+
+        if (!$batch->targets()->where('targets.id', $tid)->exists()) {
+            return response()->json(['message' => 'ไม่พบรายนี้ใน batch'], 404);
+        }
+
+        DB::transaction(function () use ($batch, $tid, $user, $data) {
+            $batch->targets()->detach($tid);
+            // ตีกลับ tracker: status คง 4.2 · sub_status → null (รอจัดการใหม่)
+            TargetCurrentStatus::where('target_id', $tid)->update([
+                'sub_status_code' => null,
+                'updated_by'      => $user->id,
+                'updated_by_name' => $user->name,
+                'updated_at'      => now(),
+            ]);
+            $this->logTargetEvent($tid, $user, null,
+                'ปฏิเสธรายคนออกจาก batch #'.$batch->batch_no.' — '.$data['reason']);
+        });
+
+        return response()->json([
+            'message' => 'ปฏิเสธรายนี้ออกจากห่อแล้ว — ตีกลับให้ผู้กำกับติดตามจัดการใหม่',
+            'data'    => $batch->fresh()->loadCount('targets'),
+        ]);
+    }
+
     // ─────────────────────────────────────────────────────────────
     // LIFECYCLE — submit / receive / record / reject
     // ─────────────────────────────────────────────────────────────
 
-    /** POST /api/batches/{id}/submit — tracker: draft → submitted_to_district */
+    /**
+     * POST /api/batches/{id}/submit
+     *   - tracker เจ้าของ: draft → submitted_to_district (รออำเภอรับ)
+     *   - อำเภอเจ้าของ (admin): ส่งตรงธนาคาร draft → forwarded_to_bank (ไม่ส่งให้ตัวเองรับ)
+     */
     public function submit(Request $request, int $id): JsonResponse
     {
         $batch = DocumentBatch::findOrFail($id);
@@ -319,7 +391,38 @@ class DocumentBatchController extends Controller
             return response()->json(['message' => 'batch ไม่มีอำเภอปลายทาง — เพิ่ม target ก่อน'], 422);
         }
 
-        $user = $request->user();
+        $user  = $request->user();
+        $owner = User::find($batch->tracker_user_id);
+        // เจ้าของห่อเป็นอำเภอ (admin) → ส่งตรงธนาคาร ข้ามขั้นอำเภอรับ
+        $ownerIsDistrict = $owner && $owner->hasRole('admin') && !$owner->hasRole('super_admin');
+
+        if ($ownerIsDistrict) {
+            if (!$batch->sub_channel) {
+                return response()->json(['message' => 'ห่อนี้ยังไม่มีธนาคารปลายทาง — ระบุธนาคารก่อนส่ง'], 422);
+            }
+            DB::transaction(function () use ($batch, $user) {
+                $now = now();
+                $batch->update([
+                    'status'                       => DocumentBatch::ST_FORWARDED_TO_BANK,
+                    'submitted_at'                 => $now,
+                    'district_received_at'         => $now,
+                    'district_received_by_user_id' => $user->id,
+                    'forwarded_at'                 => $now,
+                    'forwarded_by_user_id'         => $user->id,
+                    'forwarded_to_channel_id'      => $batch->channel_id,
+                    'forwarded_to_sub_channel'     => strtolower($batch->sub_channel),
+                ]);
+                $this->advanceBatchTargets($batch, self::SUB_FORWARDED_TO_BANK, $user, 'อำเภอส่งตรงให้ธนาคาร batch #'.$batch->batch_no);
+            });
+            $this->notifyBatchForwardedToBank($batch->fresh());
+
+            return response()->json([
+                'message' => "ส่ง batch #{$batch->batch_no} ตรงให้ธนาคารแล้ว — รอธนาคารรับ",
+                'data'    => $batch->fresh(),
+            ]);
+        }
+
+        // tracker ปกติ → ส่งให้อำเภอ
         DB::transaction(function () use ($batch, $user) {
             $batch->update([
                 'status'       => DocumentBatch::ST_SUBMITTED_TO_DISTRICT,
@@ -388,6 +491,35 @@ class DocumentBatchController extends Controller
 
         return response()->json([
             'message' => "ส่งต่อ batch #{$batch->batch_no} ให้ธนาคาร".strtoupper($data['forwarded_to_sub_channel'])." แล้ว",
+            'data'    => $batch->fresh(),
+        ]);
+    }
+
+    /**
+     * POST /api/batches/{id}/undo-forward — อำเภอยกเลิกการส่งต่อ (ธนาคารยังไม่รับ)
+     *   forwarded_to_bank → district_received · ล้างปลายทาง · พร้อมส่งใหม่
+     */
+    public function undoForward(Request $request, int $id): JsonResponse
+    {
+        $batch = DocumentBatch::findOrFail($id);
+        $this->authorizeDistrictAction($batch, $request->user());
+        $this->assertStatus($batch, DocumentBatch::ST_FORWARDED_TO_BANK, 'ยกเลิกได้เฉพาะ batch ที่ส่งต่อธนาคารแล้วและธนาคารยังไม่รับ');
+
+        $user = $request->user();
+        DB::transaction(function () use ($batch, $user) {
+            $batch->update([
+                'status'                   => DocumentBatch::ST_DISTRICT_RECEIVED,
+                'forwarded_at'             => null,
+                'forwarded_by_user_id'     => null,
+                'forwarded_to_channel_id'  => null,
+                'forwarded_to_sub_channel' => null,
+            ]);
+            // ขยับ target กลับสถานะ "อำเภอรับเอกสาร" (4.2.4)
+            $this->advanceBatchTargets($batch, self::SUB_DISTRICT_RECEIVED, $user, 'อำเภอยกเลิกส่งต่อ batch #'.$batch->batch_no.' (ธนาคารยังไม่รับ)');
+        });
+
+        return response()->json([
+            'message' => "ยกเลิกการส่งต่อ batch #{$batch->batch_no} แล้ว — กลับสู่สถานะอำเภอรับ พร้อมส่งใหม่",
             'data'    => $batch->fresh(),
         ]);
     }

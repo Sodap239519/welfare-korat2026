@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
 import Pagination from '@/components/Pagination.vue';
+import Loader from '@/components/Loader.vue';
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate, statusShort, STATUS_SHORT, loadStatuses } from '@/composables/useApi';
@@ -131,6 +132,7 @@ const topicTabs = [
   { key: 'targets-raw',    label: 'รายชื่อต้นฉบับ',      icon: 'fi-rr-users-alt' },
   { key: 'targets-status', label: 'รายชื่อ + สถานะ',     icon: 'fi-rr-id-badge' },
   { key: 'trackers',       label: 'ผู้กำกับติดตาม',     icon: 'fi-rr-user-headset' },
+  { key: 'missed',         label: 'ผู้ตกหล่น',          icon: 'fi-rr-search-heart' },
 ];
 
 // โหลดข้อมูลตาม tab ที่เลือก
@@ -151,6 +153,9 @@ async function loadTabData(page = 1) {
     } else if (topic.value === 'trackers') {
       const { data } = await axios.get('/api/trackers', { params });
       trackersList.value = data;
+    } else if (topic.value === 'missed') {
+      const { data } = await axios.get('/api/missed-targets', { params: { level: 'amphur' } });
+      missedRows.value = data.data;
     }
   } finally { tabLoading.value = false; }
 }
@@ -160,6 +165,11 @@ function loadTargetsPage(page) { loadTabData(page); }
 
 // ส่งออกตาม tab ปัจจุบัน — export ทุกแถว ไม่จำกัด page
 function exportCurrent() {
+  // ผู้ตกหล่น — export แยกต่างหาก (ตาม level)
+  if (topic.value === 'missed') {
+    window.location.href = '/api/missed-targets/export?level=amphur';
+    return;
+  }
   const params = new URLSearchParams();
   if (amphurId.value) params.append('amphur_id', amphurId.value);
   if (tambonId.value) params.append('tambon_id', tambonId.value);
@@ -202,6 +212,15 @@ function downloadChartPng() {
 }
 
 function onClickOutside() {} // placeholder — ไม่มี dropdown แล้ว แต่เก็บไว้ backward compat
+
+// ─── กลุ่มเป้าหมายผู้ตกหล่น (tab "ผู้ตกหล่น") ───
+const missedRows = ref([]);
+const missedTotals = computed(() => missedRows.value.reduce((a, r) => ({
+  vuln:  a.vuln  + (r.cnt_vulnerable || 0),
+  jpt:   a.jpt   + (r.cnt_jpt || 0),
+  both:  a.both  + (r.cnt_both || 0),
+  total: a.total + (r.cnt_total || 0),
+}), { vuln: 0, jpt: 0, both: 0, total: 0 }));
 
 onMounted(async () => {
   loadStatuses();   // โหลดชื่อสถานะ dynamic — column ตารางขึ้นกับสิ่งนี้
@@ -308,7 +327,7 @@ function pctClass(n) {
           </button>
         </div>
 
-        <div v-if="reportType === 'daily'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        <div v-if="reportType === 'daily' && topic !== 'missed'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           <div class="relative min-w-0">
             <input v-model="date" type="date" class="w-full min-w-0 pl-3 pr-9 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
             <button v-if="date" @click="date = ''" title="ล้าง"
@@ -339,7 +358,7 @@ function pctClass(n) {
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+      <Loader v-if="loading" label="กำลังโหลดรายงาน..." py="py-10" />
 
       <!-- DAILY -->
       <template v-else-if="reportType === 'daily'">
@@ -452,7 +471,7 @@ function pctClass(n) {
         <!-- ║ Tab: รายชื่อต้นฉบับ / +สถานะ           ║ -->
         <!-- ╚══════════════════════════════════════╝ -->
         <div v-else-if="topic === 'targets-raw' || topic === 'targets-status'">
-          <div v-if="tabLoading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+          <Loader v-if="tabLoading" label="" py="py-8" :size="40" />
           <div v-else class="card overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
@@ -507,7 +526,7 @@ function pctClass(n) {
         <!-- ║ Tab: ผู้กำกับติดตาม                     ║ -->
         <!-- ╚══════════════════════════════════════╝ -->
         <div v-else-if="topic === 'trackers'">
-          <div v-if="tabLoading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+          <Loader v-if="tabLoading" label="" py="py-8" :size="40" />
           <div v-else class="card overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
@@ -549,6 +568,47 @@ function pctClass(n) {
                       @go="loadTargetsPage" />
           <div v-else class="text-xs text-slate-500 mt-2 text-center">
             ทั้งหมด {{ formatNumber(trackersList.total) }} คน
+          </div>
+        </div>
+
+        <!-- ╔══════════════════════════════════════╗ -->
+        <!-- ║ Tab: ผู้ตกหล่น (missed)                ║ -->
+        <!-- ╚══════════════════════════════════════╝ -->
+        <div v-else-if="topic === 'missed'">
+          <Loader v-if="tabLoading" label="" py="py-8" :size="40" />
+          <div v-else-if="missedRows.length === 0" class="card p-10 text-center text-sm text-slate-500">ยังไม่มีข้อมูล</div>
+          <div v-else class="card overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                <tr>
+                  <th class="text-left py-2 px-3 w-10">#</th>
+                  <th class="text-left py-2 px-3">อำเภอ</th>
+                  <th class="text-right py-2 px-3">เปราะบาง</th>
+                  <th class="text-right py-2 px-3">จปฐ.</th>
+                  <th class="text-right py-2 px-3">3 กลุ่ม</th>
+                  <th class="text-right py-2 px-3">รวม</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                <tr v-for="(r, i) in missedRows" :key="i" class="hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                  <td class="px-3 py-2 text-slate-400 tabular-nums">{{ i + 1 }}</td>
+                  <td class="px-3 py-2 font-medium">{{ r.amphur_name }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ formatNumber(r.cnt_vulnerable) }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ formatNumber(r.cnt_jpt) }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ formatNumber(r.cnt_both) }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums font-semibold text-blue-700 dark:text-blue-300">{{ formatNumber(r.cnt_total) }}</td>
+                </tr>
+              </tbody>
+              <tfoot class="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 font-semibold">
+                <tr>
+                  <td class="px-3 py-2.5" colspan="2">รวมทั้งหมด</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ formatNumber(missedTotals.vuln) }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ formatNumber(missedTotals.jpt) }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ formatNumber(missedTotals.both) }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums text-blue-700 dark:text-blue-300">{{ formatNumber(missedTotals.total) }}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DocumentBatchController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\LineWebhookController;
 use App\Http\Controllers\Api\MapController;
+use App\Http\Controllers\Api\MissedTargetController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReferenceController;
 use App\Http\Controllers\Api\ReportController;
@@ -67,6 +68,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('import/run',      [ImportController::class, 'run']);
     Route::get('import/logs',      [ImportController::class, 'logs']);
     Route::get('import/logs/{id}', [ImportController::class, 'showLog'])->whereNumber('id');
+
+    // กลุ่มเป้าหมายผู้ตกหล่น — อ่านได้ทุก role · อัปโหลด เฉพาะ super_admin
+    Route::get('missed-targets',          [MissedTargetController::class, 'index']);
+    Route::get('missed-targets/summary',  [MissedTargetController::class, 'summary']);
+    Route::get('missed-targets/export',   [MissedTargetController::class, 'export']);
+    Route::get('missed-targets/imports',  [MissedTargetController::class, 'imports']);
+    Route::middleware('role:super_admin')->post('missed-targets/upload', [MissedTargetController::class, 'upload']);
 
     // Map
     Route::get('map/villages', [MapController::class, 'villages']);
@@ -162,10 +170,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // targets in batch
         Route::post('{id}/targets',           'addTargets')->whereNumber('id');
         Route::delete('{id}/targets/{tid}',   'removeTarget')->whereNumber('id')->whereNumber('tid');
+        Route::post('{id}/targets/{tid}/bounce', 'bounceTarget')->whereNumber('id')->whereNumber('tid'); // อำเภอ/ธนาคาร ปฏิเสธรายคน
         // lifecycle — Path A 5 จุดยืนยัน
         Route::post('{id}/submit',            'submit')->whereNumber('id');             // tracker → district
         Route::post('{id}/district-receive',  'districtReceive')->whereNumber('id');    // อำเภอรับ
         Route::post('{id}/district-forward',  'districtForward')->whereNumber('id');    // อำเภอส่งต่อ bank
+        Route::post('{id}/undo-forward',      'undoForward')->whereNumber('id');        // อำเภอยกเลิกส่งต่อ (ธ.ยังไม่รับ)
         Route::post('{id}/receive',           'receive')->whereNumber('id');            // bank รับ
         Route::post('{id}/record',            'record')->whereNumber('id');             // bank บันทึก
         Route::post('{id}/reject',            'reject')->whereNumber('id');             // ปฏิเสธทุกจุด
