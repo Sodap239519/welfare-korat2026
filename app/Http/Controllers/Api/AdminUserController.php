@@ -2,16 +2,27 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exports\UsersByRoleExport;
 use App\Http\Controllers\Controller;
+use App\Models\Channel;
 use App\Models\User;
 use App\Models\UserScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AdminUserController extends Controller
 {
+    /** GET /api/admin/users/export — ส่งออกรายชื่อผู้ใช้ แยกชีตตามประเภท */
+    public function export(): BinaryFileResponse
+    {
+        return Excel::download(new UsersByRoleExport, 'รายชื่อผู้ใช้ระบบ_'.now()->format('Y-m-d').'.xlsx');
+    }
+
     /** GET /api/admin/users */
     public function index(Request $request): JsonResponse
     {
@@ -52,16 +63,18 @@ class AdminUserController extends Controller
             // optional scope (สำหรับ admin/tracker)
             'scope_type'       => ['nullable', 'string', 'in:amphur,tambon,village'],
             'scope_id'         => ['nullable', 'integer'],
-            // bank scope (สำหรับ bank_staff — บังคับถ้า role = bank_staff)
-            'bank_channel_id'  => ['required_if:role,bank_staff', 'nullable', 'integer', 'exists:channels,id'],
+            // bank scope (สำหรับ bank_staff) — ช่องทาง auto = ธนาคาร · เลือกธนาคาร + อำเภอ + ชื่อสาขา(ไม่บังคับ)
             'bank_sub_channel' => ['required_if:role,bank_staff', 'nullable', 'string', 'max:50'],
-            // amphur scope (สำหรับ admin ระดับอำเภอ — บังคับถ้า role = admin)
-            'amphur_id'        => ['required_if:role,admin', 'nullable', 'integer', 'exists:amphurs,id'],
+            'bank_branch'      => ['nullable', 'string', 'max:150'],
+            // amphur scope — บังคับถ้า bank_staff (อำเภอที่สาขาดูแล) · admin ปล่อยว่าง = ทุกอำเภอ
+            'amphur_id'        => [Rule::requiredIf(fn () => $request->input('role') === 'bank_staff'), 'nullable', 'integer', 'exists:amphurs,id'],
         ], [
-            'bank_channel_id.required_if'  => 'ต้องเลือกช่องทางธนาคารสำหรับเจ้าหน้าที่ธนาคาร',
-            'bank_sub_channel.required_if' => 'ต้องเลือกธนาคารย่อยสำหรับเจ้าหน้าที่ธนาคาร',
-            'amphur_id.required_if'        => 'ต้องเลือกอำเภอที่ Admin ดูแล',
+            'bank_sub_channel.required_if' => 'ต้องเลือกธนาคารสำหรับเจ้าหน้าที่ธนาคาร',
+            'amphur_id.required_if'        => 'ต้องเลือกอำเภอที่สาขาดูแล',
         ]);
+
+        $isBank = $data['role'] === 'bank_staff';
+        $bankChannelId = $isBank ? Channel::where('code', 'bank')->value('id') : null;
 
         $user = User::create([
             'name'             => $data['name'],
@@ -71,9 +84,10 @@ class AdminUserController extends Controller
             'position_other'   => $data['position_other'] ?? null,
             'password'         => Hash::make($data['password']),
             'active'           => $data['active'] ?? true,
-            'bank_channel_id'  => $data['role'] === 'bank_staff' ? $data['bank_channel_id']  : null,
-            'bank_sub_channel' => $data['role'] === 'bank_staff' ? strtolower($data['bank_sub_channel']) : null,
-            'amphur_id'        => $data['role'] === 'admin' ? $data['amphur_id'] : null,
+            'bank_channel_id'  => $bankChannelId,
+            'bank_sub_channel' => $isBank ? strtolower($data['bank_sub_channel']) : null,
+            'bank_branch'      => $isBank ? ($data['bank_branch'] ?? null) : null,
+            'amphur_id'        => in_array($data['role'], ['admin', 'bank_staff']) ? ($data['amphur_id'] ?? null) : null,
         ]);
         $user->assignRole($data['role']);
 
@@ -102,8 +116,8 @@ class AdminUserController extends Controller
             'active'           => ['sometimes', 'boolean'],
             'password'         => ['sometimes', 'nullable', Password::min(6)],
             'role'             => ['sometimes', 'string', 'in:super_admin,admin,tracker,bank_staff'],
-            'bank_channel_id'  => ['sometimes', 'nullable', 'integer', 'exists:channels,id'],
             'bank_sub_channel' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'bank_branch'      => ['sometimes', 'nullable', 'string', 'max:150'],
             'amphur_id'        => ['sometimes', 'nullable', 'integer', 'exists:amphurs,id'],
         ]);
 
@@ -116,13 +130,17 @@ class AdminUserController extends Controller
         $role = $data['role'] ?? null;
         unset($data['role']);
 
-        // ถ้าเปลี่ยน role ออกจาก bank_staff → เคลียร์ bank fields
-        if ($role && $role !== 'bank_staff') {
+        // bank_staff → ช่องทาง auto = ธนาคาร · เก็บธนาคาร/สาขา/อำเภอ
+        if ($role === 'bank_staff') {
+            $data['bank_channel_id'] = Channel::where('code', 'bank')->value('id');
+        } elseif ($role && $role !== 'bank_staff') {
+            // เปลี่ยน role ออกจาก bank_staff → เคลียร์ bank fields
             $data['bank_channel_id'] = null;
             $data['bank_sub_channel'] = null;
+            $data['bank_branch'] = null;
         }
-        // ถ้าเปลี่ยน role ออกจาก admin → เคลียร์ amphur_id
-        if ($role && $role !== 'admin') {
+        // เปลี่ยน role เป็น tracker/super_admin → เคลียร์ amphur_id (admin/bank_staff เก็บไว้)
+        if ($role && !in_array($role, ['admin', 'bank_staff'])) {
             $data['amphur_id'] = null;
         }
         // lower-case bank_sub_channel เพื่อให้ match กับ batch.sub_channel
@@ -204,6 +222,7 @@ class AdminUserController extends Controller
             'position_other'   => $u->position_other,
             'bank_channel_id'  => $u->bank_channel_id,
             'bank_sub_channel' => $u->bank_sub_channel,
+            'bank_branch'      => $u->bank_branch,
             'amphur_id'        => $u->amphur_id,
             'amphur_name'      => $u->amphur?->name,
             'active'           => (bool) $u->active,

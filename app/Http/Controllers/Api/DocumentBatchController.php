@@ -94,10 +94,11 @@ class DocumentBatchController extends Controller
         } elseif ($scope === 'inbox') {
             // แต่ละ role เห็น batch รอ action ของตัวเอง
             if ($isBankStaff) {
-                // ธนาคารเห็น batch ที่ forward มาถึงสาขา หรือรับแล้วยังไม่บันทึก
+                // ธนาคารเห็น batch ที่ forward มาถึงสาขา หรือรับแล้วยังไม่บันทึก — เฉพาะอำเภอที่ตนดูแล
                 $q->whereIn('status', [DocumentBatch::ST_FORWARDED_TO_BANK, DocumentBatch::ST_BANK_RECEIVED])
                   ->where('forwarded_to_channel_id', $user->bank_channel_id)
-                  ->where('forwarded_to_sub_channel', $user->bank_sub_channel);
+                  ->where('forwarded_to_sub_channel', $user->bank_sub_channel)
+                  ->when($user->amphur_id, fn ($w) => $w->where('target_amphur_id', $user->amphur_id));
             } elseif ($isDistrictAdmin) {
                 // admin อำเภอเห็น batch ของอำเภอตัว ที่ส่งมาให้หรือรับแล้วยังไม่ส่งต่อ
                 $q->whereIn('status', [DocumentBatch::ST_SUBMITTED_TO_DISTRICT, DocumentBatch::ST_DISTRICT_RECEIVED])
@@ -897,10 +898,11 @@ class DocumentBatchController extends Controller
 
     private function notifyBatchForwardedToBank(DocumentBatch $batch): void
     {
-        // อำเภอส่งต่อ → notify bank_staff ของธนาคารปลายทาง + tracker
+        // อำเภอส่งต่อ → notify bank_staff ของธนาคารปลายทาง (อำเภอนั้น) + tracker
         $bankStaff = User::role('bank_staff')
             ->where('bank_channel_id', $batch->forwarded_to_channel_id)
             ->where('bank_sub_channel', $batch->forwarded_to_sub_channel)
+            ->where(fn ($w) => $w->whereNull('amphur_id')->orWhere('amphur_id', $batch->target_amphur_id))
             ->get();
         $tracker = User::find($batch->tracker_user_id);
         $recipients = $bankStaff->all();
@@ -949,10 +951,11 @@ class DocumentBatchController extends Controller
         if ($user->hasRole('admin') && $batch->target_amphur_id === $user->amphur_id) return;
         // tracker เห็นของตัว
         if ($batch->tracker_user_id === $user->id) return;
-        // bank_staff: เห็น batch ที่ forward มาธนาคารตัว (รวม recorded/rejected ที่จบแล้ว)
+        // bank_staff: เห็น batch ที่ forward มาธนาคารตัว + อำเภอที่ตนดูแล (รวม recorded/rejected ที่จบแล้ว)
         if ($user->hasRole('bank_staff')
             && $batch->forwarded_to_channel_id === $user->bank_channel_id
-            && $batch->forwarded_to_sub_channel === $user->bank_sub_channel) return;
+            && $batch->forwarded_to_sub_channel === $user->bank_sub_channel
+            && (!$user->amphur_id || $batch->target_amphur_id === $user->amphur_id)) return;
         abort(403, 'ไม่มีสิทธิ์ดู batch นี้');
     }
 
@@ -969,11 +972,12 @@ class DocumentBatchController extends Controller
         // admin (district) ถ้า batch.target_amphur_id ตรงกับอำเภอตัว → ทำแทนได้
         if ($user->hasRole('admin') && !$user->amphur_id) return;  // admin ที่ไม่ผูกอำเภอ = global admin
         if ($user->hasRole('admin') && $batch->target_amphur_id === $user->amphur_id) return;
-        // bank_staff ต้องตรง forwarded_to_channel/sub_channel
+        // bank_staff ต้องตรง forwarded_to_channel/sub_channel + อำเภอที่ตนดูแล
         if ($user->hasRole('bank_staff')
             && $batch->forwarded_to_channel_id === $user->bank_channel_id
-            && $batch->forwarded_to_sub_channel === $user->bank_sub_channel) return;
-        abort(403, 'เฉพาะเจ้าหน้าที่ธนาคารปลายทางเท่านั้น');
+            && $batch->forwarded_to_sub_channel === $user->bank_sub_channel
+            && (!$user->amphur_id || $batch->target_amphur_id === $user->amphur_id)) return;
+        abort(403, 'เฉพาะเจ้าหน้าที่ธนาคารปลายทาง (อำเภอที่ดูแล) เท่านั้น');
     }
 
     /** อำเภอ (admin ที่ผูก amphur_id ตรง batch.target_amphur_id) — super_admin/admin ทั่วไปทำได้ทุกอำเภอ */

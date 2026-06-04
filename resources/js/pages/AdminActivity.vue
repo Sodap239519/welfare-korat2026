@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Pagination from '@/components/Pagination.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
@@ -83,7 +84,7 @@ const eventIcon = {
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+      <Loader v-if="loading" label="กำลังโหลดประวัติ..." py="py-8" :size="40" />
 
       <div v-else class="card divide-y divide-slate-50 dark:divide-slate-800/60">
         <div v-for="a in data.data" :key="a.id" class="p-4 flex gap-3">

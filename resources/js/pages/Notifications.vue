@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Pagination from '@/components/Pagination.vue';
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
@@ -90,7 +91,7 @@ watch(() => filters.status, () => load(1));
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+      <Loader v-if="loading" label="กำลังโหลดการแจ้งเตือน..." py="py-8" :size="40" />
 
       <div v-else-if="filtered.length === 0" class="card p-12 text-center text-sm text-slate-500">
         <i class="fi-rr-bell-slash text-3xl text-slate-300"></i>

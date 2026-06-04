@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
@@ -520,9 +521,8 @@ function initials(name) {
       </Modal>
     </div>
 
-    <div v-else class="card p-8 text-center">
-      <i class="fi-rr-spinner animate-spin text-2xl text-slate-400"></i>
-      <div class="text-sm text-slate-500 mt-2">กำลังโหลด…</div>
+    <div v-else class="card p-8">
+      <Loader label="กำลังโหลด…" py="py-4" />
     </div>
   </AppLayout>
 </template>

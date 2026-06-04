@@ -1,13 +1,24 @@
 <script setup>
-defineProps({
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+
+const props = defineProps({
   label: { type: String, default: 'กำลังโหลด...' },
   size: { type: Number, default: 52 },
   py: { type: String, default: 'py-16' },
+  delay: { type: Number, default: 1000 },   // แสดงเมื่อโหลดเกิน X ms (กัน spinner กระพริบตอนโหลดเร็ว)
 });
+
+const visible = ref(false);
+let timer = null;
+onMounted(() => {
+  if (props.delay <= 0) { visible.value = true; return; }
+  timer = setTimeout(() => { visible.value = true; }, props.delay);
+});
+onBeforeUnmount(() => { if (timer) clearTimeout(timer); });
 </script>
 
 <template>
-  <div :class="['flex flex-col items-center justify-center gap-3', py]">
+  <div v-if="visible" :class="['flex flex-col items-center justify-center gap-3', py]">
     <!-- gradient dual-ring spinner -->
     <div class="loader-wrap" :style="{ width: size + 'px', height: size + 'px' }">
       <div class="loader-ring"></div>

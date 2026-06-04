@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Amphur;
 use App\Models\Channel;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -29,6 +30,8 @@ class BankStaffUserSeeder extends Seeder
             $this->command->warn('  [SKIP] ไม่พบ channel "bank" — ข้ามการ seed');
             return;
         }
+        // demo: ผูกเจ้าหน้าที่ธนาคารกับอำเภอจักราช (อำเภอที่มีข้อมูล demo)
+        $demoAmphurId = Amphur::where('name', 'จักราช')->value('id');
 
         $accounts = [
             ['code' => 'KTB',   'bank' => 'ธ.กรุงไทย',           'phone' => '0911000001', 'full_name' => 'นางสาวสมหญิง รักษ์ดี'],
@@ -51,6 +54,8 @@ class BankStaffUserSeeder extends Seeder
                     'position_other'   => null,
                     'bank_channel_id'  => $bankCh->id,
                     'bank_sub_channel' => strtolower($a['code']),
+                    'bank_branch'      => 'สาขาจักราช',
+                    'amphur_id'        => $demoAmphurId,
                     'active'           => true,
                 ]
             );

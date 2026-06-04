@@ -32,7 +32,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'password',
         'phone', 'position_type', 'position_other',
-        'bank_channel_id', 'bank_sub_channel',
+        'bank_channel_id', 'bank_sub_channel', 'bank_branch',
         'amphur_id',
         'active', 'last_login_at',
     ];

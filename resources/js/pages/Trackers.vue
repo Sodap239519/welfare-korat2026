@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, watch } from 'vue';
 import axios from 'axios';
@@ -233,7 +234,7 @@ function groupVillages(villages) {
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+      <Loader v-if="loading" label="กำลังโหลดผู้กำกับติดตาม..." py="py-8" :size="40" />
 
       <div v-else-if="data.data.length === 0" class="card p-12 text-center text-sm text-slate-500">
         <i class="fi-rr-user-headset text-4xl text-slate-300 dark:text-slate-600"></i>

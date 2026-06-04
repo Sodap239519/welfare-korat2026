@@ -16,16 +16,13 @@ class DatabaseSeeder extends Seeder
             RegistrationSubStatusSeeder::class,
             ProjectPhaseSeeder::class,
             KoratGeographySeeder::class,
-            // accounts
-            DemoUserSeeder::class,
-            BankStaffUserSeeder::class,
-            DistrictAdminUserSeeder::class,
-            // bulk data
-            TargetImportSeeder::class,
+            // accounts จริง (2 super + 32 admin + 160 bank_staff)
+            ProductionSetupSeeder::class,
+            // ข้อมูลกลุ่มเป้าหมายผู้ตกหล่น
             MissedTargetSeeder::class,
-            // demo (remove or guard for production)
-            DemoTrackerSeeder::class,
-            DemoStatusSeeder::class,
+            // ── demo seeders (รันเองเมื่อต้องการ dataset ทดลอง) ──
+            // DemoUserSeeder · BankStaffUserSeeder · DistrictAdminUserSeeder
+            // TargetImportSeeder · DemoTrackerSeeder · DemoStatusSeeder
         ]);
     }
 }

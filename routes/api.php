@@ -98,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:super_admin')->prefix('admin')->group(function () {
         Route::get('users',                    [AdminUserController::class, 'index']);
         Route::get('users/stats',              [AdminUserController::class, 'stats']);
+        Route::get('users/export',             [AdminUserController::class, 'export']);
         Route::post('users',                   [AdminUserController::class, 'store']);
         Route::patch('users/{id}',             [AdminUserController::class, 'update'])->whereNumber('id');
         Route::post('users/{id}/approve',      [AdminUserController::class, 'approve'])->whereNumber('id');

@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import { ref, onMounted, onBeforeUnmount, reactive, watch, nextTick } from 'vue';
 import axios from 'axios';
 import { useRouter } from 'vue-router';
@@ -358,8 +359,7 @@ watch(() => filters.tambon_id, loadVillages);
       <div class="card p-0 overflow-hidden relative" style="isolation: isolate;">
         <div ref="mapEl" class="w-full relative" style="height: clamp(360px, 60vh, 640px); z-index: 0;"></div>
         <div v-if="loading" class="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center gap-2">
-          <i class="fi-rr-spinner animate-spin text-3xl text-blue-700"></i>
-          <div class="text-sm text-slate-600 dark:text-slate-300 font-medium">กำลังโหลดหมู่บ้าน…</div>
+          <Loader :delay="0" :size="46" label="กำลังโหลดหมู่บ้าน…" py="py-0" />
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Modal from '@/components/Modal.vue';
 import { computed, onMounted, ref, reactive, watch } from 'vue';
 import axios from 'axios';
@@ -1305,7 +1306,7 @@ function statusSegments(row) {
           </span>
         </div>
 
-        <div v-if="topLoading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-xl"></i></div>
+        <Loader v-if="topLoading" label="" py="py-8" :size="36" />
         <div v-else-if="topData.length === 0" class="text-center text-sm text-slate-500 py-6">ไม่พบข้อมูล</div>
 
         <div v-else class="space-y-2">
@@ -1365,7 +1366,7 @@ function statusSegments(row) {
                 </div>
                 <span class="text-[10px] px-2 py-1 rounded-full card-tint-blue whitespace-nowrap font-medium">1 / 2</span>
               </div>
-              <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+              <Loader v-if="allLoading" label="" py="py-12" :size="40" />
               <div v-else-if="allAmphurs.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
               <div v-else class="overflow-x-auto scroll-chart">
                 <div :style="{ minWidth: Math.max(allAmphurs.length * 70, 400) + 'px' }">
@@ -1389,7 +1390,7 @@ function statusSegments(row) {
                 </div>
                 <span class="text-[10px] px-2 py-1 rounded-full card-tint-sky whitespace-nowrap font-medium">2 / 2</span>
               </div>
-              <div v-if="allLoading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+              <Loader v-if="allLoading" label="" py="py-12" :size="40" />
               <div v-else-if="allTambons.length === 0" class="text-center text-sm text-slate-500 py-12">ไม่พบข้อมูล</div>
               <div v-else class="overflow-x-auto scroll-chart">
                 <div :style="{ minWidth: Math.max(allTambons.length * 60, 400) + 'px' }">

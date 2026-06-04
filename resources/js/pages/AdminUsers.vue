@@ -1,8 +1,10 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Pagination from '@/components/Pagination.vue';
 import Modal from '@/components/Modal.vue';
-import { ref, reactive, onMounted, watch } from 'vue';
+import SearchSelect from '@/components/SearchSelect.vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate } from '@/composables/useApi';
 
@@ -13,13 +15,17 @@ const loading = ref(false);
 
 const editing = ref(null);
 const showEdit = ref(false);
-const form = reactive({ name: '', phone: '', email: '', role: 'tracker', position_type: '', position_other: '', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', amphur_id: '' });
+const form = reactive({ name: '', phone: '', email: '', role: 'tracker', position_type: '', position_other: '', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', bank_branch: '', amphur_id: '' });
 const formErrors = ref({});
 const saving = ref(false);
 
 // + Create user modal
 const showCreate = ref(false);
-const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', amphur_id: '' });
+const createForm = reactive({ name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', bank_branch: '', amphur_id: '' });
+
+// options สำหรับ SearchSelect (dropdown ค้นหาได้)
+const bankOptions = computed(() => banks.value.map(b => ({ value: b.code.toLowerCase(), label: b.name })));
+const amphurOptions = computed(() => amphurs.value.map(a => ({ value: a.id, label: a.name })));
 const createErrors = ref({});
 
 // ─── สำหรับ bank_staff + district admin ───
@@ -64,14 +70,19 @@ function openEdit(u) {
     bank_channel_id: u.bank_channel_id || '',
     amphur_id: u.amphur_id || '',
     bank_sub_channel: u.bank_sub_channel || '',
+    bank_branch: u.bank_branch || '',
     password: '', active: u.active,
   });
   formErrors.value = {};
   showEdit.value = true;
 }
 
+function exportUsers() {
+  window.location.href = '/api/admin/users/export';
+}
+
 function openCreate() {
-  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', amphur_id: '' });
+  Object.assign(createForm, { name: '', phone: '', email: '', role: 'tracker', password: '', active: true, bank_channel_id: '', bank_sub_channel: '', bank_branch: '', amphur_id: '' });
   createErrors.value = {};
   createFlash.value = '';
   showCreate.value = true;
@@ -160,6 +171,9 @@ function initials(name) {
               <i class="fi-rr-cross-small text-[10px]"></i>
             </button>
           </div>
+          <button @click="exportUsers" class="shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5 rounded-xl border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30">
+            <i class="fi-rr-file-excel"></i> <span class="hidden sm:inline">Export</span>
+          </button>
           <button @click="openCreate" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มผู้ใช้</span>
           </button>
@@ -192,7 +206,7 @@ function initials(name) {
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-8 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+      <Loader v-if="loading" label="กำลังโหลดผู้ใช้..." py="py-8" :size="40" />
 
       <div v-else class="space-y-2">
         <div v-for="u in data.data" :key="u.id" :class="['card p-3', !u.active && 'card-tint-orange']">
@@ -292,25 +306,24 @@ function initials(name) {
             <!-- Bank scope (เฉพาะ role = bank_staff) -->
             <div v-if="form.role === 'bank_staff'" class="card-tint-orange p-3 rounded-xl space-y-2.5">
               <div class="text-xs font-medium text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
-                <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — เห็นแค่ batch ของสาขานี้
+                <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — เห็นแค่ batch ที่อำเภอส่งต่อมาให้ธนาคารนี้
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ช่องทาง</label>
-                  <select v-model="form.bank_channel_id" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-                    <option value="">— เลือก —</option>
-                    <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
-                  </select>
-                  <div v-if="formErrors.bank_channel_id" class="text-[11px] text-red-600 mt-1">{{ formErrors.bank_channel_id[0] }}</div>
-                </div>
-                <div>
-                  <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ธนาคารย่อย</label>
-                  <select v-model="form.bank_sub_channel" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-                    <option value="">— เลือก —</option>
-                    <option v-for="b in banks" :key="b.code" :value="b.code.toLowerCase()">{{ b.name }}</option>
-                  </select>
+                  <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ธนาคาร <span class="text-red-600">*</span></label>
+                  <SearchSelect v-model="form.bank_sub_channel" :options="bankOptions" placeholder="— เลือกธนาคาร —" />
                   <div v-if="formErrors.bank_sub_channel" class="text-[11px] text-red-600 mt-1">{{ formErrors.bank_sub_channel[0] }}</div>
                 </div>
+                <div>
+                  <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">อำเภอ <span class="text-red-600">*</span></label>
+                  <SearchSelect v-model="form.amphur_id" :options="amphurOptions" placeholder="— เลือกอำเภอ —" />
+                  <div v-if="formErrors.amphur_id" class="text-[11px] text-red-600 mt-1">{{ formErrors.amphur_id[0] }}</div>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ชื่อสาขา (ไม่บังคับ)</label>
+                <input v-model="form.bank_branch" type="text" placeholder="เช่น สาขาจักราช"
+                       class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
               </div>
             </div>
 
@@ -390,25 +403,24 @@ function initials(name) {
 
           <div v-if="createForm.role === 'bank_staff'" class="card-tint-orange p-3 rounded-xl space-y-2.5">
             <div class="text-xs font-medium text-orange-800 dark:text-orange-200 flex items-center gap-1.5">
-              <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — บัญชีนี้จะเห็นแค่ batch ของสาขา
+              <i class="fi-rr-bank"></i> ขอบเขตธนาคาร — บัญชีนี้จะเห็นแค่ batch ที่อำเภอส่งต่อมาให้ธนาคารนี้
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ช่องทาง <span class="text-red-600">*</span></label>
-                <select v-model="createForm.bank_channel_id" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-                  <option value="">— เลือก —</option>
-                  <option v-for="c in channels" :key="c.id" :value="c.id">{{ c.name }}</option>
-                </select>
-                <div v-if="createErrors.bank_channel_id" class="text-[11px] text-red-600 mt-1">{{ createErrors.bank_channel_id[0] }}</div>
-              </div>
-              <div>
-                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ธนาคารย่อย <span class="text-red-600">*</span></label>
-                <select v-model="createForm.bank_sub_channel" class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-                  <option value="">— เลือก —</option>
-                  <option v-for="b in banks" :key="b.code" :value="b.code.toLowerCase()">{{ b.name }}</option>
-                </select>
+                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ธนาคาร <span class="text-red-600">*</span></label>
+                <SearchSelect v-model="createForm.bank_sub_channel" :options="bankOptions" placeholder="— เลือกธนาคาร —" />
                 <div v-if="createErrors.bank_sub_channel" class="text-[11px] text-red-600 mt-1">{{ createErrors.bank_sub_channel[0] }}</div>
               </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">อำเภอ <span class="text-red-600">*</span></label>
+                <SearchSelect v-model="createForm.amphur_id" :options="amphurOptions" placeholder="— เลือกอำเภอ —" />
+                <div v-if="createErrors.amphur_id" class="text-[11px] text-red-600 mt-1">{{ createErrors.amphur_id[0] }}</div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">ชื่อสาขา (ไม่บังคับ)</label>
+              <input v-model="createForm.bank_branch" type="text" placeholder="เช่น สาขาจักราช"
+                     class="w-full px-2.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
             </div>
           </div>
           <div>

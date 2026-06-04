@@ -1,5 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
+import Loader from '@/components/Loader.vue';
 import Modal from '@/components/Modal.vue';
 import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -376,7 +377,7 @@ const ICON_OPTIONS = [
         </button>
       </div>
 
-      <div v-if="loading" class="text-center py-12 text-slate-500"><i class="fi-rr-spinner animate-spin text-2xl"></i></div>
+      <Loader v-if="loading" label="กำลังโหลดการตั้งค่า..." py="py-12" />
 
       <!-- CHANNELS -->
       <div v-show="!loading && tab === 'channels'" class="space-y-2">
