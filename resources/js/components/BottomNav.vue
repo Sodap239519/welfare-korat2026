@@ -6,20 +6,13 @@ import { useAuthStore } from '@/stores/auth';
 const route = useRoute();
 const auth = useAuthStore();
 
-// For non-super-admin: swap "นำเข้า" → "แผนที่" (since import is hidden)
-const items = computed(() => {
-  const base = [
-    { name: 'dashboard', icon: 'fi-rr-apps',             label: 'หน้าแรก' },
-    { name: 'targets',   icon: 'fi-rr-users-alt',        label: 'รายชื่อ' },
-  ];
-  if (auth.isSuperAdmin) {
-    base.push({ name: 'import',  icon: 'fi-rr-cloud-upload-alt', label: 'นำเข้า' });
-  } else {
-    base.push({ name: 'map',     icon: 'fi-rr-marker',           label: 'แผนที่' });
-  }
-  base.push({ name: 'reports',   icon: 'fi-rr-chart-pie',        label: 'รายงาน' });
-  return base;
-});
+// นำเข้าข้อมูลย้ายไปเป็นปุ่มในหน้ารายชื่อเป้าหมายแล้ว
+const items = computed(() => [
+  { name: 'dashboard', icon: 'fi-rr-apps',      label: 'หน้าแรก' },
+  { name: 'targets',   icon: 'fi-rr-users-alt', label: 'รายชื่อ' },
+  { name: 'map',       icon: 'fi-rr-marker',    label: 'แผนที่' },
+  { name: 'reports',   icon: 'fi-rr-chart-pie', label: 'รายงาน' },
+]);
 
 const isActive = (n) => computed(() => route.name === n);
 </script>

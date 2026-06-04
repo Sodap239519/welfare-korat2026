@@ -21,7 +21,6 @@ const allItems = [
   { name: 'batches',        icon: 'fi-rr-box-alt',          label: 'ห่อเอกสารธนาคาร',   roles: ['*'] },
   { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: ['*'] },
   { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม',     roles: ['*'] },
-  { name: 'import',         icon: 'fi-rr-cloud-upload-alt', label: 'นำเข้าข้อมูล',       roles: ['super_admin'] },
   { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: ['*'] },
   { name: 'admin-users',    icon: 'fi-rr-user-shield',      label: 'จัดการผู้ใช้',       roles: ['super_admin'] },
   { name: 'admin-activity', icon: 'fi-rr-time-past',        label: 'ประวัติการใช้งาน',   roles: ['super_admin'] },

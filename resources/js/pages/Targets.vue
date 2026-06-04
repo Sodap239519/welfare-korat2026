@@ -444,6 +444,10 @@ async function submitAdd() {
             <i class="fi-rr-filter"></i> <span class="hidden sm:inline">ตัวกรอง</span>
             <span v-if="activeFilterCount" class="bg-blue-700 text-white text-[10px] rounded-full px-1.5 py-0.5 ml-1">{{ activeFilterCount }}</span>
           </button>
+          <button v-if="auth.roles.includes('super_admin')" @click="router.push({ name: 'import' })"
+                  class="shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white">
+            <i class="fi-rr-cloud-upload-alt"></i> <span class="hidden sm:inline">นำเข้า Excel</span>
+          </button>
           <button @click="openAddModal" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มรายชื่อ</span>
           </button>
