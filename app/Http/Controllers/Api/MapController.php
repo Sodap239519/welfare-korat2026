@@ -32,6 +32,7 @@ class MapController extends Controller
                 COUNT(DISTINCT CASE WHEN tcs.status_code = "4.7" THEN targets.id END) as kyc_done
             ')
             ->groupBy('villages.id', 'villages.name', 'villages.moo', 'villages.lat', 'villages.lng', 'tambons.id', 'tambons.name', 'amphurs.id', 'amphurs.name')
+            ->havingRaw('COUNT(DISTINCT targets.id) > 0')   // แสดงเฉพาะหมู่บ้านที่มีรายชื่อเป้าหมายแล้ว
             ->get();
 
         return response()->json([
