@@ -356,20 +356,27 @@ class ReportController extends Controller
         ';
         $orderBy = 'COUNT(DISTINCT CASE WHEN tcs.status_code IS NOT NULL AND tcs.status_code <> "4.1" THEN targets.id END) / GREATEST(COUNT(DISTINCT targets.id), 1) DESC';
 
+        // แสดงเฉพาะกลุ่มที่มีเป้าหมายจริง (> 0) — กันอำเภอ/ตำบล/หมู่บ้านว่าง
+        // หรือ geography ขยะที่หลงเหลือ ไม่ให้โผล่มาในรายงาน
+        $havingHasTarget = 'COUNT(DISTINCT targets.id) > 0';
+
         if ($level === 'amphur') {
             return $base->selectRaw("amphurs.id, amphurs.name as name, $metrics")
                         ->groupBy('amphurs.id', 'amphurs.name')
+                        ->havingRaw($havingHasTarget)
                         ->orderByRaw($orderBy);
         }
         if ($level === 'tambon') {
             return $base->selectRaw("tambons.id, tambons.name as name, amphurs.name as amphur, $metrics")
                         ->groupBy('tambons.id', 'tambons.name', 'amphurs.name')
+                        ->havingRaw($havingHasTarget)
                         ->orderByRaw($orderBy);
         }
         // village
         return $base->selectRaw("villages.id, villages.name as name, villages.moo,
                                  tambons.name as tambon, amphurs.name as amphur, $metrics")
                     ->groupBy('villages.id', 'villages.name', 'villages.moo', 'tambons.name', 'amphurs.name')
+                    ->havingRaw($havingHasTarget)
                     ->orderByRaw($orderBy);
     }
 
