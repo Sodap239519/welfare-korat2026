@@ -8,6 +8,7 @@ use App\Models\MissedTargetStat;
 use App\Services\MissedTargetImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Facades\Excel;
@@ -133,7 +134,7 @@ class MissedTargetController extends Controller
 
         $file = $request->file('file');
         $stored = $file->store('missed-targets', 'local');
-        $absolute = storage_path('app/'.$stored);
+        $absolute = Storage::disk('local')->path($stored);
 
         try {
             $result = $this->service->import(
