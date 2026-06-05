@@ -37,7 +37,9 @@ class TargetController extends Controller
 
         $q->when($request->filled('amphur_id'),  fn ($q) => $q->where('amphur_id',  (int) $request->amphur_id))
           ->when($request->filled('tambon_id'),  fn ($q) => $q->where('tambon_id',  (int) $request->tambon_id))
-          ->when($request->filled('village_id'), fn ($q) => $q->where('village_id', (int) $request->village_id));
+          ->when($request->filled('village_id'), fn ($q) => $q->where('village_id', (int) $request->village_id))
+          // ตัวกรองบัตรสวัสดิการเดิม: welfare=1 (เคยได้รับ), welfare=0 (ไม่เคยได้รับ)
+          ->when($request->filled('welfare'), fn ($q) => $q->where('has_old_welfare', (string) $request->welfare === '1'));
 
         // Auto-scope: tracker role เห็นเฉพาะหมู่บ้าน/ตำบล/อำเภอ ใน user_scopes (เว้นแต่ super_admin/admin)
         $user = $request->user();

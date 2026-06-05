@@ -33,6 +33,7 @@ const filters = reactive({
   amphur_id: '',
   tambon_id: '',
   village_id: '',
+  welfare: '',   // '' = ทั้งหมด, '1' = เคยได้รับบัตร, '0' = ไม่เคยได้รับบัตร
 });
 const filtersOpen = ref(false);
 const data = ref({ data: [], total: 0, current_page: 1, last_page: 1, per_page: 50 });
@@ -281,7 +282,7 @@ watch(() => filters.q, () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => load(1), 300);
 });
-watch(() => [filters.status, filters.amphur_id, filters.tambon_id, filters.village_id], () => {
+watch(() => [filters.status, filters.amphur_id, filters.tambon_id, filters.village_id, filters.welfare], () => {
   if (bootstrapping.value) return;
   load(1);
 });
@@ -304,7 +305,7 @@ watch(() => route.query, async (newQ) => {
 }, { deep: true });
 
 const activeFilterCount = computed(() => {
-  return ['amphur_id','tambon_id','village_id','status'].filter(k => filters[k]).length;
+  return ['amphur_id','tambon_id','village_id','status','welfare'].filter(k => filters[k]).length;
 });
 
 const scopeLabel = computed(() => {
@@ -512,6 +513,13 @@ async function submitAdd() {
               <i class="fi-rr-cross-small text-[10px]"></i>
             </button>
           </div>
+          <div class="relative min-w-0">
+            <select v-model="filters.welfare" class="w-full min-w-0 pl-3 pr-9 py-2 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              <option value="">บัตรสวัสดิการ: ทั้งหมด</option>
+              <option value="1">เคยได้รับบัตร</option>
+              <option value="0">ไม่เคยได้รับบัตร</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -561,7 +569,7 @@ async function submitAdd() {
               <td class="text-slate-500 cursor-pointer" @click="goDetail(t.id)">{{ (data.from || 1) + i - 1 }}</td>
               <td class="cursor-pointer" @click="goDetail(t.id)">
                 <div class="font-medium">{{ t.name }}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400">{{ t.poverty_level || '—' }} · รายได้ {{ formatNumber(t.annual_income) }} บ./ปี</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">รายได้ {{ formatNumber(t.annual_income) }} บ./ปี</div>
                 <span :class="['inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
                                t.has_old_welfare ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400']">
@@ -617,7 +625,7 @@ async function submitAdd() {
               <span v-else class="shrink-0 text-[11px] text-slate-400 px-2 py-1">—</span>
             </div>
             <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-              <span class="truncate">{{ t.poverty_level || '—' }} · {{ formatNumber(t.annual_income) }} บ./ปี</span>
+              <span class="truncate">รายได้ {{ formatNumber(t.annual_income) }} บ./ปี</span>
               <span class="shrink-0">{{ shortDate(t.updated_at) }}</span>
             </div>
             <span :class="['inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium',
