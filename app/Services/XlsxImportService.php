@@ -53,14 +53,19 @@ class XlsxImportService
         $work = function () use ($sheet, $highestRow, &$autofix, &$success, &$updated, &$failed, &$amphurCache, &$tambonCache, &$villageCache) {
             for ($r = 2; $r <= $highestRow; $r++) {
                 try {
+                    // โครงสร้างไฟล์ DSS: A=#, B=ปี, C=รหัสบ้าน, D=ลำดับสมาชิก,
+                    // E=คำนำหน้า, F=ชื่อ, G=สกุล, H=วัน/เดือน/ปีเกิด, I=อายุ,
+                    // J=บ้านเลขที่, K=หมู่ที่, L=บ้าน(หมู่บ้าน), M=ตำบล, N=อำเภอ,
+                    // O=จังหวัด, P=สถานะ, Q=บัตรสวัสดิการ, R=รายได้เฉลี่ย
                     $year       = trim((string) $sheet->getCell("B$r")->getValue());
                     $houseCode  = trim((string) $sheet->getCell("C$r")->getCalculatedValue());
                     $memberSeq  = (int) $sheet->getCell("D$r")->getValue();
                     $prefix     = trim((string) $sheet->getCell("E$r")->getValue());
                     $firstName  = trim((string) $sheet->getCell("F$r")->getValue());
                     $lastName   = trim((string) $sheet->getCell("G$r")->getValue());
+                    // H=วันเกิด, I=อายุ — ยังไม่มีฟิลด์เก็บใน schema จึงข้าม
 
-                    $hno = HouseNoResolver::resolve($sheet->getCell("H$r"));
+                    $hno = HouseNoResolver::resolve($sheet->getCell("J$r"));
                     if ($hno['was_fixed']) {
                         $autofix[] = [
                             'row'      => $r,
@@ -72,13 +77,13 @@ class XlsxImportService
                     }
                     $addressNo = $hno['value'];
 
-                    $moo         = trim((string) $sheet->getCell("I$r")->getValue());
-                    $villageName = trim((string) $sheet->getCell("J$r")->getValue());
-                    $tambonName  = trim((string) $sheet->getCell("K$r")->getValue());
-                    $amphurName  = trim((string) $sheet->getCell("L$r")->getValue());
-                    $poverty     = trim((string) $sheet->getCell("N$r")->getValue());
-                    $welfareStr  = trim((string) $sheet->getCell("O$r")->getValue());
-                    $income      = (int) $sheet->getCell("P$r")->getValue();
+                    $moo         = trim((string) $sheet->getCell("K$r")->getValue());
+                    $villageName = trim((string) $sheet->getCell("L$r")->getValue());
+                    $tambonName  = trim((string) $sheet->getCell("M$r")->getValue());
+                    $amphurName  = trim((string) $sheet->getCell("N$r")->getValue());
+                    $poverty     = trim((string) $sheet->getCell("P$r")->getValue());
+                    $welfareStr  = trim((string) $sheet->getCell("Q$r")->getValue());
+                    $income      = (int) $sheet->getCell("R$r")->getValue();
 
                     if ($houseCode === '' || $firstName === '' || $amphurName === '') {
                         $failed++;
