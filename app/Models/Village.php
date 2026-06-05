@@ -88,7 +88,7 @@ class Village extends Model
         // jitter range ตาม source — ที่แม่นน้อยกว่า ใช้ jitter ใหญ่กว่า
         $jitter = match ($c['source']) {
             'tambon', 'tambon_centroid' => 0.005,    // ±550m
-            'amphur', 'amphur_centroid' => 0.01,     // ±1.1km
+            'amphur', 'amphur_centroid' => 0.035,    // ±3.8km — กระจายในเขตอำเภอ
             default                      => 0.05,    // ±5.5km — เห็นชัดว่าต้องแก้
         };
         $r = fn() => (mt_rand(-1000, 1000) / 1000) * $jitter;

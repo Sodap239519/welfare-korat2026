@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             RegistrationSubStatusSeeder::class,
             ProjectPhaseSeeder::class,
             KoratGeographySeeder::class,
+            AmphurCoordsSeeder::class,   // พิกัด 32 อำเภอ → วางหมู่บ้านถูกอำเภอ
             // accounts จริง (2 super + 32 admin + 160 bank_staff)
             ProductionSetupSeeder::class,
             // ข้อมูลกลุ่มเป้าหมายผู้ตกหล่น
