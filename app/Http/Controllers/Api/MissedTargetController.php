@@ -8,6 +8,7 @@ use App\Models\MissedTargetStat;
 use App\Services\MissedTargetImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -62,7 +63,7 @@ class MissedTargetController extends Controller
         $level = $request->input('level', 'amphur') === 'tambon' ? 'tambon' : 'amphur';
         $rows = MissedTargetStat::where('level', $level)
             ->orderByDesc('cnt_total')
-            ->get(['national_rank', 'amphur_name', 'tambon_name', 'cnt_jpt', 'cnt_vulnerable', 'cnt_both', 'cnt_total']);
+            ->get(['id', 'national_rank', 'amphur_name', 'tambon_name', 'cnt_jpt', 'cnt_vulnerable', 'cnt_both', 'cnt_total']);
 
         return response()->json(['level' => $level, 'data' => $rows]);
     }
@@ -151,5 +152,28 @@ class MissedTargetController extends Controller
             'message' => "นำเข้าสำเร็จ {$result['row_count']} แถว ({$result['level']}) · รวม ".number_format($result['total']).' คน',
             'result'  => $result,
         ], 201);
+    }
+
+    /** DELETE /api/missed-targets/{id} — ลบสถิติผู้ตกหล่นรายแถว (super_admin) */
+    public function destroy(int $id): JsonResponse
+    {
+        MissedTargetStat::findOrFail($id)->delete();
+
+        return response()->json(['message' => 'ลบรายการแล้ว']);
+    }
+
+    /** DELETE /api/missed-targets — ลบข้อมูลผู้ตกหล่นทั้งหมด (super_admin) */
+    public function destroyAll(): JsonResponse
+    {
+        $count = MissedTargetStat::count();
+        DB::transaction(function () {
+            MissedTargetStat::query()->delete();
+            MissedTargetImport::query()->delete();
+        });
+
+        return response()->json([
+            'message' => "ลบข้อมูลผู้ตกหล่นทั้งหมดแล้ว ({$count} รายการ)",
+            'deleted' => $count,
+        ]);
     }
 }

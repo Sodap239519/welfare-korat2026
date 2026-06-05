@@ -62,6 +62,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('targets/{id}',               [TargetController::class, 'update'])->whereNumber('id');
     Route::patch('targets/{id}/status',        [TargetController::class, 'updateStatus'])->whereNumber('id');
     Route::get('targets/{id}/income-history',  [TargetController::class, 'incomeHistory'])->whereNumber('id');
+    // ลบ — เฉพาะ super_admin (ทั้งหมด + รายคน)
+    Route::middleware('role:super_admin')->group(function () {
+        Route::delete('targets',      [TargetController::class, 'destroyAll']);
+        Route::delete('targets/{id}', [TargetController::class, 'destroy'])->whereNumber('id');
+    });
 
     // Import
     Route::post('import/preview',  [ImportController::class, 'preview']);
@@ -75,6 +80,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('missed-targets/export',   [MissedTargetController::class, 'export']);
     Route::get('missed-targets/imports',  [MissedTargetController::class, 'imports']);
     Route::middleware('role:super_admin')->post('missed-targets/upload', [MissedTargetController::class, 'upload']);
+    // ลบ — เฉพาะ super_admin (ทั้งหมด + รายแถว)
+    Route::middleware('role:super_admin')->group(function () {
+        Route::delete('missed-targets',      [MissedTargetController::class, 'destroyAll']);
+        Route::delete('missed-targets/{id}', [MissedTargetController::class, 'destroy'])->whereNumber('id');
+    });
 
     // Map
     Route::get('map/villages', [MapController::class, 'villages']);

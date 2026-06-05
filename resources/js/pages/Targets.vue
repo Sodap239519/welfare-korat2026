@@ -226,6 +226,30 @@ async function load(page = 1) {
   }
 }
 
+// ── ลบข้อมูล (เฉพาะ super_admin) ───────────────────────────────
+async function deleteOne(t) {
+  if (!confirm(`ลบรายชื่อ "${t.name}" ?\n\nการลบนี้ย้อนกลับไม่ได้`)) return;
+  try {
+    await axios.delete(`/api/targets/${t.id}`);
+    await load(data.value.current_page || 1);
+  } catch (e) {
+    alert('ลบไม่สำเร็จ: ' + (e.response?.data?.message || e.message));
+  }
+}
+
+async function deleteAll() {
+  if (!confirm('⚠️ ลบรายชื่อเป้าหมาย "ทั้งหมด" ?\n\nข้อมูลเป้าหมายและครัวเรือนทั้งหมดจะถูกลบถาวร ย้อนกลับไม่ได้')) return;
+  if (!confirm('ยืนยันอีกครั้ง — ต้องการลบทั้งหมดจริงหรือไม่?')) return;
+  try {
+    const { data: r } = await axios.delete('/api/targets');
+    clearSelection();
+    await load(1);
+    alert(r.message || 'ลบทั้งหมดแล้ว');
+  } catch (e) {
+    alert('ลบไม่สำเร็จ: ' + (e.response?.data?.message || e.message));
+  }
+}
+
 onMounted(async () => {
   await loadOpts();
 
@@ -448,6 +472,10 @@ async function submitAdd() {
                   class="shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white">
             <i class="fi-rr-cloud-upload-alt"></i> <span class="hidden sm:inline">นำเข้า Excel</span>
           </button>
+          <button v-if="auth.roles.includes('super_admin') && data.total > 0" @click="deleteAll"
+                  class="shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+            <i class="fi-rr-trash"></i> <span class="hidden sm:inline">ลบทั้งหมด</span>
+          </button>
           <button @click="openAddModal" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มรายชื่อ</span>
           </button>
@@ -534,6 +562,11 @@ async function submitAdd() {
               <td class="cursor-pointer" @click="goDetail(t.id)">
                 <div class="font-medium">{{ t.name }}</div>
                 <div class="text-xs text-slate-500 dark:text-slate-400">{{ t.poverty_level || '—' }} · รายได้ {{ formatNumber(t.annual_income) }} บ./ปี</div>
+                <span :class="['inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                               t.has_old_welfare ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                 : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400']">
+                  {{ t.has_old_welfare ? 'ได้รับบัตรสวัสดิการแห่งรัฐ' : 'ไม่ได้รับบัตร' }}
+                </span>
               </td>
               <td class="cursor-pointer" @click="goDetail(t.id)">
                 {{ t.village || '—' }}<span v-if="t.moo"> หมู่ {{ t.moo }}</span>
@@ -551,7 +584,13 @@ async function submitAdd() {
                 <span v-if="!t.channel && !t.note">—</span>
               </td>
               <td class="text-xs text-slate-500 cursor-pointer" @click="goDetail(t.id)">{{ shortDate(t.updated_at) }}</td>
-              <td class="text-right pr-3 cursor-pointer" @click="goDetail(t.id)"><i class="fi-rr-angle-right text-slate-400"></i></td>
+              <td class="text-right pr-3 whitespace-nowrap">
+                <button v-if="auth.roles.includes('super_admin')" @click.stop="deleteOne(t)" title="ลบรายชื่อนี้"
+                        class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <i class="fi-rr-trash text-sm"></i>
+                </button>
+                <i class="fi-rr-angle-right text-slate-400 ml-1 cursor-pointer" @click="goDetail(t.id)"></i>
+              </td>
             </tr>
             <tr v-if="!loading && data.data.length === 0">
               <td colspan="8" class="py-8 text-center text-slate-500 text-sm">ไม่พบรายชื่อตามเงื่อนไข</td>
@@ -581,6 +620,15 @@ async function submitAdd() {
               <span class="truncate">{{ t.poverty_level || '—' }} · {{ formatNumber(t.annual_income) }} บ./ปี</span>
               <span class="shrink-0">{{ shortDate(t.updated_at) }}</span>
             </div>
+            <span :class="['inline-block mt-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium',
+                           t.has_old_welfare ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400']">
+              {{ t.has_old_welfare ? 'ได้รับบัตรสวัสดิการแห่งรัฐ' : 'ไม่ได้รับบัตร' }}
+            </span>
+          </button>
+          <button v-if="auth.roles.includes('super_admin')" @click.stop="deleteOne(t)" title="ลบ"
+                  class="shrink-0 self-start w-8 h-8 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center justify-center">
+            <i class="fi-rr-trash text-sm"></i>
           </button>
         </div>
         <div v-if="!loading && data.data.length === 0" class="card p-6 text-center text-sm text-slate-500">ไม่พบรายชื่อ</div>

@@ -186,6 +186,31 @@ function exportLevel(level) {
   window.location.href = '/api/missed-targets/export?level=' + level;
 }
 
+// ── ลบข้อมูล (เฉพาะ super_admin) ───────────────────────────────
+async function deleteOneStat(r) {
+  const label = r.tambon_name ? `${r.amphur_name} / ${r.tambon_name}` : r.amphur_name;
+  if (!confirm(`ลบรายการ "${label}" ?\n\nย้อนกลับไม่ได้`)) return;
+  try {
+    await axios.delete(`/api/missed-targets/${r.id}`);
+    await loadAll();
+  } catch (e) {
+    alert('ลบไม่สำเร็จ: ' + (e.response?.data?.message || e.message));
+  }
+}
+
+async function deleteAllMissed() {
+  if (!confirm('⚠️ ลบข้อมูลกลุ่มเป้าหมายผู้ตกหล่น "ทั้งหมด" ?\n\nข้อมูลสถิติและประวัติการนำเข้าจะถูกลบถาวร ย้อนกลับไม่ได้')) return;
+  if (!confirm('ยืนยันอีกครั้ง — ต้องการลบทั้งหมดจริงหรือไม่?')) return;
+  try {
+    const { data: r } = await axios.delete('/api/missed-targets');
+    await loadAll();
+    await loadImports();
+    alert(r.message || 'ลบทั้งหมดแล้ว');
+  } catch (e) {
+    alert('ลบไม่สำเร็จ: ' + (e.response?.data?.message || e.message));
+  }
+}
+
 function sumRows(rows) {
   return rows.reduce((a, r) => ({
     vuln:  a.vuln  + (r.cnt_vulnerable || 0),
@@ -273,6 +298,10 @@ function fmtDate(iso) {
                       class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-green-300 dark:border-green-700 text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/30 disabled:opacity-40 disabled:cursor-not-allowed">
                 <i class="fi-rr-file-excel"></i> Export
               </button>
+              <button v-if="isSuper && (amphurRows.length || tambonRows.length)" @click="deleteAllMissed"
+                      class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">
+                <i class="fi-rr-trash"></i> ลบทั้งหมด
+              </button>
             </div>
           </div>
 
@@ -304,6 +333,7 @@ function fmtDate(iso) {
                           <th class="text-right font-medium px-3 py-2">จปฐ.</th>
                           <th class="text-right font-medium px-3 py-2">3 กลุ่ม</th>
                           <th class="text-right font-medium px-3 py-2">รวม</th>
+                          <th v-if="isSuper" class="px-3 py-2 w-10"></th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -315,6 +345,12 @@ function fmtDate(iso) {
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatNumber(r.cnt_jpt) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums">{{ formatNumber(r.cnt_both) }}</td>
                           <td class="px-3 py-2 text-right tabular-nums font-semibold text-blue-700 dark:text-blue-300">{{ formatNumber(r.cnt_total) }}</td>
+                          <td v-if="isSuper" class="px-3 py-2 text-center">
+                            <button @click="deleteOneStat(r)" title="ลบรายการนี้"
+                                    class="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                              <i class="fi-rr-trash text-sm"></i>
+                            </button>
+                          </td>
                         </tr>
                       </tbody>
                       <tfoot class="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 font-semibold">
@@ -324,6 +360,7 @@ function fmtDate(iso) {
                           <td class="px-3 py-2.5 text-right tabular-nums">{{ formatNumber(sumRows(c.rows).jpt) }}</td>
                           <td class="px-3 py-2.5 text-right tabular-nums">{{ formatNumber(sumRows(c.rows).both) }}</td>
                           <td class="px-3 py-2.5 text-right tabular-nums text-blue-700 dark:text-blue-300">{{ formatNumber(sumRows(c.rows).total) }}</td>
+                          <td v-if="isSuper"></td>
                         </tr>
                       </tfoot>
                     </table>

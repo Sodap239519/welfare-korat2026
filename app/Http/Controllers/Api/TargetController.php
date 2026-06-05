@@ -646,4 +646,34 @@ class TargetController extends Controller
 
         return [$role, $name];
     }
+
+    /** DELETE /api/targets/{id} — ลบเป้าหมายรายคน (super_admin) */
+    public function destroy(int $id): JsonResponse
+    {
+        $target = Target::findOrFail($id);
+        $householdId = $target->household_id;
+        $target->delete(); // cascade: target_current_status / logs / income / batch_targets
+
+        // ครัวเรือนไม่เหลือสมาชิกแล้ว → ลบครัวเรือนทิ้งด้วย กันข้อมูลค้าง
+        if (! Target::where('household_id', $householdId)->exists()) {
+            Household::whereKey($householdId)->delete();
+        }
+
+        return response()->json(['message' => 'ลบรายชื่อเป้าหมายแล้ว']);
+    }
+
+    /** DELETE /api/targets — ลบรายชื่อเป้าหมายทั้งหมด (super_admin) */
+    public function destroyAll(): JsonResponse
+    {
+        $count = Target::count();
+        DB::transaction(function () {
+            Target::query()->delete();    // DB cascade ลบ status/logs/income/batch_targets
+            Household::query()->delete(); // เคลียร์ครัวเรือนที่นำเข้าทั้งหมด
+        });
+
+        return response()->json([
+            'message' => "ลบรายชื่อเป้าหมายทั้งหมดแล้ว ({$count} รายการ)",
+            'deleted' => $count,
+        ]);
+    }
 }
