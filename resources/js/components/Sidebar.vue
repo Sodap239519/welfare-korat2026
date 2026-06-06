@@ -12,7 +12,7 @@ const auth = useAuthStore();
 
 async function doLogout() {
   await auth.logout();
-  router.push({ name: 'login' });
+  router.push({ name: 'home' });
 }
 // เจ้าหน้าที่ (ไม่รวมนักศึกษา) — หน้าปฏิบัติงานเดิม
 const STAFF = ['super_admin', 'admin', 'tracker', 'bank_staff'];

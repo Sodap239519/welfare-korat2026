@@ -117,7 +117,7 @@ async function logoutFromMenu() {
 async function doLogout() {
   await auth.logout();
   notif.stopPolling();
-  router.push({ name: 'login' });
+  router.push({ name: 'home' });
 }
 
 onMounted(async () => {
