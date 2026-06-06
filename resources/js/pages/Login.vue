@@ -286,7 +286,7 @@ async function submitRegister() {
       <div class="relative z-10 text-[11px] lg:text-xs opacity-80 hidden lg:block leading-relaxed">
         © 2569 โครงการการขับเคลื่อนพื้นที่วิจัยเชิงยุทธศาสตร์เพื่อขจัดความยากจน
         และสร้างโอกาสทางสังคมแบบบูรณาการ จังหวัดนครราชสีมา<br>
-        <span class="opacity-90">มหาวิทยาลัยราชภัฏนครราชสีมา</span>
+        <span class="opacity-90">ศูนย์ศึกษาและพัฒนาโคราช มหาวิทยาลัยราชภัฏนครราชสีมา</span>
       </div>
     </div>
 
@@ -529,7 +529,7 @@ async function submitRegister() {
       <div class="lg:hidden px-5 pb-5 text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed text-center">
         © 2569 โครงการการขับเคลื่อนพื้นที่วิจัยเชิงยุทธศาสตร์เพื่อขจัดความยากจน
         และสร้างโอกาสทางสังคมแบบบูรณาการ จังหวัดนครราชสีมา ·
-        <span class="font-medium">มหาวิทยาลัยราชภัฏนครราชสีมา</span>
+        <span class="font-medium">ศูนย์ศึกษาและพัฒนาโคราช มหาวิทยาลัยราชภัฏนครราชสีมา</span>
       </div>
     </div>
   </div>

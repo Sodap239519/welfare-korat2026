@@ -73,8 +73,10 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
       </div>
       <div v-else class="card p-10 text-center text-slate-400">กำลังโหลดข้อมูล…</div>
 
-      <footer class="text-center text-xs text-slate-400 py-6">
-        © 2569 มหาวิทยาลัยราชภัฏนครราชสีมา
+      <footer class="text-center text-xs text-slate-400 py-6 leading-relaxed">
+        © 2569 โครงการการขับเคลื่อนพื้นที่วิจัยเชิงยุทธศาสตร์เพื่อขจัดความยากจน
+        และสร้างโอกาสทางสังคมแบบบูรณาการ จังหวัดนครราชสีมา<br>
+        ศูนย์ศึกษาและพัฒนาโคราช มหาวิทยาลัยราชภัฏนครราชสีมา
       </footer>
     </main>
   </div>

@@ -97,8 +97,10 @@ function goApp() { router.push(auth.isStudent ? { name: 'student-worklog' } : { 
         </RouterLink>
       </div>
 
-      <footer class="text-center text-xs text-slate-400 py-6">
-        © 2569 มหาวิทยาลัยราชภัฏนครราชสีมา · ระบบติดตามการลงทะเบียนบัตรสวัสดิการแห่งรัฐ
+      <footer class="text-center text-xs text-slate-400 py-6 leading-relaxed">
+        © 2569 โครงการการขับเคลื่อนพื้นที่วิจัยเชิงยุทธศาสตร์เพื่อขจัดความยากจน
+        และสร้างโอกาสทางสังคมแบบบูรณาการ จังหวัดนครราชสีมา<br>
+        ศูนย์ศึกษาและพัฒนาโคราช มหาวิทยาลัยราชภัฏนครราชสีมา
       </footer>
     </main>
   </div>
