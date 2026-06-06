@@ -2,86 +2,64 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import PublicNav from '@/components/PublicNav.vue';
 import { useAuthStore } from '@/stores/auth';
-import { useThemeStore } from '@/stores/theme';
 import { formatNumber } from '@/composables/useApi';
 
 const auth = useAuthStore();
-const theme = useThemeStore();
 const router = useRouter();
 
-const d = ref(null);
+const stats = ref({ targets: 0, tambons: 0, amphurs: 0 });
 onMounted(async () => {
   try {
-    const { data } = await axios.get('/api/auth/public/student-dashboard');
-    d.value = data;
+    const { data } = await axios.get('/api/auth/public-stats');
+    stats.value = data;
   } catch (e) { /* public — เงียบไว้ */ }
 });
 
-const kpis = computed(() => {
-  if (!d.value) return [];
-  return [
-    { label: 'นักศึกษาลงพื้นที่', value: d.value.students, icon: 'fi-rr-graduation-cap' },
-    { label: 'วัน-ครั้งปฏิบัติงาน', value: d.value.work_days, icon: 'fi-rr-calendar' },
-    { label: 'ผู้รับบริการรวม', value: d.value.service_total, icon: 'fi-rr-users' },
-    { label: 'ลงทะเบียนสำเร็จ', value: d.value.registered_success, icon: 'fi-rr-check' },
-  ];
-});
+const kpis = computed(() => [
+  { label: 'กลุ่มเป้าหมาย', value: stats.value.targets, icon: 'fi-rr-users-alt' },
+  { label: 'ตำบล', value: stats.value.tambons, icon: 'fi-rr-marker' },
+  { label: 'อำเภอ', value: stats.value.amphurs, icon: 'fi-rr-map' },
+  { label: 'ผู้มีสิทธิที่ยังไม่ได้รับบัตร', value: 36606, icon: 'fi-rr-id-badge' },
+]);
 
-const trendOptions = computed(() => ({
-  chart: { toolbar: { show: false }, sparkline: { enabled: false } },
-  stroke: { curve: 'smooth', width: 2 }, fill: { type: 'gradient', gradient: { opacityFrom: 0.4, opacityTo: 0 } },
-  xaxis: { categories: d.value?.trend.labels ?? [] }, colors: ['#2563eb'], dataLabels: { enabled: false },
-}));
-const trendSeries = computed(() => [{ name: 'ผู้รับบริการ', data: d.value?.trend.data ?? [] }]);
+const steps = [
+  { n: 1, title: 'วิเคราะห์สิทธิ เกณฑ์ผู้มีสิทธิ' },
+  { n: 2, title: 'วิเคราะห์ฐานข้อมูลและรายชื่อ (DSS)' },
+  { n: 3, title: 'เตรียมความพร้อมผ่านเวทีชี้แจง' },
+  { n: 4, title: 'กลไกช่วยลงทะเบียน (จุดบริการ/เยี่ยมบ้าน)' },
+  { n: 5, title: 'ตรวจสอบ ติดตามและประเมินผล' },
+];
 
-const activityOptions = computed(() => ({
-  labels: d.value?.by_activity.labels ?? [], legend: { position: 'bottom' },
-  colors: ['#2563eb', '#0ea5e9', '#fb923c', '#16a34a', '#a855f7', '#dc2626'],
-}));
-const activitySeries = computed(() => d.value?.by_activity.data ?? []);
-const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n > 0));
-
-function goLogin() { router.push({ name: 'login' }); }
 function goApp() { router.push(auth.isStudent ? { name: 'student-worklog' } : { name: 'dashboard' }); }
 </script>
 
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-950">
-    <!-- Top bar -->
-    <header class="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-100 dark:border-slate-800">
-      <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div class="leading-tight">
-          <div class="text-base font-bold bg-gradient-to-r from-blue-700 to-sky-500 bg-clip-text text-transparent">Welfare Korat 2026</div>
-          <div class="text-[10px] text-slate-500 dark:text-slate-400">ติดตามการปฏิบัติงานนักศึกษา · เรียลไทม์</div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button @click="theme.toggle" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="สลับโหมดสี">
-            <i v-if="!theme.isDark" class="fi-rr-brightness"></i><i v-else class="fi-sr-moon text-orange-400"></i>
-          </button>
-          <RouterLink :to="{ name: 'project-info' }" class="hidden sm:inline text-sm text-slate-600 dark:text-slate-300 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">ข้อมูลโครงการ</RouterLink>
-          <button v-if="auth.isAuth" @click="goApp" class="btn-primary text-sm"><i class="fi-rr-apps"></i> เข้าระบบ</button>
-          <button v-else @click="goLogin" class="btn-primary text-sm"><i class="fi-rr-sign-in-alt"></i> เข้าสู่ระบบ</button>
-        </div>
-      </div>
-    </header>
+    <PublicNav />
 
     <!-- Hero -->
     <section class="card-hero">
-      <div class="max-w-6xl mx-auto px-4 py-10 lg:py-14">
-        <div class="text-xs uppercase tracking-wide opacity-80">มหาวิทยาลัยราชภัฏนครราชสีมา</div>
-        <h1 class="text-2xl lg:text-4xl font-bold leading-snug mt-2">
+      <div class="max-w-6xl mx-auto px-4 py-12 lg:py-16">
+        <div class="text-xs uppercase tracking-wide opacity-80">มหาวิทยาลัยราชภัฏนครราชสีมา · จังหวัดนครราชสีมา</div>
+        <h1 class="text-3xl lg:text-5xl font-bold leading-tight mt-2">
           ระบบสนับสนุนการลงทะเบียน<br>บัตรสวัสดิการแห่งรัฐ ปี 2569
         </h1>
-        <p class="mt-3 opacity-90 max-w-2xl text-sm lg:text-base">
-          แดชบอร์ดสาธารณะติดตามการลงพื้นที่หนุนเสริมของนักศึกษา จังหวัดนครราชสีมา —
-          อาจารย์และผู้บริหารดูภาพรวมได้ทันที โดยไม่ต้องเข้าสู่ระบบ
+        <p class="mt-4 opacity-90 max-w-2xl text-sm lg:text-base">
+          บูรณาการความร่วมมือเพื่อช่วยประชาชนกลุ่มเป้าหมายเข้าถึงสวัสดิการแห่งรัฐ
+          พร้อมระบบติดตามการลงทะเบียนแบบเรียลไทม์
         </p>
+        <div class="flex flex-wrap gap-2 mt-6">
+          <button v-if="auth.isAuth" @click="goApp" class="bg-white text-blue-700 rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-blue-50"><i class="fi-rr-apps"></i> เข้าสู่ระบบงาน</button>
+          <RouterLink v-else :to="{ name: 'login' }" class="bg-white text-blue-700 rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-blue-50"><i class="fi-rr-sign-in-alt"></i> เข้าสู่ระบบ / ลงทะเบียน</RouterLink>
+          <RouterLink :to="{ name: 'student-tracking' }" class="bg-white/15 hover:bg-white/25 rounded-xl px-5 py-2.5 font-medium text-sm"><i class="fi-rr-graduation-cap"></i> ติดตามงานนักศึกษา</RouterLink>
+        </div>
       </div>
     </section>
 
-    <main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
-      <!-- KPI -->
+    <main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+      <!-- ตัวเลขภาพรวม -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div v-for="k in kpis" :key="k.label" class="card p-4">
           <i :class="k.icon + ' text-lg text-blue-600'"></i>
@@ -90,31 +68,32 @@ function goApp() { router.push(auth.isStudent ? { name: 'student-worklog' } : { 
         </div>
       </div>
 
-      <!-- Charts -->
-      <div v-if="d" class="grid lg:grid-cols-2 gap-4">
-        <div class="card p-4">
-          <h3 class="font-medium text-sm mb-2">แนวโน้มผู้รับบริการรายวัน</h3>
-          <apexchart v-if="d.trend.labels.length" type="area" height="300" :options="trendOptions" :series="trendSeries" />
-          <div v-else class="text-center text-slate-400 py-20 text-sm">ยังไม่มีข้อมูลการปฏิบัติงาน</div>
+      <!-- กระบวนการ 5 ขั้น -->
+      <section>
+        <h2 class="text-lg font-semibold mb-3">กระบวนการดำเนินงาน</h2>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div v-for="s in steps" :key="s.n" class="card p-4">
+            <div class="w-8 h-8 rounded-full bg-blue-700 text-white grid place-items-center font-bold text-sm mb-2">{{ s.n }}</div>
+            <div class="text-sm font-medium leading-snug">{{ s.title }}</div>
+          </div>
         </div>
-        <div class="card p-4">
-          <h3 class="font-medium text-sm mb-2">สัดส่วนตามประเภทกิจกรรม</h3>
-          <apexchart v-if="hasActivity" type="donut" height="300" :options="activityOptions" :series="activitySeries" />
-          <div v-else class="text-center text-slate-400 py-20 text-sm">ยังไม่มีข้อมูลกิจกรรม</div>
-        </div>
-      </div>
-      <div v-else class="card p-10 text-center text-slate-400">กำลังโหลดข้อมูล…</div>
+      </section>
 
-      <!-- สรุปโครงการ -->
-      <div class="card p-6">
-        <h2 class="text-lg font-semibold mb-2">เกี่ยวกับโครงการ</h2>
-        <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          โครงการการขับเคลื่อนพื้นที่วิจัยเชิงยุทธศาสตร์เพื่อขจัดความยากจนและสร้างโอกาสทางสังคมแบบบูรณาการ
-          จังหวัดนครราชสีมา — บูรณาการความร่วมมือระหว่างมหาวิทยาลัยราชภัฏนครราชสีมา จังหวัดนครราชสีมา
-          และหน่วยงานเครือข่าย โดยนักศึกษา มร.นม. ลงพื้นที่ช่วยประชาชนกลุ่มเป้าหมายเข้าถึงสวัสดิการแห่งรัฐ
-        </p>
-        <RouterLink :to="{ name: 'project-info' }" class="inline-flex items-center gap-1 mt-3 text-sm text-blue-700 font-medium">
-          ดูรายละเอียด + เอกสารเผยแพร่ <i class="fi-rr-arrow-small-right"></i>
+      <!-- ลิงก์ไปส่วนต่าง ๆ -->
+      <div class="grid sm:grid-cols-2 gap-4">
+        <RouterLink :to="{ name: 'student-tracking' }" class="card p-6 hover:shadow-md transition flex items-start gap-4">
+          <i class="fi-rr-stats text-2xl text-blue-600"></i>
+          <div>
+            <div class="font-semibold">ติดตามงานนักศึกษา</div>
+            <p class="text-sm text-slate-500 mt-1">แดชบอร์ดสาธารณะ ดูภาพรวมการลงพื้นที่หนุนเสริมของนักศึกษา มร.นม. โดยไม่ต้องเข้าสู่ระบบ</p>
+          </div>
+        </RouterLink>
+        <RouterLink :to="{ name: 'project-info' }" class="card p-6 hover:shadow-md transition flex items-start gap-4">
+          <i class="fi-rr-document text-2xl text-blue-600"></i>
+          <div>
+            <div class="font-semibold">เกี่ยวกับโครงการ</div>
+            <p class="text-sm text-slate-500 mt-1">รายละเอียดโครงการ หน่วยงานร่วม และเอกสารเผยแพร่จากเว็บไซต์กระทรวงการคลัง</p>
+          </div>
         </RouterLink>
       </div>
 

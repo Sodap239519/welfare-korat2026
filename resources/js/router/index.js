@@ -13,6 +13,7 @@ const routes = [
   // หน้าแรก public — ติดตามงานนักศึกษาได้โดยไม่ต้อง login
   { path: '/',        name: 'home',          component: () => import('@/pages/PublicHome.vue'),  meta: { public: true } },
   { path: '/project-info', name: 'project-info', component: () => import('@/pages/ProjectInfo.vue'), meta: { public: true } },
+  { path: '/student-tracking', name: 'student-tracking', component: () => import('@/pages/StudentTracking.vue'), meta: { public: true } },
   { path: '/login',   name: 'login',         component: () => import('@/pages/Login.vue'),       meta: { guest: true } },
 
   { path: '/dashboard',     name: 'dashboard',     component: () => import('@/pages/Dashboard.vue'),     meta: { auth: true, roles: STAFF } },
