@@ -28,12 +28,16 @@ class UserPendingApproval extends Notification
 
     public function toArray(object $notifiable): array
     {
+        $u = $this->pendingUser;
+        $isStudent = !empty($u->student_id);
         return [
             'type'    => 'user_pending',
-            'user_id' => $this->pendingUser->id,
-            'title'   => 'มีผู้ใช้รออนุมัติ',
-            'message' => "{$this->pendingUser->name} ({$this->pendingUser->phone}) สมัครและรออนุมัติ",
-            'icon'    => 'fi-rr-user-add',
+            'user_id' => $u->id,
+            'title'   => $isStudent ? 'นักศึกษารออนุมัติ' : 'มีผู้ใช้รออนุมัติ',
+            'message' => $isStudent
+                ? "{$u->name} (นักศึกษา · {$u->faculty}) รออนุมัติ"
+                : "{$u->name} ({$u->phone}) สมัครและรออนุมัติ",
+            'icon'    => $isStudent ? 'fi-rr-graduation-cap' : 'fi-rr-user-add',
             'color'   => 'blue',
             'url'     => '/admin/users',
         ];
@@ -43,6 +47,22 @@ class UserPendingApproval extends Notification
     public function toLine(object $notifiable): string
     {
         $u = $this->pendingUser;
+
+        // นักศึกษา — แสดงข้อมูลเฉพาะนักศึกษา
+        if (!empty($u->student_id)) {
+            $unit = $u->work_unit_type === 'bank'
+                ? 'ธนาคาร: ' . strtoupper($u->bank_sub_channel ?? '-') . ' ' . ($u->bank_branch ?? '')
+                : 'อำเภอ: ' . ($u->amphur?->name ?? '-');
+            return "🎓 นักศึกษาสมัครใหม่ — Welfare Korat\n"
+                . "ชื่อ: {$u->name}\n"
+                . "รหัส นศ.: {$u->student_id}\n"
+                . "คณะ/สาขา: {$u->faculty} / {$u->major}\n"
+                . "เบอร์: {$u->phone}\n"
+                . $unit . "\n"
+                . "เวลา: " . now()->format('d/m/Y H:i') . "\n"
+                . "เข้าระบบเพื่ออนุมัติ: " . config('app.url') . "/admin/users";
+        }
+
         $position = $u->position_type
             ? "\nตำแหน่ง: {$u->position_type}" . ($u->position_other ? " ({$u->position_other})" : '')
             : '';

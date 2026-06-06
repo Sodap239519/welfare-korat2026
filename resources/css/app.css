@@ -157,4 +157,9 @@
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+
+/* มือถือ/แท็บเล็ต: บังคับ font ช่องกรอก >= 16px กัน iOS zoom เวลาแตะ + แตะง่ายขึ้น */
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px !important; }
+}
 .dark ::-webkit-scrollbar-thumb { background: #475569; }

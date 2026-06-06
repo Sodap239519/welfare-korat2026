@@ -28,6 +28,7 @@ const allItems = [
   { name: 'student-worklog',    icon: 'fi-rr-edit',          label: 'บันทึกการปฏิบัติงาน', roles: ['student'] },
   { name: 'student-assessment', icon: 'fi-rr-clipboard-list', label: 'ประเมินตนเอง',       roles: ['student'] },
   { name: 'student-mydash',     icon: 'fi-rr-stats',         label: 'สรุปงานของฉัน',       roles: ['student'] },
+  { name: 'student-documents',  icon: 'fi-rr-folder',        label: 'เอกสารสำหรับนักศึกษา', roles: ['student'] },
   // รายงานนักศึกษา (อาจารย์/ผู้บริหาร)
   { name: 'student-report', icon: 'fi-rr-graduation-cap',   label: 'รายงานนักศึกษา',     roles: ['super_admin', 'admin'] },
   // ข้อมูลโครงการ — ทุกคน

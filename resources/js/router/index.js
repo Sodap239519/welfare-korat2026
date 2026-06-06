@@ -32,6 +32,7 @@ const routes = [
   { path: '/student/work-log',   name: 'student-worklog',    component: () => import('@/pages/student/WorkLog.vue'),        meta: { auth: true, roles: ['student'] } },
   { path: '/student/assessment', name: 'student-assessment', component: () => import('@/pages/student/SelfAssessment.vue'), meta: { auth: true, roles: ['student'] } },
   { path: '/student/my-dashboard', name: 'student-mydash',   component: () => import('@/pages/student/MyDashboard.vue'),    meta: { auth: true, roles: ['student'] } },
+  { path: '/student/documents',  name: 'student-documents',  component: () => import('@/pages/student/Documents.vue'),      meta: { auth: true, roles: ['student', 'super_admin', 'admin'] } },
   // รายงานภาพรวมนักศึกษา (อาจารย์/ผู้บริหารในระบบ)
   { path: '/student-report',     name: 'student-report',     component: () => import('@/pages/StudentDashboard.vue'),       meta: { auth: true, roles: ['super_admin', 'admin'] } },
 

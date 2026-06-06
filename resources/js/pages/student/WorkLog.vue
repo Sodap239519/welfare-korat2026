@@ -182,7 +182,7 @@ async function remove(id) {
         <datalist id="activity-suggestions">
           <option v-for="a in ACTIVITY_SUGGESTIONS" :key="a" :value="a" />
         </datalist>
-        <div v-for="(e, i) in form.entries" :key="i" class="grid sm:grid-cols-12 gap-2 mb-2 items-start">
+        <div v-for="(e, i) in form.entries" :key="i" class="grid sm:grid-cols-12 gap-2 mb-2 items-start p-2 sm:p-0 rounded-xl bg-slate-50 sm:bg-transparent dark:bg-slate-800/40 sm:dark:bg-transparent">
           <select v-model="e.period" class="sm:col-span-2 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
             <option v-for="p in PERIODS" :key="p" :value="p">{{ p }}</option>
           </select>
@@ -212,7 +212,7 @@ async function remove(id) {
           <button @click="addCase" class="text-sm text-blue-700"><i class="fi-rr-plus"></i> เพิ่มกรณี</button>
         </div>
         <div v-if="!form.cases.length" class="text-xs text-slate-400">— ยังไม่มี —</div>
-        <div v-for="(c, i) in form.cases" :key="i" class="grid sm:grid-cols-12 gap-2 mb-2 items-start">
+        <div v-for="(c, i) in form.cases" :key="i" class="grid sm:grid-cols-12 gap-2 mb-2 items-start p-2 sm:p-0 rounded-xl bg-slate-50 sm:bg-transparent dark:bg-slate-800/40 sm:dark:bg-transparent">
           <input v-model="c.full_name" placeholder="ชื่อ-สกุล" class="sm:col-span-3 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
           <input v-model="c.phone" placeholder="เบอร์โทร" class="sm:col-span-2 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
           <input v-model="c.village_tambon" placeholder="หมู่บ้าน/ตำบล" class="sm:col-span-3 px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
