@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\MissedTargetController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReferenceController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\StudentAdminController;
 use App\Http\Controllers\Api\StudentCaseRecordController;
 use App\Http\Controllers\Api\StudentDashboardController;
 use App\Http\Controllers\Api\StudentSelfAssessmentController;
@@ -61,8 +62,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('self-assessment', [StudentSelfAssessmentController::class, 'upsert']);
         Route::get('my-dashboard',    [StudentDashboardController::class, 'myStats']);
     });
-    // Dashboard ภาพรวมงานนักศึกษา (อาจารย์/ผู้บริหารในระบบ)
-    Route::middleware('role:super_admin|admin')->get('student-dashboard', [StudentDashboardController::class, 'overview']);
+    // Dashboard ภาพรวมงานนักศึกษา + จัดการ/รายงาน (อาจารย์/ผู้บริหารในระบบ)
+    Route::middleware('role:super_admin|admin')->group(function () {
+        Route::get('student-dashboard', [StudentDashboardController::class, 'overview']);
+        Route::prefix('student-admin')->controller(StudentAdminController::class)->group(function () {
+            Route::get('students',         'students');
+            Route::get('work-logs',        'workLogs');
+            Route::get('work-logs/{id}',   'show')->whereNumber('id');
+            Route::delete('work-logs/{id}','destroy')->whereNumber('id');
+            Route::get('export',           'export');
+        });
+    });
 
     // Dashboard
     Route::prefix('dashboard')->controller(DashboardController::class)->group(function () {
