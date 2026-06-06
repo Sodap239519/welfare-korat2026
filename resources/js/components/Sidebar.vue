@@ -14,14 +14,24 @@ async function doLogout() {
   await auth.logout();
   router.push({ name: 'login' });
 }
+// เจ้าหน้าที่ (ไม่รวมนักศึกษา) — หน้าปฏิบัติงานเดิม
+const STAFF = ['super_admin', 'admin', 'tracker', 'bank_staff'];
 const allItems = [
-  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม',  roles: ['*'] },
-  { name: 'missed-targets', icon: 'fi-rr-search-heart',     label: 'กลุ่มเป้าหมายผู้ตกหล่น', roles: ['*'] },
-  { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย',     roles: ['*'] },
-  { name: 'batches',        icon: 'fi-rr-box-alt',          label: 'ห่อเอกสารธนาคาร',   roles: ['*'] },
-  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: ['*'] },
-  { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม',     roles: ['*'] },
-  { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: ['*'] },
+  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม',  roles: STAFF },
+  { name: 'missed-targets', icon: 'fi-rr-search-heart',     label: 'กลุ่มเป้าหมายผู้ตกหล่น', roles: STAFF },
+  { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย',     roles: STAFF },
+  { name: 'batches',        icon: 'fi-rr-box-alt',          label: 'ห่อเอกสารธนาคาร',   roles: STAFF },
+  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: STAFF },
+  { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม',     roles: STAFF },
+  { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: STAFF },
+  // ── โมดูลนักศึกษา ──
+  { name: 'student-worklog',    icon: 'fi-rr-edit',          label: 'บันทึกการปฏิบัติงาน', roles: ['student'] },
+  { name: 'student-assessment', icon: 'fi-rr-clipboard-list', label: 'ประเมินตนเอง',       roles: ['student'] },
+  { name: 'student-mydash',     icon: 'fi-rr-stats',         label: 'สรุปงานของฉัน',       roles: ['student'] },
+  // รายงานนักศึกษา (อาจารย์/ผู้บริหาร)
+  { name: 'student-report', icon: 'fi-rr-graduation-cap',   label: 'รายงานนักศึกษา',     roles: ['super_admin', 'admin'] },
+  // ข้อมูลโครงการ — ทุกคน
+  { name: 'project-info',   icon: 'fi-rr-document',         label: 'ข้อมูลโครงการ',      roles: ['*'] },
   { name: 'admin-users',    icon: 'fi-rr-user-shield',      label: 'จัดการผู้ใช้',       roles: ['super_admin'] },
   { name: 'admin-activity', icon: 'fi-rr-time-past',        label: 'ประวัติการใช้งาน',   roles: ['super_admin'] },
   // เมนูพับได้ — มี children เป็น submenu

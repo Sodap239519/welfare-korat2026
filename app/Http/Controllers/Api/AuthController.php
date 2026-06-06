@@ -20,6 +20,16 @@ class AuthController extends Controller
      */
     public function register(Request $request): JsonResponse
     {
+        // แยกเส้นทางตามประเภทบัญชี — นักศึกษา vs ผู้กำกับติดตาม (default)
+        if ($request->input('account_type') === 'student') {
+            return $this->registerStudent($request);
+        }
+        return $this->registerTracker($request);
+    }
+
+    /** สมัครผู้กำกับติดตาม (ผู้ใหญ่บ้าน/กำนัน/อสม. ฯลฯ) — ผูกขอบเขตหมู่บ้าน */
+    private function registerTracker(Request $request): JsonResponse
+    {
         $data = $request->validate([
             'name'           => ['required', 'string', 'max:150'],
             'phone'          => ['required', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone'],
@@ -90,6 +100,64 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'ลงทะเบียนสำเร็จ — รอ Super Admin อนุมัติบัญชีก่อนเข้าใช้งาน',
             'user'    => $user->only(['id', 'name', 'phone', 'position_type', 'active']),
+        ], 201);
+    }
+
+    /** สมัครนักศึกษา มร.นม. — เก็บโปรไฟล์นักศึกษา + หน่วยปฏิบัติงาน (อำเภอ/ธนาคาร) */
+    private function registerStudent(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'            => ['required', 'string', 'max:150'],
+            'phone'           => ['required', 'string', 'regex:/^[0-9]{9,10}$/', 'unique:users,phone'],
+            'password'        => ['required', 'confirmed', Password::min(6)],
+            'email'           => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'student_id'      => ['required', 'string', 'max:30'],
+            'faculty'         => ['required', 'string', 'max:150'],
+            'major'           => ['required', 'string', 'max:150'],
+            'line_id'         => ['nullable', 'string', 'max:100'],
+            'work_unit_type'  => ['required', 'in:amphur,bank'],
+            // หน่วย = อำเภอ
+            'amphur_id'       => ['required_if:work_unit_type,amphur', 'nullable', 'integer', 'exists:amphurs,id'],
+            // หน่วย = ธนาคาร (5 ธนาคารคงที่ + ชื่อสาขา)
+            'bank_sub_channel' => ['required_if:work_unit_type,bank', 'nullable', 'in:ktb,gsb,baac,ghb,ibank'],
+            'bank_branch'     => ['required_if:work_unit_type,bank', 'nullable', 'string', 'max:150'],
+        ], [
+            'phone.regex'              => 'เบอร์โทรต้องเป็นตัวเลข 9-10 หลัก',
+            'phone.unique'             => 'เบอร์โทรนี้ลงทะเบียนแล้ว',
+            'password.min'             => 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร',
+            'student_id.required'      => 'กรุณากรอกรหัสนักศึกษา',
+            'faculty.required'         => 'กรุณากรอกคณะ',
+            'major.required'           => 'กรุณากรอกสาขาวิชา',
+            'work_unit_type.required'  => 'กรุณาเลือกหน่วยปฏิบัติงาน',
+            'amphur_id.required_if'    => 'กรุณาเลือกอำเภอที่ปฏิบัติงาน',
+            'bank_sub_channel.required_if' => 'กรุณาเลือกธนาคาร',
+            'bank_branch.required_if'  => 'กรุณากรอกสาขาธนาคาร',
+        ]);
+
+        $user = User::create([
+            'name'            => $data['name'],
+            'phone'           => $data['phone'],
+            'email'           => $data['email'] ?? null,
+            'password'        => Hash::make($data['password']),
+            'student_id'      => $data['student_id'],
+            'faculty'         => $data['faculty'],
+            'major'           => $data['major'],
+            'line_id'         => $data['line_id'] ?? null,
+            'work_unit_type'  => $data['work_unit_type'],
+            'amphur_id'        => $data['work_unit_type'] === 'amphur' ? $data['amphur_id'] : null,
+            'bank_sub_channel' => $data['work_unit_type'] === 'bank' ? $data['bank_sub_channel'] : null,
+            'bank_branch'      => $data['work_unit_type'] === 'bank' ? $data['bank_branch'] : null,
+            'active'          => false,
+        ]);
+        $user->assignRole('student');
+
+        // แจ้งเตือน Super Admin ทุกคน
+        $superAdmins = User::role('super_admin')->get();
+        Notification::send($superAdmins, new UserPendingApproval($user));
+
+        return response()->json([
+            'message' => 'ลงทะเบียนนักศึกษาสำเร็จ — รอ Super Admin อนุมัติบัญชีก่อนเข้าใช้งาน',
+            'user'    => $user->only(['id', 'name', 'phone', 'student_id', 'active']),
         ], 201);
     }
 
@@ -196,7 +264,13 @@ class AuthController extends Controller
             'position_other'  => $user->position_other,
             'bank_channel_id' => $user->bank_channel_id,
             'bank_sub_channel'=> $user->bank_sub_channel,
+            'bank_branch'     => $user->bank_branch,
             'amphur_id'       => $user->amphur_id,
+            'student_id'      => $user->student_id,
+            'faculty'         => $user->faculty,
+            'major'           => $user->major,
+            'line_id'         => $user->line_id,
+            'work_unit_type'  => $user->work_unit_type,
             'active'          => (bool) $user->active,
             'last_login_at'   => $user->last_login_at,
             'roles'           => $user->roles->pluck('name')->all(),

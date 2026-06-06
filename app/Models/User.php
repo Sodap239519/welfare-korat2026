@@ -34,6 +34,8 @@ class User extends Authenticatable
         'phone', 'position_type', 'position_other',
         'bank_channel_id', 'bank_sub_channel', 'bank_branch',
         'amphur_id',
+        // โปรไฟล์นักศึกษา (role 'student')
+        'student_id', 'faculty', 'major', 'line_id', 'work_unit_type',
         'active', 'last_login_at',
     ];
 
@@ -51,6 +53,11 @@ class User extends Authenticatable
 
     public function scopes(): HasMany   { return $this->hasMany(UserScope::class); }
     public function tracker()           { return $this->hasOne(Tracker::class); }
+
+    // โมดูลนักศึกษา
+    public function workLogs(): HasMany       { return $this->hasMany(StudentWorkLog::class); }
+    public function caseRecords(): HasMany    { return $this->hasMany(StudentCaseRecord::class); }
+    public function selfAssessment()          { return $this->hasOne(StudentSelfAssessment::class); }
 
     public function bankChannel()
     {

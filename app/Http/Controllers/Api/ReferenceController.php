@@ -82,6 +82,19 @@ class ReferenceController extends Controller
         return response()->json($stats);
     }
 
+    /**
+     * Public dashboard งานนักศึกษา — สำหรับหน้าแรก (ไม่ต้อง login)
+     * อาจารย์/ผู้บริหารติดตามภาพรวมการลงพื้นที่ของนักศึกษาได้
+     * Cache 5 นาที กัน DB โดนถล่มจากหน้า public
+     */
+    public function publicStudentDashboard(): JsonResponse
+    {
+        $data = \Illuminate\Support\Facades\Cache::remember('public.student_dashboard', 300, function () {
+            return \App\Http\Controllers\Api\StudentDashboardController::compute(null);
+        });
+        return response()->json($data);
+    }
+
     public function tambons(Request $request): JsonResponse
     {
         $q = Tambon::orderBy('name');

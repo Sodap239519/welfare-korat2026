@@ -11,6 +11,17 @@ const route = useRoute();
 const router = useRouter();
 
 const tab = ref('login');
+// ประเภทบัญชีในแท็บลงทะเบียน — tracker (ผู้กำกับติดตาม) | student (นักศึกษา)
+const accountType = ref('tracker');
+
+// 5 ธนาคาร (คงที่) สำหรับนักศึกษาที่ปฏิบัติงาน ณ ธนาคาร
+const BANKS = [
+  { code: 'ktb', name: 'ธนาคารกรุงไทย' },
+  { code: 'gsb', name: 'ธนาคารออมสิน' },
+  { code: 'baac', name: 'ธ.ก.ส.' },
+  { code: 'ghb', name: 'ธนาคารอาคารสงเคราะห์' },
+  { code: 'ibank', name: 'ธนาคารอิสลาม' },
+];
 
 const loginForm = reactive({ phone: '', password: '', remember: false });
 const registerForm = reactive({
@@ -18,6 +29,9 @@ const registerForm = reactive({
   password: '', password_confirmation: '', email: '',
   // ขอบเขตที่รับผิดชอบ — บังคับเลือก หมู่บ้าน (ครอบทุก ม.)
   amphur_id: '', tambon_id: '', village_name: '',
+  // โปรไฟล์นักศึกษา
+  student_id: '', faculty: '', major: '', line_id: '',
+  work_unit_type: 'amphur', bank_sub_channel: '', bank_branch: '',
 });
 const showPassword = ref(false);
 
@@ -74,13 +88,15 @@ async function submitRegister() {
   fieldErrors.value = {};
   flashOk.value = '';
   try {
-    const res = await auth.register({ ...registerForm });
+    const res = await auth.register({ ...registerForm, account_type: accountType.value });
     flashOk.value = res.message;
     tab.value = 'login';
     loginForm.phone = registerForm.phone;
     Object.assign(registerForm, {
       name: '', phone: '', position_other: '', password: '', password_confirmation: '', email: '',
       amphur_id: '', tambon_id: '', village_name: '',
+      student_id: '', faculty: '', major: '', line_id: '',
+      work_unit_type: 'amphur', bank_sub_channel: '', bank_branch: '',
     });
   } catch (e) {
     fieldErrors.value = e.response?.data?.errors || {};
@@ -340,6 +356,16 @@ async function submitRegister() {
 
           <!-- REGISTER -->
           <form v-else @submit.prevent="submitRegister" class="space-y-3 mt-5">
+            <!-- ประเภทบัญชี -->
+            <div>
+              <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ประเภทบัญชี</label>
+              <div class="grid grid-cols-2 gap-1 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-1">
+                <button type="button" @click="accountType='tracker'"
+                  :class="['py-2 text-sm font-medium rounded-lg', accountType==='tracker' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500']">ผู้กำกับติดตาม</button>
+                <button type="button" @click="accountType='student'"
+                  :class="['py-2 text-sm font-medium rounded-lg', accountType==='student' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'text-slate-500']">นักศึกษา</button>
+              </div>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ชื่อ-สกุล</label>
@@ -356,6 +382,8 @@ async function submitRegister() {
                 <div v-if="fieldErrors.phone" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.phone[0] }}</div>
               </div>
             </div>
+            <!-- ── ผู้กำกับติดตาม ── -->
+            <template v-if="accountType==='tracker'">
             <div>
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ตำแหน่ง</label>
               <select v-model="registerForm.position_type" class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
@@ -399,6 +427,71 @@ async function submitRegister() {
                 <i class="fi-rr-info"></i> ผู้กำกับติดตามดูแล <b>ทั้งหมู่บ้าน</b> — หากชื่อหมู่บ้านเดียวกันมีหลายหมู่ ระบบจะให้คุณดูแลครบทุกหมู่ที่
               </div>
             </div>
+            </template>
+
+            <!-- ── นักศึกษา ── -->
+            <template v-if="accountType==='student'">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">รหัสนักศึกษา</label>
+                <input v-model="registerForm.student_id" type="text"
+                  class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.student_id ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <div v-if="fieldErrors.student_id" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.student_id[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">ID LINE <span class="text-slate-400">(ไม่บังคับ)</span></label>
+                <input v-model="registerForm.line_id" type="text"
+                  class="w-full px-3 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm">
+              </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">คณะ</label>
+                <input v-model="registerForm.faculty" type="text"
+                  class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.faculty ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <div v-if="fieldErrors.faculty" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.faculty[0] }}</div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">สาขาวิชา</label>
+                <input v-model="registerForm.major" type="text"
+                  class="w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-slate-900 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  :class="fieldErrors.major ? 'border-red-300' : 'border-slate-100 dark:border-slate-800'">
+                <div v-if="fieldErrors.major" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.major[0] }}</div>
+              </div>
+            </div>
+
+            <!-- หน่วยปฏิบัติงาน -->
+            <div class="card-tint-orange p-3 rounded-xl">
+              <div class="text-xs font-medium mb-2 flex items-center gap-1.5">
+                <i class="fi-rr-marker text-orange-700"></i> หน่วยปฏิบัติงาน <span class="text-red-600">*</span>
+              </div>
+              <div class="flex gap-1 bg-white/60 dark:bg-slate-800/50 rounded-lg p-1 mb-2">
+                <button type="button" @click="registerForm.work_unit_type='amphur'"
+                  :class="['flex-1 py-1.5 text-xs rounded-md', registerForm.work_unit_type==='amphur' ? 'bg-white dark:bg-slate-700 shadow-sm font-medium' : 'text-slate-500']">ที่ว่าการอำเภอ</button>
+                <button type="button" @click="registerForm.work_unit_type='bank'"
+                  :class="['flex-1 py-1.5 text-xs rounded-md', registerForm.work_unit_type==='bank' ? 'bg-white dark:bg-slate-700 shadow-sm font-medium' : 'text-slate-500']">ธนาคาร</button>
+              </div>
+              <select v-if="registerForm.work_unit_type==='amphur'" v-model="registerForm.amphur_id"
+                class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                <option value="">เลือกอำเภอ</option>
+                <option v-for="a in amphurOpts" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <select v-model="registerForm.bank_sub_channel"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+                  <option value="">เลือกธนาคาร</option>
+                  <option v-for="b in BANKS" :key="b.code" :value="b.code">{{ b.name }}</option>
+                </select>
+                <input v-model="registerForm.bank_branch" placeholder="สาขา"
+                  class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+              </div>
+              <div v-if="fieldErrors.amphur_id" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.amphur_id[0] }}</div>
+              <div v-if="fieldErrors.bank_sub_channel" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.bank_sub_channel[0] }}</div>
+              <div v-if="fieldErrors.bank_branch" class="text-[11px] text-red-600 mt-1">{{ fieldErrors.bank_branch[0] }}</div>
+            </div>
+            </template>
 
             <div>
               <label class="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">อีเมล <span class="text-slate-400">(ไม่บังคับ)</span></label>

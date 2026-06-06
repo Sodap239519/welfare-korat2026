@@ -12,6 +12,10 @@ use App\Http\Controllers\Api\MissedTargetController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReferenceController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\StudentCaseRecordController;
+use App\Http\Controllers\Api\StudentDashboardController;
+use App\Http\Controllers\Api\StudentSelfAssessmentController;
+use App\Http\Controllers\Api\StudentWorkLogController;
 use App\Http\Controllers\Api\TargetController;
 use App\Http\Controllers\Api\TrackerController;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +31,8 @@ Route::prefix('auth')->group(function () {
     Route::get('geo/village-names', [ReferenceController::class, 'villageNames']);
     // Public stats — แสดงตัวเลขกลุ่มเป้าหมาย/ตำบล/อำเภอ ในหน้า Login
     Route::get('public-stats',      [ReferenceController::class, 'publicStats']);
+    // Public dashboard งานนักศึกษา — หน้าแรกติดตามงาน (ไม่ต้อง login)
+    Route::get('public/student-dashboard', [ReferenceController::class, 'publicStudentDashboard']);
 });
 
 // ─── LINE Bot Webhook (no auth · LINE จะเรียกตรงๆ) ───
@@ -45,6 +51,19 @@ Route::prefix('auth')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    // ─── โมดูลนักศึกษา (เขียน=เจ้าของเท่านั้น) ───
+    Route::middleware('role:student')->prefix('student')->group(function () {
+        Route::apiResource('work-logs', StudentWorkLogController::class)
+            ->parameters(['work-logs' => 'id']);
+        Route::apiResource('case-records', StudentCaseRecordController::class)
+            ->except(['show'])->parameters(['case-records' => 'id']);
+        Route::get('self-assessment', [StudentSelfAssessmentController::class, 'show']);
+        Route::put('self-assessment', [StudentSelfAssessmentController::class, 'upsert']);
+        Route::get('my-dashboard',    [StudentDashboardController::class, 'myStats']);
+    });
+    // Dashboard ภาพรวมงานนักศึกษา (อาจารย์/ผู้บริหารในระบบ)
+    Route::middleware('role:super_admin|admin')->get('student-dashboard', [StudentDashboardController::class, 'overview']);
+
     // Dashboard
     Route::prefix('dashboard')->controller(DashboardController::class)->group(function () {
         Route::get('stats',         'stats');

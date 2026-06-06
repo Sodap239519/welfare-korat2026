@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isSuperAdmin = computed(() => roles.value.includes('super_admin'));
   const isAdmin      = computed(() => roles.value.includes('admin') || isSuperAdmin.value);
   const isTracker    = computed(() => roles.value.includes('tracker') || isAdmin.value);
+  const isStudent    = computed(() => roles.value.includes('student'));
 
   async function csrf() {
     await axios.get('/sanctum/csrf-cookie');
@@ -85,7 +86,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, isReady, loading, error,
-    isAuth, roles, isSuperAdmin, isAdmin, isTracker,
+    isAuth, roles, isSuperAdmin, isAdmin, isTracker, isStudent,
     fetchMe, login, register, logout, updateProfile,
   };
 });
