@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import PublicNav from '@/components/PublicNav.vue';
+import HeroLandmarks from '@/components/HeroLandmarks.vue';
 import { useAuthStore } from '@/stores/auth';
 import { formatNumber } from '@/composables/useApi';
 
@@ -40,20 +41,22 @@ function goApp() { router.push(auth.isStudent ? { name: 'student-worklog' } : { 
     <PublicNav />
 
     <!-- Hero -->
-    <section class="card-hero">
-      <div class="max-w-6xl mx-auto px-4 py-12 lg:py-16">
-        <div class="text-xs uppercase tracking-wide opacity-80">มหาวิทยาลัยราชภัฏนครราชสีมา · จังหวัดนครราชสีมา</div>
-        <h1 class="text-3xl lg:text-5xl font-bold leading-tight mt-2">
+    <section class="relative overflow-hidden card-hero">
+      <HeroLandmarks />
+      <div class="relative z-10 max-w-6xl mx-auto px-4 py-12 sm:py-14 lg:py-20">
+        <div class="text-[11px] sm:text-xs uppercase tracking-wide opacity-80">มหาวิทยาลัยราชภัฏนครราชสีมา · จังหวัดนครราชสีมา</div>
+        <h1 class="text-2xl sm:text-3xl lg:text-5xl font-bold leading-tight mt-2">
           ระบบสนับสนุนการลงทะเบียน<br>บัตรสวัสดิการแห่งรัฐ ปี 2569
         </h1>
-        <p class="mt-4 opacity-90 max-w-2xl text-sm lg:text-base">
+        <p class="mt-3 sm:mt-4 opacity-90 max-w-2xl text-sm lg:text-base">
           บูรณาการความร่วมมือเพื่อช่วยประชาชนกลุ่มเป้าหมายเข้าถึงสวัสดิการแห่งรัฐ
           พร้อมระบบติดตามการลงทะเบียนแบบเรียลไทม์
         </p>
-        <div class="flex flex-wrap gap-2 mt-6">
-          <button v-if="auth.isAuth" @click="goApp" class="bg-white text-blue-700 rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-blue-50"><i class="fi-rr-apps"></i> เข้าสู่ระบบงาน</button>
-          <RouterLink v-else :to="{ name: 'login' }" class="bg-white text-blue-700 rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-blue-50"><i class="fi-rr-sign-in-alt"></i> เข้าสู่ระบบ / ลงทะเบียน</RouterLink>
-          <RouterLink :to="{ name: 'student-tracking' }" class="bg-white/15 hover:bg-white/25 rounded-xl px-5 py-2.5 font-medium text-sm"><i class="fi-rr-graduation-cap"></i> ติดตามงานนักศึกษา</RouterLink>
+        <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 mt-6">
+          <button v-if="auth.isAuth" @click="goApp" class="bg-white text-blue-700 rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-blue-50 text-center"><i class="fi-rr-apps"></i> เข้าสู่ระบบงาน</button>
+          <RouterLink v-else :to="{ name: 'login' }" class="bg-white text-blue-700 rounded-xl px-5 py-2.5 font-medium text-sm hover:bg-blue-50 text-center"><i class="fi-rr-sign-in-alt"></i> เข้าสู่ระบบ / ลงทะเบียน</RouterLink>
+          <RouterLink :to="{ name: 'student-tracking' }" class="bg-white/15 hover:bg-white/25 rounded-xl px-5 py-2.5 font-medium text-sm text-center"><i class="fi-rr-graduation-cap"></i> ติดตามงานนักศึกษา</RouterLink>
+          <RouterLink :to="{ name: 'project-info' }" class="bg-white/15 hover:bg-white/25 rounded-xl px-5 py-2.5 font-medium text-sm text-center"><i class="fi-rr-document"></i> เกี่ยวกับโครงการ</RouterLink>
         </div>
       </div>
     </section>

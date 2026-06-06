@@ -41,8 +41,8 @@ function goApp() {
         <button @click="theme.toggle" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="สลับโหมดสี">
           <i v-if="!theme.isDark" class="fi-rr-brightness"></i><i v-else class="fi-sr-moon text-orange-400"></i>
         </button>
-        <button v-if="auth.isAuth" @click="goApp" class="btn-primary text-sm"><i class="fi-rr-apps"></i> เข้าระบบ</button>
-        <RouterLink v-else :to="{ name: 'login' }" class="btn-primary text-sm"><i class="fi-rr-sign-in-alt"></i> เข้าสู่ระบบ</RouterLink>
+        <button v-if="auth.isAuth" @click="goApp" class="btn-primary text-sm"><i class="fi-rr-apps"></i> <span class="hidden sm:inline">เข้าระบบ</span></button>
+        <RouterLink v-else :to="{ name: 'login' }" class="btn-primary text-sm"><i class="fi-rr-sign-in-alt"></i> <span class="hidden sm:inline">เข้าสู่ระบบ</span></RouterLink>
         <!-- hamburger (mobile) -->
         <button @click="open = !open" class="md:hidden btn-icon hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fi-rr-menu-burger"></i></button>
       </div>

@@ -1,7 +1,12 @@
 <script setup>
+import { ref } from 'vue';
 import PublicNav from '@/components/PublicNav.vue';
 
 const OFFICIAL = 'https://welfare.mof.go.th/';
+
+// คลิกภาพเพื่อขยายดูเต็ม (lightbox)
+const zoom = ref(null);
+function openZoom(src) { zoom.value = src; }
 const IMG = 'https://welfare.mof.go.th/assets/images/New/';
 
 // เมนูหลักจากเว็บไซต์กระทรวงการคลัง — ใช้เป็น in-page nav (เลื่อนไปหัวข้อ)
@@ -113,18 +118,13 @@ function onImgError(e) { e.target.style.display = 'none'; }
         </div>
       </section>
 
-      <!-- คุณสมบัติ -->
+      <!-- คุณสมบัติ — แสดงเป็นภาพอินโฟกราฟิกจากเว็บหลัก -->
       <section id="eligibility" class="scroll-mt-32">
         <h2 class="text-xl font-bold mb-4"><i class="fi-rr-list-check text-blue-600"></i> คุณสมบัติและข้อกำหนด</h2>
-        <div class="grid md:grid-cols-2 gap-4 items-center">
-          <ul class="space-y-2">
-            <li v-for="q in qualifications" :key="q" class="card p-3 flex items-start gap-2 text-sm">
-              <i class="fi-rr-check text-green-600 mt-0.5"></i> {{ q }}
-            </li>
-          </ul>
-          <img :src="IMG + 'registrant_qualifications.webp'" referrerpolicy="no-referrer" @error="onImgError" loading="lazy"
-               class="rounded-2xl w-full border border-slate-100 dark:border-slate-800" alt="คุณสมบัติผู้ลงทะเบียน">
-        </div>
+        <img :src="IMG + 'registrant_qualifications.webp'" referrerpolicy="no-referrer" @error="onImgError" loading="lazy"
+             @click="openZoom(IMG + 'registrant_qualifications.webp')"
+             class="rounded-2xl w-full max-w-3xl mx-auto block border border-slate-100 dark:border-slate-800 cursor-zoom-in hover:opacity-95 transition" alt="คุณสมบัติผู้ลงทะเบียน">
+        <p class="text-center text-xs text-slate-400 mt-2"><i class="fi-rr-search"></i> แตะที่ภาพเพื่อดูขนาดเต็ม</p>
       </section>
 
       <!-- ขั้นตอน/ช่องทาง -->
@@ -132,8 +132,8 @@ function onImgError(e) { e.target.style.display = 'none'; }
         <h2 class="text-xl font-bold mb-4"><i class="fi-rr-following text-blue-600"></i> ช่องทางการลงทะเบียน (5 ช่องทาง)</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <div v-for="(s, i) in steps" :key="s.title" class="card p-3 text-center">
-            <div class="aspect-square rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 grid place-items-center mb-2">
-              <img :src="s.img" referrerpolicy="no-referrer" @error="onImgError" loading="lazy" class="w-full h-full object-contain" :alt="s.title">
+            <div class="aspect-[3/4] rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800 mb-2 cursor-zoom-in" @click="openZoom(s.img)">
+              <img :src="s.img" referrerpolicy="no-referrer" @error="onImgError" loading="lazy" class="w-full h-full object-cover hover:scale-105 transition" :alt="s.title">
             </div>
             <div class="text-xs font-medium"><i :class="s.icon + ' text-blue-600'"></i> {{ i + 1 }}. {{ s.title }}</div>
           </div>
@@ -228,5 +228,14 @@ function onImgError(e) { e.target.style.display = 'none'; }
         ศูนย์ศึกษาและพัฒนาโคราช มหาวิทยาลัยราชภัฏนครราชสีมา
       </footer>
     </main>
+
+    <!-- Lightbox ขยายภาพ -->
+    <div v-if="zoom" @click="zoom = null"
+         class="fixed inset-0 z-[60] bg-black/85 grid place-items-center p-4 cursor-zoom-out">
+      <img :src="zoom" referrerpolicy="no-referrer" class="max-w-full max-h-[90vh] rounded-lg shadow-2xl" alt="">
+      <button class="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white/15 text-white hover:bg-white/25 text-xl">
+        <i class="fi-rr-cross-small"></i>
+      </button>
+    </div>
   </div>
 </template>
