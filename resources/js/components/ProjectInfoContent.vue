@@ -68,7 +68,7 @@ function onImgError(e) { e.target.style.display = 'none'; }
     <section v-if="!embedded" class="relative overflow-hidden card-hero">
       <img :src="IMG + 'banner.webp'" referrerpolicy="no-referrer" @error="onImgError"
            class="absolute inset-0 w-full h-full object-cover opacity-25" alt="">
-      <div class="relative max-w-5xl mx-auto px-4 py-10 lg:py-14">
+      <div class="relative max-w-4xl mx-auto px-4 py-10 lg:py-14">
         <h1 class="text-2xl lg:text-4xl font-bold leading-tight">โครงการลงทะเบียนเพื่อสวัสดิการแห่งรัฐ ปี 2569</h1>
         <p class="mt-3 opacity-90 text-sm lg:text-base max-w-2xl">
           ข้อมูลโครงการจากกระทรวงการคลัง พร้อมการขับเคลื่อนในพื้นที่จังหวัดนครราชสีมา
@@ -77,15 +77,16 @@ function onImgError(e) { e.target.style.display = 'none'; }
       </div>
     </section>
 
-    <!-- in-page nav -->
-    <div :class="['sticky z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-100 dark:border-slate-800', embedded ? 'top-0 -mx-4 sm:-mx-5 lg:-mx-6 xl:-mx-8 px-4' : 'top-16']">
-      <div class="max-w-5xl mx-auto px-1 py-2 flex gap-2 overflow-x-auto text-sm">
-        <a v-for="s in sections" :key="s.id" :href="'#' + s.id"
-           class="whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-blue-900/40">{{ s.label }}</a>
+    <div class="max-w-4xl mx-auto px-4">
+      <!-- in-page nav (กว้างเท่าเนื้อหา ไม่กางเต็มจอ) -->
+      <div :class="['sticky z-20 -mx-4 px-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-100 dark:border-slate-800', embedded ? 'top-0' : 'top-16']">
+        <div class="py-2 flex gap-2 overflow-x-auto text-sm">
+          <a v-for="s in sections" :key="s.id" :href="'#' + s.id"
+             class="whitespace-nowrap px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-100 dark:hover:bg-blue-900/40">{{ s.label }}</a>
+        </div>
       </div>
-    </div>
 
-    <div class="max-w-5xl mx-auto px-0 sm:px-2 py-8 space-y-10">
+      <div class="py-8 space-y-10">
       <!-- ช่วงเวลา -->
       <section id="period" class="scroll-mt-24">
         <div class="card-tint-blue p-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
@@ -193,6 +194,7 @@ function onImgError(e) { e.target.style.display = 'none'; }
           </ul>
         </div>
       </section>
+      </div>
     </div>
 
     <!-- Lightbox -->
