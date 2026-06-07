@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DocumentBatchController;
+use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\ImportController;
 use App\Http\Controllers\Api\LineWebhookController;
 use App\Http\Controllers\Api\MapController;
@@ -56,12 +57,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:student')->prefix('student')->group(function () {
         Route::apiResource('work-logs', StudentWorkLogController::class)
             ->parameters(['work-logs' => 'id']);
+        // ไฟล์แนบ (อัปโหลด/ลบ)
+        Route::post('work-logs/{id}/files', [StudentWorkLogController::class, 'uploadFiles'])->whereNumber('id');
+        Route::delete('work-files/{id}',    [StudentWorkLogController::class, 'deleteFile'])->whereNumber('id');
         Route::apiResource('case-records', StudentCaseRecordController::class)
             ->except(['show'])->parameters(['case-records' => 'id']);
         Route::get('self-assessment', [StudentSelfAssessmentController::class, 'show']);
         Route::put('self-assessment', [StudentSelfAssessmentController::class, 'upsert']);
         Route::get('my-dashboard',    [StudentDashboardController::class, 'myStats']);
     });
+    // ดาวน์โหลดไฟล์แนบ (private) — เจ้าของ หรือ admin (ตรวจสิทธิ์ใน controller)
+    Route::get('files/work/{id}', [FileController::class, 'workFile'])->whereNumber('id');
     // Dashboard ภาพรวมงานนักศึกษา + จัดการ/รายงาน (อาจารย์/ผู้บริหารในระบบ)
     Route::middleware('role:super_admin|admin')->group(function () {
         Route::get('student-dashboard', [StudentDashboardController::class, 'overview']);
@@ -71,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('work-logs/{id}',   'show')->whereNumber('id');
             Route::delete('work-logs/{id}','destroy')->whereNumber('id');
             Route::get('export',           'export');
+            Route::get('report',           'report');
         });
     });
 

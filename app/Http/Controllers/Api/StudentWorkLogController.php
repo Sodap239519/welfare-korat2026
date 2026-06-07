@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\StudentWorkFile;
 use App\Models\StudentWorkLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class StudentWorkLogController extends Controller
     public function index(Request $request): JsonResponse
     {
         $logs = StudentWorkLog::where('user_id', $request->user()->id)
-            ->withCount(['entries', 'cases'])
+            ->withCount(['entries', 'cases', 'files'])
             ->withSum('entries as service_total', 'service_count')
             ->orderByDesc('work_date')
             ->orderByDesc('id')
@@ -31,7 +32,7 @@ class StudentWorkLogController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $log = StudentWorkLog::where('user_id', $request->user()->id)
-            ->with(['entries', 'cases'])
+            ->with(['entries', 'cases', 'files'])
             ->findOrFail($id);
 
         return response()->json(['data' => $log]);
@@ -43,24 +44,14 @@ class StudentWorkLogController extends Controller
         $data = $this->validateData($request);
 
         $log = DB::transaction(function () use ($data, $request) {
-            $log = StudentWorkLog::create([
-                'user_id'             => $request->user()->id,
-                'work_date'           => $data['work_date'],
-                'time_start'          => $data['time_start'] ?? null,
-                'time_end'            => $data['time_end'] ?? null,
-                'registered_success'  => $data['registered_success'] ?? 0,
-                'registered_fail'     => $data['registered_fail'] ?? 0,
-                'supervisor_name'     => $data['supervisor_name'] ?? null,
-                'supervisor_position' => $data['supervisor_position'] ?? null,
-                'supervisor_date'     => $data['supervisor_date'] ?? null,
-            ]);
+            $log = StudentWorkLog::create($this->logFields($data) + ['user_id' => $request->user()->id]);
             $this->syncChildren($log, $data, $request->user()->id);
             return $log;
         });
 
         return response()->json([
             'message' => 'บันทึกการปฏิบัติงานเรียบร้อย',
-            'data'    => $log->load(['entries', 'cases']),
+            'data'    => $log->load(['entries', 'cases', 'files']),
         ], 201);
     }
 
@@ -71,16 +62,7 @@ class StudentWorkLogController extends Controller
         $data = $this->validateData($request);
 
         DB::transaction(function () use ($log, $data, $request) {
-            $log->update([
-                'work_date'           => $data['work_date'],
-                'time_start'          => $data['time_start'] ?? null,
-                'time_end'            => $data['time_end'] ?? null,
-                'registered_success'  => $data['registered_success'] ?? 0,
-                'registered_fail'     => $data['registered_fail'] ?? 0,
-                'supervisor_name'     => $data['supervisor_name'] ?? null,
-                'supervisor_position' => $data['supervisor_position'] ?? null,
-                'supervisor_date'     => $data['supervisor_date'] ?? null,
-            ]);
+            $log->update($this->logFields($data));
             // แทนที่ entries + cases ทั้งหมด (ลบของเก่า สร้างใหม่)
             $log->entries()->delete();
             $log->cases()->delete();
@@ -89,7 +71,7 @@ class StudentWorkLogController extends Controller
 
         return response()->json([
             'message' => 'แก้ไขบันทึกเรียบร้อย',
-            'data'    => $log->fresh()->load(['entries', 'cases']),
+            'data'    => $log->fresh()->load(['entries', 'cases', 'files']),
         ]);
     }
 
@@ -112,6 +94,12 @@ class StudentWorkLogController extends Controller
             'supervisor_name'     => ['nullable', 'string', 'max:150'],
             'supervisor_position' => ['nullable', 'string', 'max:100'],
             'supervisor_date'     => ['nullable', 'date'],
+            // GPS — บังคับพิกัด (ยืนยันการลงพื้นที่จริง · ห้ามปักหมุดเอง)
+            'lat'                 => ['required', 'numeric', 'between:-90,90'],
+            'lng'                 => ['required', 'numeric', 'between:-180,180'],
+            'location_accuracy'   => ['nullable', 'numeric', 'min:0'],
+            'location_at'         => ['nullable', 'date'],
+            'location_status'     => ['nullable', 'string', 'max:20'],
             'entries'                   => ['array'],
             'entries.*.period'          => ['required_with:entries', 'string', 'max:20'],
             'entries.*.activity_type'   => ['required_with:entries', 'string', 'max:150'],
@@ -124,7 +112,80 @@ class StudentWorkLogController extends Controller
             'cases.*.problem'           => ['required_with:cases', 'string'],
         ], [
             'work_date.required' => 'กรุณาระบุวันที่ปฏิบัติงาน',
+            'lat.required'       => 'ต้องอนุญาตการเข้าถึงตำแหน่ง (GPS) เพื่อยืนยันการลงพื้นที่',
+            'lng.required'       => 'ต้องอนุญาตการเข้าถึงตำแหน่ง (GPS) เพื่อยืนยันการลงพื้นที่',
         ]);
+    }
+
+    /** ฟิลด์หลักของ log (ใช้ร่วม store/update) */
+    private function logFields(array $data): array
+    {
+        $acc = $data['location_accuracy'] ?? null;
+        $status = $data['location_status'] ?? (($acc !== null && $acc > 100) ? 'low_accuracy' : 'ok');
+        return [
+            'work_date'           => $data['work_date'],
+            'time_start'          => $data['time_start'] ?? null,
+            'time_end'            => $data['time_end'] ?? null,
+            'registered_success'  => $data['registered_success'] ?? 0,
+            'registered_fail'     => $data['registered_fail'] ?? 0,
+            'supervisor_name'     => $data['supervisor_name'] ?? null,
+            'supervisor_position' => $data['supervisor_position'] ?? null,
+            'supervisor_date'     => $data['supervisor_date'] ?? null,
+            'lat'                 => $data['lat'],
+            'lng'                 => $data['lng'],
+            'location_accuracy'   => $acc,
+            'location_at'         => $data['location_at'] ?? now(),
+            'location_status'     => $status,
+        ];
+    }
+
+    /** POST /api/student/work-logs/{id}/files — อัปโหลดไฟล์แนบ (หลายไฟล์/หมวด) */
+    public function uploadFiles(Request $request, int $id): JsonResponse
+    {
+        $log = StudentWorkLog::where('user_id', $request->user()->id)->findOrFail($id);
+
+        $category = $request->input('category');
+        abort_unless(in_array($category, ['worklog_doc', 'reimburse_doc', 'photo'], true), 422, 'หมวดไฟล์ไม่ถูกต้อง');
+
+        $rules = $category === 'photo'
+            ? ['files.*' => ['required', 'image', 'max:8192']]
+            : ['files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx', 'max:15360']];
+        $request->validate($rules + ['files' => ['required', 'array', 'max:10']], [
+            'files.*.max'   => 'ไฟล์ใหญ่เกินกำหนด',
+            'files.*.image' => 'ต้องเป็นไฟล์รูปภาพ',
+            'files.*.mimes' => 'ชนิดไฟล์ไม่รองรับ',
+        ]);
+
+        // จำกัด ≤10 ไฟล์/หมวด
+        $existing = $log->files()->where('category', $category)->count();
+        $saved = [];
+        foreach ($request->file('files') as $file) {
+            if ($existing >= 10) break;
+            $path = $file->store("student-files/{$request->user()->id}/{$log->id}", 'local');
+            $saved[] = StudentWorkFile::create([
+                'work_log_id'   => $log->id,
+                'user_id'       => $request->user()->id,
+                'category'      => $category,
+                'original_name' => $file->getClientOriginalName(),
+                'path'          => $path,
+                'disk'          => 'local',
+                'mime'          => $file->getMimeType(),
+                'size'          => $file->getSize(),
+                'lat'           => $request->input('lat'),
+                'lng'           => $request->input('lng'),
+            ]);
+            $existing++;
+        }
+
+        return response()->json(['message' => 'อัปโหลดไฟล์เรียบร้อย', 'data' => $saved], 201);
+    }
+
+    /** DELETE /api/student/work-files/{id} — ลบไฟล์ (เจ้าของเท่านั้น) */
+    public function deleteFile(Request $request, int $id): JsonResponse
+    {
+        $file = StudentWorkFile::where('user_id', $request->user()->id)->findOrFail($id);
+        $file->delete();
+        return response()->json(['message' => 'ลบไฟล์เรียบร้อย']);
     }
 
     private function syncChildren(StudentWorkLog $log, array $data, int $userId): void

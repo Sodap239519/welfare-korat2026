@@ -45,6 +45,11 @@ onMounted(() => { loadOverview(); loadAmphurs(); loadStudents(); });
 function exportReport() {
   window.open('/api/student-admin/export?' + qs(), '_blank');
 }
+const reportGroup = ref('student');
+function exportSummary() {
+  window.open(`/api/student-admin/report?group_by=${reportGroup.value}&` + qs(), '_blank');
+}
+const fileUrl = (f) => `/api/files/work/${f.id}`;
 
 async function openStudent(s) {
   selected.value = s;
@@ -126,7 +131,16 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
       <div class="card p-4">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 class="font-semibold"><i class="fi-rr-users-alt text-blue-600"></i> รายชื่อนักศึกษา & ผลงาน</h3>
-          <button @click="exportReport" class="btn-green text-sm"><i class="fi-rr-file-export"></i> ส่งออก Excel</button>
+          <div class="flex flex-wrap items-center gap-2">
+            <select v-model="reportGroup" class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+              <option value="student">รายงานสรุป: รายคน</option>
+              <option value="amphur">รายงานสรุป: รายอำเภอ</option>
+              <option value="bank">รายงานสรุป: รายธนาคาร</option>
+              <option value="overall">รายงานสรุป: ภาพรวม</option>
+            </select>
+            <button @click="exportSummary" class="btn-primary text-sm"><i class="fi-rr-stats"></i> รายงานสรุป</button>
+            <button @click="exportReport" class="btn-green text-sm"><i class="fi-rr-file-export"></i> รายละเอียด (Excel)</button>
+          </div>
         </div>
 
         <!-- filter -->
@@ -209,6 +223,33 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
             </div>
             <!-- รายละเอียด -->
             <div v-if="expandedLog?.id === l.id" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+              <!-- GPS -->
+              <div>
+                <span class="font-medium">ตำแหน่ง:</span>
+                <template v-if="expandedLog.lat">
+                  <a :href="`https://www.google.com/maps?q=${expandedLog.lat},${expandedLog.lng}`" target="_blank" rel="noopener" class="text-blue-700 underline">
+                    <i class="fi-rr-marker"></i> ดูแผนที่
+                  </a>
+                  <span class="text-slate-400"> · ~{{ Math.round(expandedLog.location_accuracy || 0) }} ม.
+                    <span v-if="expandedLog.location_status === 'low_accuracy'" class="text-amber-600">(สัญญาณอ่อน)</span>
+                  </span>
+                </template>
+                <span v-else class="text-amber-500">ไม่มีพิกัด</span>
+              </div>
+              <!-- ไฟล์ -->
+              <div v-if="expandedLog.files?.length">
+                <div class="font-medium mb-1">ไฟล์แนบ ({{ expandedLog.files.length }})</div>
+                <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  <a v-for="f in expandedLog.files" :key="f.id" :href="fileUrl(f)" target="_blank" rel="noopener"
+                     class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden block">
+                    <img v-if="f.is_image" :src="fileUrl(f)" class="w-full h-16 object-cover" :alt="f.original_name">
+                    <div v-else class="h-16 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 p-1">
+                      <i class="fi-rr-file-pdf text-red-500"></i>
+                      <span class="text-[8px] line-clamp-1 break-all">{{ f.original_name }}</span>
+                    </div>
+                  </a>
+                </div>
+              </div>
               <div v-if="expandedLog.entries?.length">
                 <div class="font-medium mb-1">กิจกรรม</div>
                 <div v-for="e in expandedLog.entries" :key="e.id" class="flex gap-2 text-slate-600 dark:text-slate-300">
