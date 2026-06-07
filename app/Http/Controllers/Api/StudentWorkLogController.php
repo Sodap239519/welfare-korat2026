@@ -162,8 +162,9 @@ class StudentWorkLogController extends Controller
         abort_unless(in_array($category, ['worklog_doc', 'reimburse_doc', 'photo'], true), 422, 'หมวดไฟล์ไม่ถูกต้อง');
 
         $rules = $category === 'photo'
-            ? ['files.*' => ['required', 'image', 'max:8192']]
-            : ['files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx', 'max:15360']];
+            // ใช้ mimes (ไม่ใช่ image) เพื่อรับ HEIC/HEIF ของ iPhone ที่ getimagesize ไม่รองรับ
+            ? ['files.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,gif,heic,heif', 'max:20480']]
+            : ['files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp,heic,heif,doc,docx,xls,xlsx', 'max:20480']];
         $request->validate($rules + ['files' => ['required', 'array', 'max:10']], [
             'files.*.max'   => 'ไฟล์ใหญ่เกินกำหนด',
             'files.*.image' => 'ต้องเป็นไฟล์รูปภาพ',

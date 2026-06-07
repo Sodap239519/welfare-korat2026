@@ -64,7 +64,7 @@ const existing = ref([]);
 function onPick(cat, e) {
   for (const file of Array.from(e.target.files || [])) {
     const isImage = file.type.startsWith('image/');
-    pending[cat].push({ file, isImage, url: isImage ? URL.createObjectURL(file) : null, name: file.name, size: file.size });
+    pending[cat].push({ file, isImage, failed: false, url: isImage ? URL.createObjectURL(file) : null, name: file.name, size: file.size });
   }
   e.target.value = '';
 }
@@ -352,10 +352,11 @@ async function remove(id) {
         <!-- ตัวอย่างไฟล์ที่เลือก (ก่อนบันทึก) -->
         <div v-if="pending[c.key].length" class="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-2">
           <div v-for="(p, i) in pending[c.key]" :key="i" class="relative group border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-            <img v-if="p.isImage" :src="p.url" class="w-full h-24 object-cover" :alt="p.name">
+            <img v-if="p.isImage && !p.failed" :src="p.url" @error="p.failed = true" class="w-full h-24 object-cover" :alt="p.name">
             <div v-else class="h-24 flex flex-col items-center justify-center p-1 text-center bg-slate-50 dark:bg-slate-800">
-              <i class="fi-rr-file-pdf text-red-500 text-2xl"></i>
+              <i :class="[(p.isImage ? 'fi-rr-picture text-blue-400' : 'fi-rr-file-pdf text-red-500'), 'text-2xl']"></i>
               <span class="text-[10px] mt-1 line-clamp-2 break-all">{{ p.name }}</span>
+              <span v-if="p.isImage && p.failed" class="text-[8px] text-slate-400">(แสดงตัวอย่างไม่ได้ · บันทึกได้)</span>
             </div>
             <div class="text-[9px] text-slate-400 px-1 truncate">{{ fmtSize(p.size) }}</div>
             <button @click="removePending(c.key, i)" class="absolute top-1 right-1 w-6 h-6 grid place-items-center rounded-full bg-black/60 text-white text-xs"><i class="fi-rr-cross-small"></i></button>

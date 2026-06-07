@@ -201,6 +201,54 @@ class StudentAdminController extends Controller
         }, $filename);
     }
 
+    /** GET /api/student-admin/files-zip?category=worklog_doc|reimburse_doc|photo — ดาวน์โหลดไฟล์ทั้งหมวดเป็น ZIP */
+    public function filesZip(Request $request)
+    {
+        $category = $request->input('category');
+        abort_unless(in_array($category, ['worklog_doc', 'reimburse_doc', 'photo'], true), 422, 'หมวดไฟล์ไม่ถูกต้อง');
+
+        $files = DB::table('student_work_files as f')
+            ->join('student_work_logs as l', 'l.id', '=', 'f.work_log_id')
+            ->join('users as u', 'u.id', '=', 'l.user_id')
+            ->leftJoin('amphurs as a', 'a.id', '=', 'u.amphur_id')
+            ->where('f.category', $category)
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('l.work_date', '>=', $request->from))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('l.work_date', '<=', $request->to))
+            ->when($request->filled('amphur_id'), fn ($q) => $q->where('u.amphur_id', (int) $request->amphur_id))
+            ->when($request->filled('bank'), fn ($q) => $q->where('u.work_unit_type', 'bank')->where('u.bank_sub_channel', $request->bank))
+            ->select('f.path', 'f.disk', 'f.original_name', 'l.work_date', 'u.name as student', 'a.name as amphur', 'u.work_unit_type', 'u.bank_sub_channel')
+            ->orderBy('l.work_date')->limit(2000)->get();
+
+        abort_if($files->isEmpty(), 404, 'ไม่พบไฟล์ตามเงื่อนไข');
+        abort_unless(class_exists(\ZipArchive::class), 500, 'เซิร์ฟเวอร์ไม่รองรับการสร้าง ZIP (ext-zip)');
+
+        $catLabel = ['worklog_doc' => 'ใบปฏิบัติงาน', 'reimburse_doc' => 'เอกสารเบิกจ่าย', 'photo' => 'ภาพการปฏิบัติงาน'][$category];
+        $dir = storage_path('app/tmp');
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $zipPath = $dir . '/' . $catLabel . '_' . now()->format('Ymd_His') . '.zip';
+
+        $zip = new \ZipArchive();
+        abort_unless($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) === true, 500, 'สร้างไฟล์ ZIP ไม่ได้');
+
+        $seen = [];
+        foreach ($files as $f) {
+            $abs = \Storage::disk($f->disk ?: 'local')->path($f->path);
+            if (!is_file($abs)) continue;
+            $place = $f->work_unit_type === 'bank' ? ('ธนาคาร' . strtoupper($f->bank_sub_channel ?? '')) : ($f->amphur ?? 'อื่นๆ');
+            $date = $f->work_date ? date('Ymd', strtotime($f->work_date)) : '0000';
+            $base = $date . '_' . preg_replace('/[\\\\\/:*?"<>|]/', '-', $f->student . '_' . $place . '_' . $f->original_name);
+            $name = $base; $i = 1;
+            while (isset($seen[$name])) {
+                $name = pathinfo($base, PATHINFO_FILENAME) . "($i)." . pathinfo($base, PATHINFO_EXTENSION); $i++;
+            }
+            $seen[$name] = true;
+            $zip->addFile($abs, $catLabel . '/' . $name);
+        }
+        $zip->close();
+
+        return response()->download($zipPath, basename($zipPath))->deleteFileAfterSend(true);
+    }
+
     /** GET /api/student-admin/report?group_by=student|amphur|bank|overall — รายงานสรุปหลายมิติ (Excel) */
     public function report(Request $request): BinaryFileResponse
     {

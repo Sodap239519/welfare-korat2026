@@ -77,9 +77,10 @@ const gFilters = reactive({ date: '', amphur_id: '', bank: '' });
 const photoZoom = ref(null);
 
 async function loadPreviewPhotos() {
-  const { data } = await axios.get('/api/student-admin/photos?random=1&limit=7');
+  const { data } = await axios.get('/api/student-admin/photos?limit=9');
   photos.value = data.data;
 }
+function downloadZip(cat) { reportMenu.value = false; window.open(`/api/student-admin/files-zip?category=${cat}&` + qs(), '_blank'); }
 async function loadAllPhotos() {
   galleryLoading.value = true;
   try {
@@ -192,12 +193,12 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
       <!-- Gallery ภาพการปฏิบัติงาน (สุ่มตัวอย่าง mosaic) -->
       <div class="card p-4">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-semibold"><i class="fi-rr-picture text-blue-600"></i> ภาพการปฏิบัติงาน <span class="text-xs text-slate-400 font-normal">(สุ่มตัวอย่าง)</span></h3>
+          <h3 class="font-semibold"><i class="fi-rr-picture text-blue-600"></i> ภาพการปฏิบัติงาน</h3>
           <button @click="openAllPhotos" class="text-sm text-blue-700">ดูภาพทั้งหมด <i class="fi-rr-angle-small-right"></i></button>
         </div>
         <div v-if="!photos.length" class="text-slate-400 text-sm py-8 text-center"><i class="fi-rr-picture text-2xl"></i><div class="mt-1">ยังไม่มีภาพการปฏิบัติงาน</div></div>
-        <div v-else class="grid grid-cols-4 auto-rows-[80px] sm:auto-rows-[120px] gap-2">
-          <button v-for="(p, i) in photos" :key="p.id" @click="photoZoom = p" :class="['relative rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800', tileClass(i)]">
+        <div v-else class="grid grid-cols-3 gap-2">
+          <button v-for="p in photos" :key="p.id" @click="photoZoom = p" class="relative aspect-square rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
             <img :src="p.url" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
               <div class="text-[10px] text-white truncate">{{ p.student }}</div>
@@ -224,6 +225,11 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
               <button @click="pickReport('overall')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-apps text-blue-600"></i> ภาพรวม</button>
               <hr class="my-1 border-slate-100 dark:border-slate-800">
               <button @click="pickDetail()" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-file-export text-green-600"></i> รายละเอียดทั้งหมด</button>
+              <hr class="my-1 border-slate-100 dark:border-slate-800">
+              <div class="px-3 py-1 text-[11px] text-slate-400">ดาวน์โหลดไฟล์ (ZIP)</div>
+              <button @click="downloadZip('worklog_doc')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-file-invoice text-blue-600"></i> ใบปฏิบัติงาน</button>
+              <button @click="downloadZip('reimburse_doc')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-receipt text-blue-600"></i> เอกสารเบิกจ่าย</button>
+              <button @click="downloadZip('photo')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-camera text-blue-600"></i> ภาพการปฏิบัติงาน</button>
             </div>
           </div>
         </div>

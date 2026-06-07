@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('export',         'export');
             Route::get('report',         'report');
             Route::get('photos',         'photos');
+            Route::get('files-zip',      'filesZip');
         });
     });
     // จัดการ (ลบ) — admin เท่านั้น
