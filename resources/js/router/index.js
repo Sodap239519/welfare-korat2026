@@ -6,7 +6,9 @@ const STAFF = ['super_admin', 'admin', 'tracker', 'bank_staff'];
 
 /** หน้าแรกหลัง login ตาม role — นักศึกษาเข้าโมดูลตัวเอง, ที่เหลือเข้า dashboard */
 export function homeFor(auth) {
-  return auth.roles.includes('student') ? { name: 'student-worklog' } : { name: 'dashboard' };
+  if (auth.roles.includes('student')) return { name: 'student-worklog' };
+  if (auth.roles.includes('executive')) return { name: 'student-report' };
+  return { name: 'dashboard' };
 }
 
 const routes = [
@@ -34,7 +36,7 @@ const routes = [
   { path: '/student/my-dashboard', name: 'student-mydash',   component: () => import('@/pages/student/MyDashboard.vue'),    meta: { auth: true, roles: ['student'] } },
   { path: '/student/documents',  name: 'student-documents',  component: () => import('@/pages/student/Documents.vue'),      meta: { auth: true, roles: ['student', 'super_admin', 'admin'] } },
   // รายงานภาพรวมนักศึกษา (อาจารย์/ผู้บริหารในระบบ)
-  { path: '/student-report',     name: 'student-report',     component: () => import('@/pages/StudentDashboard.vue'),       meta: { auth: true, roles: ['super_admin', 'admin'] } },
+  { path: '/student-report',     name: 'student-report',     component: () => import('@/pages/StudentDashboard.vue'),       meta: { auth: true, roles: ['super_admin', 'admin', 'executive'] } },
 
   { path: '/admin/users',    name: 'admin-users',    component: () => import('@/pages/AdminUsers.vue'),    meta: { auth: true, roles: ['super_admin'] } },
   { path: '/admin/activity', name: 'admin-activity', component: () => import('@/pages/AdminActivity.vue'), meta: { auth: true, roles: ['super_admin'] } },

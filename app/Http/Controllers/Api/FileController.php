@@ -20,7 +20,7 @@ class FileController extends Controller
         $file = StudentWorkFile::findOrFail($id);
         $user = $request->user();
 
-        $allowed = $user->id === $file->user_id || $user->hasAnyRole(['super_admin', 'admin']);
+        $allowed = $user->id === $file->user_id || $user->hasAnyRole(['super_admin', 'admin', 'executive']);
         abort_unless($allowed, 403, 'ไม่มีสิทธิ์เข้าถึงไฟล์นี้');
 
         $disk = Storage::disk($file->disk ?: 'local');

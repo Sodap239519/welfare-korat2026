@@ -3,7 +3,9 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, onMounted, reactive, ref } from 'vue';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
 
+const auth = useAuthStore();
 const d = ref(null);
 const amphurs = ref([]);
 const students = ref([]);
@@ -40,7 +42,7 @@ async function loadStudents() {
     loadingStudents.value = false;
   }
 }
-onMounted(() => { loadOverview(); loadAmphurs(); loadStudents(); });
+onMounted(() => { loadOverview(); loadAmphurs(); loadStudents(); loadPreviewPhotos(); });
 
 function exportReport() {
   window.open('/api/student-admin/export?' + qs(), '_blank');
@@ -50,6 +52,38 @@ function exportSummary() {
   window.open(`/api/student-admin/report?group_by=${reportGroup.value}&` + qs(), '_blank');
 }
 const fileUrl = (f) => `/api/files/work/${f.id}`;
+
+// ── Gallery ภาพการปฏิบัติงาน ──
+const BANKS = [
+  { code: 'ktb', name: 'กรุงไทย' }, { code: 'gsb', name: 'ออมสิน' }, { code: 'baac', name: 'ธ.ก.ส.' },
+  { code: 'ghb', name: 'อาคารสงเคราะห์' }, { code: 'ibank', name: 'อิสลาม' },
+];
+const photos = ref([]);
+const galleryAll = ref([]);
+const showAllPhotos = ref(false);
+const galleryLoading = ref(false);
+const gFilters = reactive({ date: '', amphur_id: '', bank: '' });
+const photoZoom = ref(null);
+
+async function loadPreviewPhotos() {
+  const { data } = await axios.get('/api/student-admin/photos?random=1&limit=7');
+  photos.value = data.data;
+}
+async function loadAllPhotos() {
+  galleryLoading.value = true;
+  try {
+    const p = new URLSearchParams({ all: '1' });
+    for (const [k, v] of Object.entries(gFilters)) if (v) p.append(k, v);
+    const { data } = await axios.get('/api/student-admin/photos?' + p.toString());
+    galleryAll.value = data.data;
+  } finally { galleryLoading.value = false; }
+}
+function openAllPhotos() { showAllPhotos.value = true; loadAllPhotos(); }
+// ขนาด tile สลับเล็ก/กลาง/ใหญ่ (mosaic)
+function tileClass(i) {
+  const pat = ['col-span-2 row-span-2', '', '', 'col-span-2', '', 'row-span-2', ''];
+  return pat[i % pat.length];
+}
 
 async function openStudent(s) {
   selected.value = s;
@@ -124,6 +158,24 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <h3 class="font-medium text-sm mb-2">สัดส่วนตามประเภทกิจกรรม</h3>
           <apexchart v-if="hasActivity" type="donut" height="280" :options="activityOptions" :series="activitySeries" />
           <div v-else class="text-center text-slate-400 py-16 text-sm">ยังไม่มีข้อมูล</div>
+        </div>
+      </div>
+
+      <!-- Gallery ภาพการปฏิบัติงาน (สุ่มตัวอย่าง mosaic) -->
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold"><i class="fi-rr-picture text-blue-600"></i> ภาพการปฏิบัติงาน <span class="text-xs text-slate-400 font-normal">(สุ่มตัวอย่าง)</span></h3>
+          <button @click="openAllPhotos" class="text-sm text-blue-700">ดูภาพทั้งหมด <i class="fi-rr-angle-small-right"></i></button>
+        </div>
+        <div v-if="!photos.length" class="text-slate-400 text-sm py-8 text-center"><i class="fi-rr-picture text-2xl"></i><div class="mt-1">ยังไม่มีภาพการปฏิบัติงาน</div></div>
+        <div v-else class="grid grid-cols-4 auto-rows-[80px] sm:auto-rows-[120px] gap-2">
+          <button v-for="(p, i) in photos" :key="p.id" @click="photoZoom = p" :class="['relative rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800', tileClass(i)]">
+            <img :src="p.url" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
+              <div class="text-[10px] text-white truncate">{{ p.student }}</div>
+              <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -219,7 +271,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
                 <span class="text-red-500">ไม่สำเร็จ {{ l.registered_fail }}</span> · กิจกรรม {{ l.entries_count }} · ปัญหา {{ l.cases_count }}
               </div>
               <button @click="viewLog(l.id)" class="text-blue-700 text-xs"><i class="fi-rr-angle-small-down"></i> ดู</button>
-              <button @click="deleteLog(l.id)" class="text-red-500 text-xs"><i class="fi-rr-trash"></i> ลบ</button>
+              <button v-if="!auth.isExecutive" @click="deleteLog(l.id)" class="text-red-500 text-xs"><i class="fi-rr-trash"></i> ลบ</button>
             </div>
             <!-- รายละเอียด -->
             <div v-if="expandedLog?.id === l.id" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
@@ -269,6 +321,59 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           </div>
         </div>
       </div>
+    </div>
+    <!-- แกลเลอรีภาพทั้งหมด + ตัวกรอง -->
+    <div v-if="showAllPhotos" class="fixed inset-0 z-50 bg-black/50 flex items-stretch sm:items-center justify-center sm:p-4" @click.self="showAllPhotos = false">
+      <div class="bg-white dark:bg-slate-900 w-full sm:max-w-4xl max-h-screen sm:max-h-[90vh] sm:rounded-2xl overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between gap-2 p-4 border-b border-slate-100 dark:border-slate-800">
+          <h3 class="font-semibold"><i class="fi-rr-picture text-blue-600"></i> ภาพการปฏิบัติงานทั้งหมด</h3>
+          <button @click="showAllPhotos = false" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800"><i class="fi-rr-cross-small"></i></button>
+        </div>
+        <!-- ตัวกรอง -->
+        <div class="p-3 border-b border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <input v-model="gFilters.date" type="date" class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <select v-model="gFilters.amphur_id" class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+            <option value="">ทุกอำเภอ</option>
+            <option v-for="a in amphurs" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+          <select v-model="gFilters.bank" class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+            <option value="">ทุกธนาคาร</option>
+            <option v-for="b in BANKS" :key="b.code" :value="b.code">{{ b.name }}</option>
+          </select>
+          <button @click="loadAllPhotos" class="btn-primary text-sm"><i class="fi-rr-filter"></i> กรอง</button>
+        </div>
+        <div class="p-4 overflow-y-auto">
+          <div v-if="galleryLoading" class="text-center text-slate-400 py-8">กำลังโหลด…</div>
+          <div v-else-if="!galleryAll.length" class="text-center text-slate-400 py-8">ไม่พบภาพตามเงื่อนไข</div>
+          <div v-else class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            <button v-for="p in galleryAll" :key="p.id" @click="photoZoom = p" class="relative aspect-square rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 group">
+              <img :src="p.url" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 text-left">
+                <div class="text-[9px] text-white truncate">{{ p.student }}</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lightbox ภาพ + รายละเอียดสถานที่/พิกัด -->
+    <div v-if="photoZoom" class="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4" @click.self="photoZoom = null">
+      <div class="max-w-3xl w-full">
+        <img :src="photoZoom.url" referrerpolicy="no-referrer" class="max-h-[68vh] w-auto mx-auto rounded-lg shadow-2xl" :alt="photoZoom.name">
+        <div class="bg-white dark:bg-slate-900 rounded-xl mt-2 p-3">
+          <div class="font-medium text-sm">{{ photoZoom.student }} <span class="text-slate-400 font-normal">· {{ photoZoom.faculty }}</span></div>
+          <div class="text-slate-500 text-xs mt-0.5">{{ photoZoom.work_date?.slice(0, 10) }} · {{ photoZoom.unit }}</div>
+          <div class="mt-1.5 text-xs">
+            <template v-if="photoZoom.lat">
+              <i class="fi-rr-marker text-blue-600"></i> {{ Number(photoZoom.lat).toFixed(5) }}, {{ Number(photoZoom.lng).toFixed(5) }}
+              <a :href="`https://www.google.com/maps?q=${photoZoom.lat},${photoZoom.lng}`" target="_blank" rel="noopener" class="text-blue-700 underline ml-1">เปิดแผนที่</a>
+            </template>
+            <span v-else class="text-amber-500"><i class="fi-rr-exclamation"></i> ไม่มีพิกัด</span>
+          </div>
+        </div>
+      </div>
+      <button @click="photoZoom = null" class="absolute top-4 right-4 w-10 h-10 grid place-items-center rounded-full bg-white/15 text-white hover:bg-white/25 text-xl"><i class="fi-rr-cross-small"></i></button>
     </div>
   </AppLayout>
 </template>

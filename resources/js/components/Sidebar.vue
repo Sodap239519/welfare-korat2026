@@ -30,7 +30,7 @@ const allItems = [
   { name: 'student-mydash',     icon: 'fi-rr-stats',         label: 'สรุปงานของฉัน',       roles: ['student'] },
   { name: 'student-documents',  icon: 'fi-rr-folder',        label: 'เอกสารสำหรับนักศึกษา', roles: ['student'] },
   // รายงานนักศึกษา (อาจารย์/ผู้บริหาร)
-  { name: 'student-report', icon: 'fi-rr-graduation-cap',   label: 'รายงานนักศึกษา',     roles: ['super_admin', 'admin'] },
+  { name: 'student-report', icon: 'fi-rr-graduation-cap',   label: 'รายงานนักศึกษา',     roles: ['super_admin', 'admin', 'executive'] },
   // ข้อมูลโครงการ — ทุกคน
   { name: 'project-info',   icon: 'fi-rr-document',         label: 'ข้อมูลโครงการ',      roles: ['*'] },
   { name: 'admin-users',    icon: 'fi-rr-user-shield',      label: 'จัดการผู้ใช้',       roles: ['super_admin'] },

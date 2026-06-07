@@ -100,6 +100,49 @@ class StudentAdminController extends Controller
         return response()->json(['data' => $log]);
     }
 
+    /**
+     * GET /api/student-admin/photos — ภาพการปฏิบัติงานของนักศึกษา (พร้อมพิกัด+ผู้บันทึก)
+     * ?random=1&limit=7 (สุ่มตัวอย่าง) | ?all=1 (ทั้งหมด) | filter: date|from|to|amphur_id|bank
+     */
+    public function photos(Request $request): JsonResponse
+    {
+        $q = DB::table('student_work_files as f')
+            ->join('student_work_logs as l', 'l.id', '=', 'f.work_log_id')
+            ->join('users as u', 'u.id', '=', 'l.user_id')
+            ->leftJoin('amphurs as a', 'a.id', '=', 'u.amphur_id')
+            ->where('f.category', 'photo')
+            ->when($request->filled('date'), fn ($x) => $x->whereDate('l.work_date', $request->date))
+            ->when($request->filled('from'), fn ($x) => $x->whereDate('l.work_date', '>=', $request->from))
+            ->when($request->filled('to'), fn ($x) => $x->whereDate('l.work_date', '<=', $request->to))
+            ->when($request->filled('amphur_id'), fn ($x) => $x->where('u.amphur_id', (int) $request->amphur_id))
+            ->when($request->filled('bank'), fn ($x) => $x->where('u.work_unit_type', 'bank')->where('u.bank_sub_channel', $request->bank))
+            ->select('f.id', 'f.original_name', 'f.lat as flat', 'f.lng as flng',
+                'l.lat as llat', 'l.lng as llng', 'l.work_date',
+                'u.name as student', 'u.faculty', 'u.work_unit_type', 'u.bank_sub_channel', 'u.bank_branch', 'a.name as amphur');
+
+        if ($request->boolean('random')) {
+            $q->inRandomOrder()->limit(min((int) $request->input('limit', 7), 50));
+        } else {
+            $q->orderByDesc('l.work_date')->orderByDesc('f.id')->limit($request->boolean('all') ? 500 : min((int) $request->input('limit', 7), 50));
+        }
+
+        $rows = $q->get()->map(fn ($r) => [
+            'id'        => $r->id,
+            'url'       => "/api/files/work/{$r->id}",
+            'name'      => $r->original_name,
+            'lat'       => $r->flat ?? $r->llat,
+            'lng'       => $r->flng ?? $r->llng,
+            'work_date' => $r->work_date,
+            'student'   => $r->student,
+            'faculty'   => $r->faculty,
+            'unit'      => $r->work_unit_type === 'bank'
+                ? 'ธนาคาร ' . strtoupper($r->bank_sub_channel ?? '') . ' ' . ($r->bank_branch ?? '')
+                : ('อ.' . ($r->amphur ?? '-')),
+        ]);
+
+        return response()->json(['data' => $rows]);
+    }
+
     /** DELETE /api/student-admin/work-logs/{id} — admin จัดการ (ลบบันทึกที่ไม่ถูกต้อง) */
     public function destroy(int $id): JsonResponse
     {

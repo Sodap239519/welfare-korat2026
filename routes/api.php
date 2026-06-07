@@ -68,18 +68,21 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // ดาวน์โหลดไฟล์แนบ (private) — เจ้าของ หรือ admin (ตรวจสิทธิ์ใน controller)
     Route::get('files/work/{id}', [FileController::class, 'workFile'])->whereNumber('id');
-    // Dashboard ภาพรวมงานนักศึกษา + จัดการ/รายงาน (อาจารย์/ผู้บริหารในระบบ)
-    Route::middleware('role:super_admin|admin')->group(function () {
+    // อ่าน/รายงาน — admin + ผู้บริหาร (executive) read-only
+    Route::middleware('role:super_admin|admin|executive')->group(function () {
         Route::get('student-dashboard', [StudentDashboardController::class, 'overview']);
         Route::prefix('student-admin')->controller(StudentAdminController::class)->group(function () {
-            Route::get('students',         'students');
-            Route::get('work-logs',        'workLogs');
-            Route::get('work-logs/{id}',   'show')->whereNumber('id');
-            Route::delete('work-logs/{id}','destroy')->whereNumber('id');
-            Route::get('export',           'export');
-            Route::get('report',           'report');
+            Route::get('students',       'students');
+            Route::get('work-logs',      'workLogs');
+            Route::get('work-logs/{id}', 'show')->whereNumber('id');
+            Route::get('export',         'export');
+            Route::get('report',         'report');
+            Route::get('photos',         'photos');
         });
     });
+    // จัดการ (ลบ) — admin เท่านั้น
+    Route::middleware('role:super_admin|admin')
+        ->delete('student-admin/work-logs/{id}', [StudentAdminController::class, 'destroy'])->whereNumber('id');
 
     // Dashboard
     Route::prefix('dashboard')->controller(DashboardController::class)->group(function () {

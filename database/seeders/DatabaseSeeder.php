@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             AmphurCoordsSeeder::class,   // พิกัด 32 อำเภอ → วางหมู่บ้านถูกอำเภอ
             // accounts จริง (2 super + 32 admin + 160 bank_staff)
             ProductionSetupSeeder::class,
+            // บัญชีผู้บริหาร (executive — ดูรายงาน read-only)
+            ExecutiveUserSeeder::class,
             // ข้อมูลกลุ่มเป้าหมายผู้ตกหล่น
             MissedTargetSeeder::class,
             // ── demo seeders (รันเองเมื่อต้องการ dataset ทดลอง) ──

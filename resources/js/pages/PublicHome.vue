@@ -33,7 +33,11 @@ const steps = [
   { n: 5, title: 'ตรวจสอบ ติดตามและประเมินผล' },
 ];
 
-function goApp() { router.push(auth.isStudent ? { name: 'student-worklog' } : { name: 'dashboard' }); }
+function goApp() {
+  if (auth.isStudent) router.push({ name: 'student-worklog' });
+  else if (auth.isExecutive) router.push({ name: 'student-report' });
+  else router.push({ name: 'dashboard' });
+}
 </script>
 
 <template>
