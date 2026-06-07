@@ -168,7 +168,7 @@ class StudentAdminController extends Controller
             ->orderBy('work_date')
             ->get();
 
-        $headings = ['ลำดับ', 'วันที่', 'นักศึกษา', 'รหัส นศ.', 'คณะ', 'หน่วยปฏิบัติงาน', 'ผู้รับบริการ', 'ลงทะเบียนสำเร็จ', 'ไม่สำเร็จ', 'จำนวนกิจกรรม', 'กรณีปัญหา', 'ผู้ควบคุมงาน'];
+        $headings = ['ลำดับ', 'วันที่', 'นักศึกษา', 'รหัส นศ.', 'คณะ', 'หน่วยปฏิบัติงาน', 'ผู้รับบริการ', 'ลงทะเบียนสำเร็จ', 'ไม่สำเร็จ', 'จำนวนกิจกรรม', 'กรณีปัญหา', 'ละติจูด', 'ลองติจูด', 'ผู้ควบคุมงาน'];
         $filename = 'รายงานการปฏิบัติงานนักศึกษา_' . now()->format('Y-m-d') . '.xlsx';
 
         return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
@@ -193,6 +193,8 @@ class StudentAdminController extends Controller
                     (int) $l->registered_fail,
                     (int) $l->entries_count,
                     (int) $l->cases_count,
+                    $l->lat,
+                    $l->lng,
                     $l->supervisor_name ?? '',
                 ];
             }
@@ -211,8 +213,8 @@ class StudentAdminController extends Controller
             ->when($request->filled('from'), fn ($q) => $q->whereDate('l.work_date', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('l.work_date', '<=', $request->to))
             ->when($request->filled('amphur_id'), fn ($q) => $q->where('u.amphur_id', (int) $request->amphur_id))
-            ->select('l.id', 'l.user_id', 'l.registered_success', 'l.registered_fail', 'l.lat',
-                'u.name as student', 'u.work_unit_type', 'u.bank_sub_channel', 'a.name as amphur')
+            ->select('l.id', 'l.user_id', 'l.registered_success', 'l.registered_fail', 'l.lat', 'l.lng', 'l.work_date',
+                'u.name as student', 'u.faculty', 'u.work_unit_type', 'u.bank_sub_channel', 'u.bank_branch', 'a.name as amphur')
             ->get();
 
         $service = DB::table('student_work_log_entries')->selectRaw('work_log_id, SUM(service_count) as s')->groupBy('work_log_id')->pluck('s', 'work_log_id');
@@ -228,8 +230,12 @@ class StudentAdminController extends Controller
                     : ['nonbank', '— ไม่ใช่ธนาคาร —'],
                 default   => [$l->user_id, $l->student],
             };
+            $unit = $l->work_unit_type === 'bank'
+                ? 'ธนาคาร ' . strtoupper($l->bank_sub_channel ?? '') . ' ' . ($l->bank_branch ?? '')
+                : ('อ.' . ($l->amphur ?? '-'));
             if (!isset($groups[$key])) {
-                $groups[$key] = ['label' => $label, 'users' => [], 'days' => 0, 'service' => 0, 'success' => 0, 'fail' => 0, 'files' => 0, 'gps' => 0];
+                $groups[$key] = ['label' => $label, 'users' => [], 'days' => 0, 'service' => 0, 'success' => 0, 'fail' => 0, 'files' => 0,
+                    'faculty' => $l->faculty, 'unit' => $unit, 'latest' => null, 'lat' => null, 'lng' => null];
             }
             $groups[$key]['users'][$l->user_id] = true;
             $groups[$key]['days']++;
@@ -237,27 +243,40 @@ class StudentAdminController extends Controller
             $groups[$key]['success'] += (int) $l->registered_success;
             $groups[$key]['fail']    += (int) $l->registered_fail;
             $groups[$key]['files']   += (int) ($files[$l->id] ?? 0);
-            if ($l->lat !== null) $groups[$key]['gps']++;
+            // เก็บพิกัดจากบันทึกล่าสุด (สำหรับรายงานรายคน)
+            if ($groups[$key]['latest'] === null || $l->work_date >= $groups[$key]['latest']) {
+                $groups[$key]['latest'] = $l->work_date;
+                $groups[$key]['lat'] = $l->lat;
+                $groups[$key]['lng'] = $l->lng;
+            }
         }
 
         $rows = collect($groups)->map(fn ($g) => [
             'label' => $g['label'], 'students' => count($g['users']), 'days' => $g['days'],
-            'service' => $g['service'], 'success' => $g['success'], 'fail' => $g['fail'],
-            'files' => $g['files'], 'gps_pct' => $g['days'] > 0 ? round($g['gps'] / $g['days'] * 100) : 0,
+            'service' => $g['service'], 'success' => $g['success'], 'fail' => $g['fail'], 'files' => $g['files'],
+            'faculty' => $g['faculty'], 'unit' => $g['unit'], 'lat' => $g['lat'], 'lng' => $g['lng'],
         ])->sortByDesc('service')->values();
 
-        $col0 = ['student' => 'นักศึกษา', 'amphur' => 'อำเภอ', 'bank' => 'ธนาคาร', 'overall' => 'ขอบเขต'][$groupBy];
         $title = ['student' => 'รายคน', 'amphur' => 'รายอำเภอ', 'bank' => 'รายธนาคาร', 'overall' => 'ภาพรวม'][$groupBy];
-        $headings = ['ลำดับ', $col0, 'จำนวนนักศึกษา', 'วัน-ครั้ง', 'ผู้รับบริการ', 'ลงทะเบียนสำเร็จ', 'ไม่สำเร็จ', 'ไฟล์แนบ', '% มี GPS'];
+
+        if ($groupBy === 'student') {
+            // รายคน: คอลัมน์เฉพาะบุคคล + ละติจูด/ลองติจูด (จากบันทึกล่าสุด)
+            $headings = ['ลำดับ', 'นักศึกษา', 'คณะ', 'หน่วยปฏิบัติงาน', 'วัน-ครั้ง', 'ผู้รับบริการ', 'ลงทะเบียนสำเร็จ', 'ไม่สำเร็จ', 'ไฟล์แนบ', 'ละติจูด', 'ลองติจูด'];
+            $mapper = fn ($i, $r) => [$i, $r['label'], $r['faculty'], $r['unit'], $r['days'], $r['service'], $r['success'], $r['fail'], $r['files'], $r['lat'], $r['lng']];
+        } else {
+            $col0 = ['amphur' => 'อำเภอ', 'bank' => 'ธนาคาร', 'overall' => 'ขอบเขต'][$groupBy];
+            $headings = ['ลำดับ', $col0, 'จำนวนนักศึกษา', 'วัน-ครั้ง', 'ผู้รับบริการ', 'ลงทะเบียนสำเร็จ', 'ไม่สำเร็จ', 'ไฟล์แนบ'];
+            $mapper = fn ($i, $r) => [$i, $r['label'], $r['students'], $r['days'], $r['service'], $r['success'], $r['fail'], $r['files']];
+        }
         $filename = 'รายงานนักศึกษา_' . $title . '_' . now()->format('Y-m-d') . '.xlsx';
 
-        return Excel::download(new class($rows, $headings) implements FromCollection, WithHeadings, WithMapping {
-            public function __construct(private $rows, private $heads) {}
+        return Excel::download(new class($rows, $headings, $mapper) implements FromCollection, WithHeadings, WithMapping {
+            public function __construct(private $rows, private $heads, private $mapper) {}
             public function collection() { return $this->rows; }
             public function headings(): array { return $this->heads; }
             public function map($r): array {
                 static $i = 0; $i++;
-                return [$i, $r['label'], $r['students'], $r['days'], $r['service'], $r['success'], $r['fail'], $r['files'], $r['gps_pct'] . '%'];
+                return ($this->mapper)($i, $r);
             }
         }, $filename);
     }

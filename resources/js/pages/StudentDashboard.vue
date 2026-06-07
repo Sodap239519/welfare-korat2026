@@ -38,6 +38,7 @@ async function loadStudents() {
   try {
     const { data } = await axios.get('/api/student-admin/students?' + qs());
     students.value = data.data;
+    page.value = 1;
   } finally {
     loadingStudents.value = false;
   }
@@ -47,11 +48,16 @@ onMounted(() => { loadOverview(); loadAmphurs(); loadStudents(); loadPreviewPhot
 function exportReport() {
   window.open('/api/student-admin/export?' + qs(), '_blank');
 }
-const reportGroup = ref('student');
-function exportSummary() {
-  window.open(`/api/student-admin/report?group_by=${reportGroup.value}&` + qs(), '_blank');
-}
+const reportMenu = ref(false);
+function pickReport(g) { reportMenu.value = false; window.open(`/api/student-admin/report?group_by=${g}&` + qs(), '_blank'); }
+function pickDetail() { reportMenu.value = false; exportReport(); }
 const fileUrl = (f) => `/api/files/work/${f.id}`;
+
+// pagination ตารางนักศึกษา (25/หน้า)
+const PER_PAGE = 25;
+const page = ref(1);
+const totalPages = computed(() => Math.max(1, Math.ceil(students.value.length / PER_PAGE)));
+const pagedStudents = computed(() => students.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE));
 
 // แยกไฟล์ตามหมวด (แสดงเป็นแถวชัดเจน)
 const CAT_LABELS = { worklog_doc: 'ใบบันทึกการปฏิบัติงาน', reimburse_doc: 'เอกสารเบิกจ่าย', photo: 'ภาพการปฏิบัติงาน' };
@@ -101,10 +107,27 @@ async function openStudent(s) {
     drillLoading.value = false;
   }
 }
+const placeName = ref('');
+function osmEmbed(lat, lng) {
+  const d = 0.003;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - d}%2C${lat - d}%2C${lng + d}%2C${lat + d}&layer=mapnik&marker=${lat}%2C${lng}`;
+}
+const gmap = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
+async function reverseGeocode(lat, lng) {
+  placeName.value = '';
+  try {
+    // ใช้ fetch (ไม่ส่ง cookie ข้าม origin) — Nominatim OSM
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&lat=${lat}&lon=${lng}`, { headers: { Accept: 'application/json' } });
+    const j = await res.json();
+    placeName.value = j.display_name || '';
+  } catch (e) { /* ignore */ }
+}
 async function viewLog(id) {
   if (expandedLog.value?.id === id) { expandedLog.value = null; return; }
+  placeName.value = '';
   const { data } = await axios.get('/api/student-admin/work-logs/' + id);
   expandedLog.value = data.data;
+  if (data.data.lat) reverseGeocode(data.data.lat, data.data.lng);
 }
 async function deleteLog(id) {
   if (!confirm('ลบบันทึกนี้? (admin)')) return;
@@ -175,7 +198,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
         <div v-if="!photos.length" class="text-slate-400 text-sm py-8 text-center"><i class="fi-rr-picture text-2xl"></i><div class="mt-1">ยังไม่มีภาพการปฏิบัติงาน</div></div>
         <div v-else class="grid grid-cols-4 auto-rows-[80px] sm:auto-rows-[120px] gap-2">
           <button v-for="(p, i) in photos" :key="p.id" @click="photoZoom = p" :class="['relative rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800', tileClass(i)]">
-            <img :src="p.url" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+            <img :src="p.url" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
               <div class="text-[10px] text-white truncate">{{ p.student }}</div>
               <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
@@ -188,15 +211,20 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
       <div class="card p-4">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 class="font-semibold"><i class="fi-rr-users-alt text-blue-600"></i> รายชื่อนักศึกษา & ผลงาน</h3>
-          <div class="flex flex-wrap items-center gap-2">
-            <select v-model="reportGroup" class="px-2 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-              <option value="student">รายงานสรุป: รายคน</option>
-              <option value="amphur">รายงานสรุป: รายอำเภอ</option>
-              <option value="bank">รายงานสรุป: รายธนาคาร</option>
-              <option value="overall">รายงานสรุป: ภาพรวม</option>
-            </select>
-            <button @click="exportSummary" class="btn-primary text-sm"><i class="fi-rr-stats"></i> รายงานสรุป</button>
-            <button @click="exportReport" class="btn-green text-sm"><i class="fi-rr-file-export"></i> รายละเอียด (Excel)</button>
+          <div class="relative">
+            <button @click="reportMenu = !reportMenu" class="btn-primary text-sm">
+              <i class="fi-rr-file-download"></i> ออกรายงาน <i class="fi-rr-angle-small-down"></i>
+            </button>
+            <div v-if="reportMenu" class="fixed inset-0 z-10" @click="reportMenu = false"></div>
+            <div v-if="reportMenu" class="absolute right-0 mt-1 w-60 z-20 card p-1">
+              <div class="px-3 py-1 text-[11px] text-slate-400">รายงานสรุป (Excel)</div>
+              <button @click="pickReport('student')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-user text-blue-600"></i> รายคน</button>
+              <button @click="pickReport('amphur')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-marker text-blue-600"></i> รายอำเภอ</button>
+              <button @click="pickReport('bank')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-bank text-blue-600"></i> รายธนาคาร</button>
+              <button @click="pickReport('overall')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-apps text-blue-600"></i> ภาพรวม</button>
+              <hr class="my-1 border-slate-100 dark:border-slate-800">
+              <button @click="pickDetail()" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-file-export text-green-600"></i> รายละเอียดทั้งหมด</button>
+            </div>
           </div>
         </div>
 
@@ -234,8 +262,8 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(s, idx) in students" :key="s.id" class="border-b border-slate-50 dark:border-slate-800/50">
-                <td class="py-2 pr-2 text-slate-400 tabular-nums">{{ idx + 1 }}</td>
+              <tr v-for="(s, idx) in pagedStudents" :key="s.id" class="border-b border-slate-50 dark:border-slate-800/50">
+                <td class="py-2 pr-2 text-slate-400 tabular-nums">{{ (page - 1) * PER_PAGE + idx + 1 }}</td>
                 <td class="py-2 pr-3">
                   <div class="font-medium">{{ s.name }}</div>
                   <div class="text-xs text-slate-400">{{ s.student_id }} · {{ s.faculty }}</div>
@@ -253,6 +281,14 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
               </tr>
             </tbody>
           </table>
+        </div>
+        <!-- แบ่งหน้า 25/หน้า -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between mt-3 text-sm">
+          <div class="text-slate-400">หน้า {{ page }} / {{ totalPages }} · ทั้งหมด {{ students.length }} คน</div>
+          <div class="flex gap-1">
+            <button @click="page = Math.max(1, page - 1)" :disabled="page <= 1" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40"><i class="fi-rr-angle-small-left"></i></button>
+            <button @click="page = Math.min(totalPages, page + 1)" :disabled="page >= totalPages" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40"><i class="fi-rr-angle-small-right"></i></button>
+          </div>
         </div>
       </div>
     </div>
@@ -282,19 +318,21 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
             </div>
             <!-- รายละเอียด -->
             <div v-if="expandedLog?.id === l.id" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
-              <!-- GPS -->
-              <div>
-                <span class="font-medium">ตำแหน่ง:</span>
-                <template v-if="expandedLog.lat">
-                  <a :href="`https://www.google.com/maps?q=${expandedLog.lat},${expandedLog.lng}`" target="_blank" rel="noopener" class="text-blue-700 underline">
-                    <i class="fi-rr-marker"></i> ดูแผนที่
-                  </a>
-                  <span class="text-slate-400"> · ~{{ Math.round(expandedLog.location_accuracy || 0) }} ม.
+              <!-- ตำแหน่ง + แผนที่ -->
+              <div v-if="expandedLog.lat">
+                <div class="font-medium mb-1">ตำแหน่งการปฏิบัติงาน</div>
+                <iframe :src="osmEmbed(expandedLog.lat, expandedLog.lng)" class="w-full rounded-lg border border-slate-200 dark:border-slate-700" style="height: 150px" loading="lazy" title="แผนที่"></iframe>
+                <div class="mt-1 text-slate-500 leading-snug">
+                  <i class="fi-rr-marker text-blue-600"></i>
+                  <span v-if="placeName" class="text-slate-700 dark:text-slate-200">{{ placeName }}</span>
+                  <span class="block text-[11px] text-slate-400">
+                    {{ Number(expandedLog.lat).toFixed(5) }}, {{ Number(expandedLog.lng).toFixed(5) }} · ~{{ Math.round(expandedLog.location_accuracy || 0) }} ม.
                     <span v-if="expandedLog.location_status === 'low_accuracy'" class="text-amber-600">(สัญญาณอ่อน)</span>
+                    <a :href="gmap(expandedLog.lat, expandedLog.lng)" target="_blank" rel="noopener" class="text-blue-700 underline ml-1">เปิด Google Maps</a>
                   </span>
-                </template>
-                <span v-else class="text-amber-500">ไม่มีพิกัด</span>
+                </div>
               </div>
+              <div v-else class="text-amber-500"><i class="fi-rr-exclamation"></i> ไม่มีพิกัด</div>
               <!-- ไฟล์ — แยกตามหมวด -->
               <div v-if="expandedLog.files?.length" class="space-y-2">
                 <div v-for="cat in CAT_ORDER" :key="cat" v-show="filesOf(expandedLog.files, cat).length">
@@ -322,7 +360,9 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
               <div v-if="expandedLog.cases?.length">
                 <div class="font-medium mb-1 mt-2">กรณีปัญหา</div>
                 <div v-for="c in expandedLog.cases" :key="c.id" class="text-slate-600 dark:text-slate-300">
-                  {{ c.full_name }} <span class="text-slate-400">({{ c.village_tambon }})</span> — {{ c.problem }}
+                  {{ c.full_name }}
+                  <a v-if="c.phone" :href="'tel:' + c.phone" class="text-blue-700">📞 {{ c.phone }}</a>
+                  <span class="text-slate-400">({{ c.village_tambon }})</span> — {{ c.problem }}
                 </div>
               </div>
               <div v-if="expandedLog.supervisor_name" class="text-slate-400">ผู้ควบคุมงาน: {{ expandedLog.supervisor_name }} {{ expandedLog.supervisor_position }}</div>
@@ -356,7 +396,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <div v-else-if="!galleryAll.length" class="text-center text-slate-400 py-8">ไม่พบภาพตามเงื่อนไข</div>
           <div v-else class="grid grid-cols-3 sm:grid-cols-4 gap-2">
             <button v-for="p in galleryAll" :key="p.id" @click="photoZoom = p" class="relative aspect-square rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 group">
-              <img :src="p.url" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+              <img :src="p.url" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 text-left">
                 <div class="text-[9px] text-white truncate">{{ p.student }}</div>
               </div>
@@ -369,7 +409,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
     <!-- Lightbox ภาพ + รายละเอียดสถานที่/พิกัด -->
     <div v-if="photoZoom" class="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center p-4" @click.self="photoZoom = null">
       <div class="max-w-3xl w-full">
-        <img :src="photoZoom.url" referrerpolicy="no-referrer" class="max-h-[68vh] w-auto mx-auto rounded-lg shadow-2xl" :alt="photoZoom.name">
+        <img :src="photoZoom.url" class="max-h-[68vh] w-auto mx-auto rounded-lg shadow-2xl" :alt="photoZoom.name">
         <div class="bg-white dark:bg-slate-900 rounded-xl mt-2 p-3">
           <div class="font-medium text-sm">{{ photoZoom.student }} <span class="text-slate-400 font-normal">· {{ photoZoom.faculty }}</span></div>
           <div class="text-slate-500 text-xs mt-0.5">{{ photoZoom.work_date?.slice(0, 10) }} · {{ photoZoom.unit }}</div>

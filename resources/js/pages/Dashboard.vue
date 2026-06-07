@@ -457,17 +457,19 @@ const trendOptions = computed(() => ({
 }));
 
 const statusOptions = computed(() => {
-  // เพิ่ม '0' = ยังไม่ติดตามการลงทะเบียน (target ที่ยังไม่มี record ใน target_current_status)
-  const ord = ['0','4.1','4.2','4.3','4.4','4.5','4.6','4.7'];
-  const colorMap = {
+  // ลำดับสถานะ = '0' (ยังไม่ติดตาม) + สถานะปัจจุบันจาก DB (อ่าน /api/ref/statuses)
+  const ord = ['0', ...Object.keys(STATUS_SHORT)];
+  const baseColor = {
     '0':'#cbd5e1',   // slate-300 — อ่อนกว่า 4.1 เพื่อแยกชัด
     '4.1':'#94a3b8','4.2':'#2563eb','4.3':'#fb923c','4.4':'#f97316',
     '4.5':'#dc2626','4.6':'#0ea5e9','4.7':'#16a34a',
   };
+  // สีสำรองสำหรับสถานะใหม่ที่ไม่มีใน baseColor
+  const palette = ['#2563eb','#fb923c','#16a34a','#dc2626','#0ea5e9','#a855f7','#14b8a6','#eab308','#f97316','#64748b'];
   const labelMap = { '0': 'ยังไม่ถูกติดตาม', ...STATUS_SHORT };
   const labels = ord.map(c => labelMap[c] || c);
   const series = ord.map(c => Number(stats.value?.by_status?.[c] ?? 0));
-  const colors = ord.map(c => colorMap[c]);
+  const colors = ord.map((c, i) => baseColor[c] || palette[i % palette.length]);
   return {
     options: {
       chart: { type: 'donut', height: 280, fontFamily: 'Prompt, sans-serif' },
