@@ -212,6 +212,14 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
               <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
             </div>
           </button>
+          <!-- ปุ่ม "ดูเพิ่มเติม" บนภาพ — เติมช่องว่างท้ายกริด -->
+          <button @click="openAllPhotos" class="relative rounded-xl overflow-hidden group bg-slate-800">
+            <img :src="photos[0].url" class="w-full h-full object-cover opacity-35 group-hover:opacity-25 transition" alt="">
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+              <i class="fi-rr-apps text-2xl"></i>
+              <span class="text-xs font-medium mt-1">ดูเพิ่มเติม</span>
+            </div>
+          </button>
         </div>
       </div>
 
