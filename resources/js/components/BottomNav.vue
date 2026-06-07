@@ -6,13 +6,24 @@ import { useAuthStore } from '@/stores/auth';
 const route = useRoute();
 const auth = useAuthStore();
 
-// นำเข้าข้อมูลย้ายไปเป็นปุ่มในหน้ารายชื่อเป้าหมายแล้ว
-const items = computed(() => [
+// เมนูล่าง (มือถือ) เปลี่ยนตามสถานะผู้ใช้งาน
+const STUDENT = [
+  { name: 'student-worklog',    icon: 'fi-rr-edit',           label: 'บันทึก' },
+  { name: 'student-mydash',     icon: 'fi-rr-stats',          label: 'สรุปงาน' },
+  { name: 'student-documents',  icon: 'fi-rr-folder',         label: 'เอกสาร' },
+  { name: 'student-assessment', icon: 'fi-rr-clipboard-list', label: 'ประเมิน' },
+];
+const EXEC = [
+  { name: 'student-report', icon: 'fi-rr-graduation-cap', label: 'รายงาน' },
+  { name: 'project-info',   icon: 'fi-rr-document',       label: 'โครงการ' },
+];
+const STAFF = [
   { name: 'dashboard', icon: 'fi-rr-apps',      label: 'หน้าแรก' },
   { name: 'targets',   icon: 'fi-rr-users-alt', label: 'รายชื่อ' },
   { name: 'map',       icon: 'fi-rr-marker',    label: 'แผนที่' },
   { name: 'reports',   icon: 'fi-rr-chart-pie', label: 'รายงาน' },
-]);
+];
+const items = computed(() => auth.isStudent ? STUDENT : auth.isExecutive ? EXEC : STAFF);
 
 const isActive = (n) => computed(() => route.name === n);
 </script>

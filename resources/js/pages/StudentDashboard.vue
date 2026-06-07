@@ -53,6 +53,11 @@ function exportSummary() {
 }
 const fileUrl = (f) => `/api/files/work/${f.id}`;
 
+// แยกไฟล์ตามหมวด (แสดงเป็นแถวชัดเจน)
+const CAT_LABELS = { worklog_doc: 'ใบบันทึกการปฏิบัติงาน', reimburse_doc: 'เอกสารเบิกจ่าย', photo: 'ภาพการปฏิบัติงาน' };
+const CAT_ORDER = ['worklog_doc', 'reimburse_doc', 'photo'];
+const filesOf = (files, cat) => (files || []).filter(f => f.category === cat);
+
 // ── Gallery ภาพการปฏิบัติงาน ──
 const BANKS = [
   { code: 'ktb', name: 'กรุงไทย' }, { code: 'gsb', name: 'ออมสิน' }, { code: 'baac', name: 'ธ.ก.ส.' },
@@ -218,6 +223,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <table class="w-full text-sm">
             <thead class="text-left text-slate-400 border-b border-slate-100 dark:border-slate-800">
               <tr>
+                <th class="py-2 pr-2 w-8">#</th>
                 <th class="py-2 pr-3">นักศึกษา</th>
                 <th class="py-2 pr-3">หน่วย</th>
                 <th class="py-2 pr-3 text-right">วัน</th>
@@ -228,7 +234,8 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
               </tr>
             </thead>
             <tbody>
-              <tr v-for="s in students" :key="s.id" class="border-b border-slate-50 dark:border-slate-800/50">
+              <tr v-for="(s, idx) in students" :key="s.id" class="border-b border-slate-50 dark:border-slate-800/50">
+                <td class="py-2 pr-2 text-slate-400 tabular-nums">{{ idx + 1 }}</td>
                 <td class="py-2 pr-3">
                   <div class="font-medium">{{ s.name }}</div>
                   <div class="text-xs text-slate-400">{{ s.student_id }} · {{ s.faculty }}</div>
@@ -288,18 +295,20 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
                 </template>
                 <span v-else class="text-amber-500">ไม่มีพิกัด</span>
               </div>
-              <!-- ไฟล์ -->
-              <div v-if="expandedLog.files?.length">
-                <div class="font-medium mb-1">ไฟล์แนบ ({{ expandedLog.files.length }})</div>
-                <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                  <a v-for="f in expandedLog.files" :key="f.id" :href="fileUrl(f)" target="_blank" rel="noopener"
-                     class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden block">
-                    <img v-if="f.is_image" :src="fileUrl(f)" class="w-full h-16 object-cover" :alt="f.original_name">
-                    <div v-else class="h-16 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 p-1">
-                      <i class="fi-rr-file-pdf text-red-500"></i>
-                      <span class="text-[8px] line-clamp-1 break-all">{{ f.original_name }}</span>
-                    </div>
-                  </a>
+              <!-- ไฟล์ — แยกตามหมวด -->
+              <div v-if="expandedLog.files?.length" class="space-y-2">
+                <div v-for="cat in CAT_ORDER" :key="cat" v-show="filesOf(expandedLog.files, cat).length">
+                  <div class="font-medium mb-1">{{ CAT_LABELS[cat] }} ({{ filesOf(expandedLog.files, cat).length }})</div>
+                  <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    <a v-for="f in filesOf(expandedLog.files, cat)" :key="f.id" :href="fileUrl(f)" target="_blank" rel="noopener"
+                       class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden block">
+                      <img v-if="f.is_image" :src="fileUrl(f)" class="w-full h-16 object-cover" :alt="f.original_name">
+                      <div v-else class="h-16 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 p-1">
+                        <i class="fi-rr-file-pdf text-red-500"></i>
+                        <span class="text-[8px] line-clamp-1 break-all">{{ f.original_name }}</span>
+                      </div>
+                    </a>
+                  </div>
                 </div>
               </div>
               <div v-if="expandedLog.entries?.length">

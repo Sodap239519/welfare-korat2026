@@ -48,14 +48,22 @@ export const useNotificationStore = defineStore('notifications', () => {
     } catch (e) { /* silent */ }
   }
 
-  // periodic polling every 60s
+  // auto-refresh: ทุก 20 วินาที + เมื่อกลับมาที่แท็บ (ไม่ต้องกด F5)
   let poll = null;
+  let visHandler = null;
+  function tick() {
+    loadUnreadCount();
+    if (items.value.length) loadList(); // ถ้าเคยเปิดลิสต์แล้ว รีเฟรชรายการด้วย
+  }
   function startPolling() {
     if (poll) return;
-    poll = setInterval(loadUnreadCount, 60_000);
+    poll = setInterval(tick, 20_000);
+    visHandler = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', visHandler);
   }
   function stopPolling() {
     if (poll) { clearInterval(poll); poll = null; }
+    if (visHandler) { document.removeEventListener('visibilitychange', visHandler); visHandler = null; }
   }
 
   return {

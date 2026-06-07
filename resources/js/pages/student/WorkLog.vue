@@ -27,7 +27,7 @@ const blankForm = () => ({
   time_start: '', time_end: '',
   registered_success: 0, registered_fail: 0,
   supervisor_name: '', supervisor_position: '', supervisor_date: '',
-  entries: [{ period: 'เช้า', activity_type: '', detail: '', service_count: 0 }],
+  entries: [{ period: 'เช้า', activity_type: '', detail: '', service_count: null }],
   cases: [],
 });
 const form = reactive(blankForm());
@@ -134,18 +134,33 @@ async function openEdit(id) {
   flashOk.value = '';
 }
 
-const addEntry = () => form.entries.push({ period: 'บ่าย', activity_type: '', detail: '', service_count: 0 });
+const addEntry = () => form.entries.push({ period: 'บ่าย', activity_type: '', detail: '', service_count: null });
 const removeEntry = (i) => form.entries.splice(i, 1);
 const addCase = () => form.cases.push({ full_name: '', phone: '', village_tambon: '', problem: '' });
 const removeCase = (i) => form.cases.splice(i, 1);
 
 const hasLocation = computed(() => geo.lat != null && geo.lng != null);
+const serviceTotal = computed(() => form.entries.reduce((s, e) => s + (Number(e.service_count) || 0), 0));
+const resultTotal = computed(() => (Number(form.registered_success) || 0) + (Number(form.registered_fail) || 0));
+const totalsMatch = computed(() => serviceTotal.value === resultTotal.value);
 
 async function save() {
   if (!hasLocation.value) {
     errorMsg.value = 'ต้องระบุตำแหน่ง (GPS) ก่อนบันทึก — กดปุ่ม "ระบุตำแหน่ง"';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
+  }
+  // ผลรวมสำเร็จ+ไม่สำเร็จ ต้องเท่ากับจำนวนผู้รับบริการรวม
+  if (!totalsMatch.value) {
+    errorMsg.value = `ผลรวมลงทะเบียนสำเร็จ + ไม่สำเร็จ (${resultTotal.value}) ต้องเท่ากับจำนวนผู้รับบริการรวม (${serviceTotal.value}) พอดี`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  // เตือน (ไม่บังคับ) ให้ระบุปัญหารายคนตามจำนวนที่ไม่สำเร็จ
+  const failN = Number(form.registered_fail) || 0;
+  const caseN = form.cases.filter(c => c.full_name?.trim() && c.problem?.trim()).length;
+  if (failN > 0 && caseN < failN) {
+    if (!confirm(`ลงทะเบียนไม่สำเร็จ ${failN} ราย แต่ระบุปัญหารายกรณีเพียง ${caseN} ราย\nแนะนำให้ระบุปัญหาให้ครบทุกราย\n\nต้องการบันทึกต่อหรือไม่?`)) return;
   }
   saving.value = true;
   errorMsg.value = '';
@@ -294,21 +309,28 @@ async function remove(id) {
           </select>
           <input v-model="e.activity_type" list="activity-suggestions" placeholder="ประเภทกิจกรรม" class="sm:col-span-3 px-2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
           <input v-model="e.detail" placeholder="รายละเอียด" class="sm:col-span-4 px-2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-          <input v-model.number="e.service_count" type="number" min="0" placeholder="จำนวน" class="sm:col-span-2 px-2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <input v-model.number="e.service_count" type="number" min="0" placeholder="จำนวนผู้รับบริการ" class="sm:col-span-2 px-2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
           <button @click="removeEntry(i)" class="sm:col-span-1 btn-icon text-red-400 hover:bg-red-50" title="ลบ"><i class="fi-rr-cross-small"></i></button>
         </div>
       </div>
 
       <!-- ผล -->
-      <div class="card p-4 grid sm:grid-cols-2 gap-3">
-        <label class="block">
-          <span class="text-xs text-slate-500">ลงทะเบียนสำเร็จ (ราย)</span>
-          <input v-model.number="form.registered_success" type="number" min="0" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        </label>
-        <label class="block">
-          <span class="text-xs text-slate-500">ลงทะเบียนไม่สำเร็จ (ราย)</span>
-          <input v-model.number="form.registered_fail" type="number" min="0" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        </label>
+      <div class="card p-4">
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs text-slate-500">ลงทะเบียนสำเร็จ (ราย)</span>
+            <input v-model.number="form.registered_success" type="number" min="0" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          </label>
+          <label class="block">
+            <span class="text-xs text-slate-500">ลงทะเบียนไม่สำเร็จ (ราย)</span>
+            <input v-model.number="form.registered_fail" type="number" min="0" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          </label>
+        </div>
+        <div :class="['mt-2 text-xs px-3 py-2 rounded-lg', totalsMatch ? 'card-tint-green' : 'card-tint-orange']">
+          <i :class="totalsMatch ? 'fi-rr-check-circle' : 'fi-rr-info'"></i>
+          ผู้รับบริการรวม (จากกิจกรรม) = <b>{{ serviceTotal }}</b> · สำเร็จ+ไม่สำเร็จ = <b>{{ resultTotal }}</b>
+          <span v-if="!totalsMatch"> — ต้องเท่ากันพอดี</span>
+        </div>
       </div>
 
       <!-- ไฟล์แนบ 3 หมวด -->

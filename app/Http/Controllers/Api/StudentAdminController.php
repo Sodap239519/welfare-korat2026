@@ -39,7 +39,7 @@ class StudentAdminController extends Controller
         // สรุปผลรายคน (แยก query กัน join บวกซ้ำ)
         $result = DB::table('student_work_logs')
             ->groupBy('user_id')
-            ->selectRaw('user_id, COUNT(*) as days, SUM(registered_success) as success, SUM(registered_fail) as fail')
+            ->selectRaw('user_id, COUNT(*) as days, SUM(registered_success) as success, SUM(registered_fail) as fail, MAX(work_date) as last_date')
             ->get()->keyBy('user_id');
 
         $service = DB::table('student_work_log_entries as e')
@@ -68,8 +68,11 @@ class StudentAdminController extends Controller
                 'success'    => (int) ($r->success ?? 0),
                 'fail'       => (int) ($r->fail ?? 0),
                 'assessed'   => $assessed->has($u->id),
+                'last_date'  => $r->last_date ?? null,
             ];
-        });
+        })
+        // เรียงตามกิจกรรมล่าสุดก่อน (คนที่ยังไม่มีบันทึกอยู่ท้ายสุด)
+        ->sortByDesc(fn ($s) => $s['last_date'] ?? '')->values();
 
         return response()->json(['data' => $data]);
     }
