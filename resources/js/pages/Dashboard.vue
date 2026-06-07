@@ -1214,7 +1214,7 @@ function statusSegments(row) {
       <div class="grid lg:grid-cols-2 gap-3">
         <div class="card p-4 lg:p-5 min-w-0 overflow-hidden">
           <div class="font-semibold text-sm">สัดส่วนสถานะการลงทะเบียน</div>
-          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">8 กลุ่ม · รวม "ยังไม่ถูกติดตาม" ด้วย</div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-2">{{ Object.keys(STATUS_SHORT).length + 1 }} กลุ่ม · รวม "ยังไม่ถูกติดตาม" ด้วย</div>
           <div class="w-full overflow-hidden">
             <apexchart type="donut" :height="chartHeight" :options="statusOptions.options" :series="statusOptions.series" />
           </div>
@@ -1280,7 +1280,7 @@ function statusSegments(row) {
         <div class="flex items-start justify-between gap-2 flex-wrap mb-3">
           <div>
             <div class="font-semibold text-sm">TOP 5 สรุปยอด · เรียงตาม % ลงทะเบียน</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400">แสดงสัดส่วน 7 สถานะการลงทะเบียน (4.1-4.7)</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">แสดงสัดส่วนสถานะการลงทะเบียน (ตามที่ตั้งค่าไว้)</div>
           </div>
           <RouterLink to="/targets" class="text-xs text-blue-700 dark:text-blue-400 hover:underline shrink-0">ดูทั้งหมด →</RouterLink>
         </div>
@@ -1302,8 +1302,8 @@ function statusSegments(row) {
             <span class="w-2.5 h-2.5 rounded-sm" style="background:#cbd5e1"></span>
             — ยังไม่ถูกติดตาม
           </span>
-          <span v-for="(c, code) in statusColorMap" :key="code" class="flex items-center gap-1 whitespace-nowrap">
-            <span class="w-2.5 h-2.5 rounded-sm" :style="{ background: c }"></span>
+          <span v-for="code in Object.keys(STATUS_SHORT)" :key="code" class="flex items-center gap-1 whitespace-nowrap">
+            <span class="w-2.5 h-2.5 rounded-sm" :style="{ background: statusColorMap[code] || '#94a3b8' }"></span>
             {{ code }} {{ STATUS_SHORT[code] }}
           </span>
         </div>
