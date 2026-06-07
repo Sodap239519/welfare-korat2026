@@ -197,9 +197,10 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <button @click="openAllPhotos" class="text-sm text-blue-700">ดูภาพทั้งหมด <i class="fi-rr-angle-small-right"></i></button>
         </div>
         <div v-if="!photos.length" class="text-slate-400 text-sm py-8 text-center"><i class="fi-rr-picture text-2xl"></i><div class="mt-1">ยังไม่มีภาพการปฏิบัติงาน</div></div>
-        <div v-else class="grid grid-cols-3 gap-2">
-          <button v-for="p in photos" :key="p.id" @click="photoZoom = p" class="relative aspect-square rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
-            <img :src="p.url" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+        <!-- justified gallery: สูงเท่ากัน · กว้างตามสัดส่วนจริง (เล็ก/กลาง/ใหญ่ ปนกัน) -->
+        <div v-else class="flex flex-wrap gap-2">
+          <button v-for="p in photos" :key="p.id" @click="photoZoom = p" class="relative h-28 sm:h-32 rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
+            <img :src="p.url" class="h-full w-auto max-w-[60vw] sm:max-w-[18rem] object-cover group-hover:scale-105 transition" :alt="p.name">
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
               <div class="text-[10px] text-white truncate">{{ p.student }}</div>
               <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
