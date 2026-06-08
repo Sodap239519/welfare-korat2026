@@ -78,7 +78,13 @@ const photoZoom = ref(null);
 
 async function loadPreviewPhotos() {
   const { data } = await axios.get('/api/student-admin/photos?limit=11');
-  photos.value = data.data;
+  // ar = สัดส่วนกว้าง/สูง (default 1.4 ก่อนรูปโหลดเสร็จ) ใช้คำนวณความกว้างใน justified grid
+  photos.value = data.data.map(p => ({ ...p, ar: 1.4 }));
+}
+// อ่านสัดส่วนจริงของภาพ → ปรับความกว้างใน justified grid (จำกัด 0.6–2.4 กันรูปแคบ/กว้างผิดปกติ)
+function onImgLoad(p, e) {
+  const r = e.target.naturalWidth / e.target.naturalHeight;
+  if (r > 0) p.ar = Math.min(2.4, Math.max(0.6, r));
 }
 function downloadZip(cat) { reportMenu.value = false; window.open(`/api/student-admin/files-zip?category=${cat}&` + qs(), '_blank'); }
 async function loadAllPhotos() {
@@ -197,18 +203,20 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <button @click="openAllPhotos" class="text-sm text-blue-700">ดูภาพทั้งหมด <i class="fi-rr-angle-small-right"></i></button>
         </div>
         <div v-if="!photos.length" class="text-slate-400 text-sm py-8 text-center"><i class="fi-rr-picture text-2xl"></i><div class="mt-1">ยังไม่มีภาพการปฏิบัติงาน</div></div>
-        <!-- กริดสี่เหลี่ยมจัตุรัสเท่ากันทุกใบ — เรียงเต็มแถวพอดีทุกขนาดจอ (11 ภาพ + ปุ่ม = 12 ช่อง หาร 2/3/4/6 ลงตัว) -->
-        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        <!-- Justified gallery (สไตล์ Google Photos) — ความกว้างต่างกันตามสัดส่วนภาพจริง · สูงแถวเท่ากัน · เต็มขอบทุกจอ -->
+        <div v-else class="flex flex-wrap gap-2">
           <button v-for="p in photos" :key="p.id" @click="photoZoom = p"
-                  class="relative aspect-square rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
-            <img :src="p.url" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+                  :style="{ flexGrow: p.ar, flexBasis: (p.ar * 160) + 'px' }"
+                  class="relative h-32 sm:h-40 md:h-44 rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
+            <img :src="p.url" loading="lazy" @load="onImgLoad(p, $event)" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
               <div class="text-[10px] text-white truncate">{{ p.student }}</div>
               <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
             </div>
           </button>
-          <!-- ปุ่ม "ดูเพิ่มเติม" — สี่เหลี่ยมจัตุรัสขนาดเท่าใบอื่น -->
-          <button @click="openAllPhotos" class="relative aspect-square rounded-xl overflow-hidden group bg-slate-800">
+          <!-- ปุ่ม "ดูเพิ่มเติม" — สูงเท่าใบอื่น เติมเต็มแถวสุดท้าย -->
+          <button @click="openAllPhotos" :style="{ flexGrow: 1.5, flexBasis: '220px' }"
+                  class="relative h-32 sm:h-40 md:h-44 rounded-xl overflow-hidden group bg-slate-800">
             <img :src="photos[0].url" loading="lazy" class="w-full h-full object-cover opacity-35 group-hover:opacity-25 transition" alt="">
             <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
               <i class="fi-rr-apps text-2xl"></i>
