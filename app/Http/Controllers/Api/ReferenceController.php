@@ -73,10 +73,12 @@ class ReferenceController extends Controller
     public function publicStats(): JsonResponse
     {
         $stats = \Illuminate\Support\Facades\Cache::remember('login.public_stats', 300, function () {
+            // นับเฉพาะ "อำเภอ/ตำบลที่มีกลุ่มเป้าหมายจริง" (เหมือน Dashboard ด้านใน)
+            // กันการนับแถว amphur/tambon ผีที่ว่างเปล่า (เช่นค้างจาก import เก่า) มาทำตัวเลขเกิน
             return [
                 'targets' => (int) DB::table('targets')->where('active', true)->count(),
-                'tambons' => (int) Tambon::count(),
-                'amphurs' => (int) Amphur::count(),
+                'tambons' => (int) DB::table('targets')->where('active', true)->whereNotNull('tambon_id')->distinct()->count('tambon_id'),
+                'amphurs' => (int) DB::table('targets')->where('active', true)->whereNotNull('amphur_id')->distinct()->count('amphur_id'),
             ];
         });
         return response()->json($stats);
