@@ -10,7 +10,9 @@ use App\Models\Target;
 use App\Models\Village;
 use App\Support\HouseNoResolver;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class XlsxImportService
 {
@@ -43,6 +45,25 @@ class XlsxImportService
         $sheet = $spreadsheet->getActiveSheet();
         $highestRow = $sheet->getHighestDataRow();
 
+        // ── หา mapping คอลัมน์จาก "หัวตาราง" (แถวที่ 1) อัตโนมัติ ──
+        // ไฟล์ DSS มีหลายฟอร์แมต (บางไฟล์มีคอลัมน์ วันเกิด/อายุ บางไฟล์ไม่มี)
+        // การอ่านหัวตารางทำให้ไม่ต้อง hardcode ตัวอักษรคอลัมน์ → กัน amphur/poverty สลับกัน
+        $map = $this->resolveColumns($sheet);
+        foreach (['houseCode', 'firstName', 'amphurName', 'tambonName'] as $required) {
+            if (empty($map[$required])) {
+                $human = [
+                    'houseCode'  => 'รหัสบ้าน',
+                    'firstName'  => 'ชื่อ',
+                    'amphurName' => 'อำเภอ',
+                    'tambonName' => 'ตำบล',
+                ][$required];
+                throw new \RuntimeException(
+                    "ไม่พบคอลัมน์ \"{$human}\" ในหัวตารางของไฟล์ — ".
+                    'กรุณาตรวจสอบว่าแถวแรกของไฟล์เป็นหัวตาราง (ปี / รหัสบ้าน / ชื่อ / สกุล / ตำบล / อำเภอ / สถานะ ...)'
+                );
+            }
+        }
+
         $autofix = [];
         $success = 0;
         $updated = 0;
@@ -50,40 +71,47 @@ class XlsxImportService
 
         $amphurCache = $tambonCache = $villageCache = [];
 
-        $work = function () use ($sheet, $highestRow, &$autofix, &$success, &$updated, &$failed, &$amphurCache, &$tambonCache, &$villageCache) {
+        $cell = fn (string $field, int $r, bool $calc = false): string
+            => isset($map[$field])
+                ? trim((string) ($calc
+                    ? $sheet->getCell($map[$field].$r)->getCalculatedValue()
+                    : $sheet->getCell($map[$field].$r)->getValue()))
+                : '';
+
+        $work = function () use ($sheet, $highestRow, $map, $cell, &$autofix, &$success, &$updated, &$failed, &$amphurCache, &$tambonCache, &$villageCache) {
             for ($r = 2; $r <= $highestRow; $r++) {
                 try {
-                    // โครงสร้างไฟล์ DSS: A=#, B=ปี, C=รหัสบ้าน, D=ลำดับสมาชิก,
-                    // E=คำนำหน้า, F=ชื่อ, G=สกุล, H=วัน/เดือน/ปีเกิด, I=อายุ,
-                    // J=บ้านเลขที่, K=หมู่ที่, L=บ้าน(หมู่บ้าน), M=ตำบล, N=อำเภอ,
-                    // O=จังหวัด, P=สถานะ, Q=บัตรสวัสดิการ, R=รายได้เฉลี่ย
-                    $year       = trim((string) $sheet->getCell("B$r")->getValue());
-                    $houseCode  = trim((string) $sheet->getCell("C$r")->getCalculatedValue());
-                    $memberSeq  = (int) $sheet->getCell("D$r")->getValue();
-                    $prefix     = trim((string) $sheet->getCell("E$r")->getValue());
-                    $firstName  = trim((string) $sheet->getCell("F$r")->getValue());
-                    $lastName   = trim((string) $sheet->getCell("G$r")->getValue());
-                    // H=วันเกิด, I=อายุ — ยังไม่มีฟิลด์เก็บใน schema จึงข้าม
+                    $year       = $cell('year', $r);
+                    $houseCode  = $cell('houseCode', $r, true);
+                    $memberSeq  = (int) ($map['memberSeq'] ? $sheet->getCell($map['memberSeq'].$r)->getValue() : 0);
+                    $prefix     = $cell('prefix', $r);
+                    $firstName  = $cell('firstName', $r);
+                    $lastName   = $cell('lastName', $r);
 
-                    $hno = HouseNoResolver::resolve($sheet->getCell("J$r"));
-                    if ($hno['was_fixed']) {
-                        $autofix[] = [
-                            'row'      => $r,
-                            'name'     => trim("$prefix $firstName $lastName"),
-                            'original' => $hno['original'],
-                            'fixed'    => $hno['value'],
-                            'reason'   => $hno['reason'],
-                        ];
+                    // บ้านเลขที่ — ผ่านตัวแก้ค่าที่ Excel เพี้ยน (เช่น "27/1" → "27-ม.ค.")
+                    if (!empty($map['addressNo'])) {
+                        $hno = HouseNoResolver::resolve($sheet->getCell($map['addressNo'].$r));
+                        if ($hno['was_fixed']) {
+                            $autofix[] = [
+                                'row'      => $r,
+                                'name'     => trim("$prefix $firstName $lastName"),
+                                'original' => $hno['original'],
+                                'fixed'    => $hno['value'],
+                                'reason'   => $hno['reason'],
+                            ];
+                        }
+                        $addressNo = $hno['value'];
+                    } else {
+                        $addressNo = '';
                     }
-                    $addressNo = $hno['value'];
 
-                    $moo         = trim((string) $sheet->getCell("K$r")->getValue());
-                    $villageName = trim((string) $sheet->getCell("L$r")->getValue());
-                    $tambonName  = trim((string) $sheet->getCell("M$r")->getValue());
-                    $amphurName  = trim((string) $sheet->getCell("N$r")->getValue());
-                    $poverty     = trim((string) $sheet->getCell("P$r")->getValue());
-                    $welfareStr  = trim((string) $sheet->getCell("Q$r")->getValue());
-                    $income      = (int) $sheet->getCell("R$r")->getValue();
+                    $moo         = $cell('moo', $r);
+                    $villageName = $cell('villageName', $r);
+                    $tambonName  = $cell('tambonName', $r);
+                    $amphurName  = $cell('amphurName', $r);
+                    $poverty     = $cell('poverty', $r);
+                    $welfareStr  = $cell('welfareStr', $r);
+                    $income      = (int) ($map['income'] ? $sheet->getCell($map['income'].$r)->getValue() : 0);
 
                     if ($houseCode === '' || $firstName === '' || $amphurName === '') {
                         $failed++;
@@ -182,5 +210,61 @@ class XlsxImportService
             'failed'        => $failed,
             'autofix'       => $autofix,
         ];
+    }
+
+    /**
+     * อ่านหัวตาราง (แถว 1) แล้วจับคู่ field → ตัวอักษรคอลัมน์ (เช่น 'amphurName' => 'L')
+     * ทำให้รองรับไฟล์ DSS ได้ทุกฟอร์แมต ไม่ว่าจะมีคอลัมน์ วันเกิด/อายุ หรือไม่
+     *
+     * @return array<string,string>
+     */
+    private function resolveColumns(Worksheet $sheet): array
+    {
+        $highestCol  = $sheet->getHighestDataColumn(1);
+        $highestIdx  = Coordinate::columnIndexFromString($highestCol);
+
+        $headers = []; // letter => normalized header text
+        for ($i = 1; $i <= $highestIdx; $i++) {
+            $letter = Coordinate::stringFromColumnIndex($i);
+            $text   = trim(preg_replace('/\s+/u', ' ', (string) $sheet->getCell($letter.'1')->getValue()));
+            if ($text !== '') {
+                $headers[$letter] = $text;
+            }
+        }
+
+        // กฎจับคู่ field → header (เรียงตามความเฉพาะเจาะจง เพื่อกันชนกันของคำว่า "บ้าน")
+        $rules = [
+            'year'        => fn ($h) => $h === 'ปี',
+            'houseCode'   => fn ($h) => str_contains($h, 'รหัสบ้าน') || (str_contains($h, 'รหัส') && str_contains($h, 'บ้าน')),
+            'memberSeq'   => fn ($h) => str_contains($h, 'ลำดับ') || str_contains($h, 'สมาชิก'),
+            'prefix'      => fn ($h) => str_contains($h, 'คำนำหน้า'),
+            'firstName'   => fn ($h) => $h === 'ชื่อ',
+            'lastName'    => fn ($h) => str_contains($h, 'สกุล') || str_contains($h, 'นามสกุล'),
+            'addressNo'   => fn ($h) => str_contains($h, 'บ้านเลขที่') || str_contains($h, 'เลขที่'),
+            'moo'         => fn ($h) => str_contains($h, 'หมู่ที่') || $h === 'หมู่',
+            'villageName' => fn ($h) => $h === 'บ้าน' || str_contains($h, 'หมู่บ้าน') || str_contains($h, 'ชุมชน'),
+            'tambonName'  => fn ($h) => str_contains($h, 'ตำบล'),
+            'amphurName'  => fn ($h) => str_contains($h, 'อำเภอ'),
+            'poverty'     => fn ($h) => str_contains($h, 'สถานะ') || str_contains($h, 'ความเป็นอยู่'),
+            'welfareStr'  => fn ($h) => str_contains($h, 'สวัสดิการ') || str_contains($h, 'บัตร'),
+            'income'      => fn ($h) => str_contains($h, 'รายได้'),
+        ];
+
+        $map     = [];
+        $claimed = [];
+        foreach ($rules as $field => $pred) {
+            foreach ($headers as $letter => $h) {
+                if (isset($claimed[$letter])) {
+                    continue;
+                }
+                if ($pred($h)) {
+                    $map[$field]      = $letter;
+                    $claimed[$letter] = true;
+                    break;
+                }
+            }
+        }
+
+        return $map;
     }
 }
