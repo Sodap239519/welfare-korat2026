@@ -42,7 +42,6 @@ class StudentWorkLogController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateData($request);
-        $this->assertTotals($data);
 
         $log = DB::transaction(function () use ($data, $request) {
             $log = StudentWorkLog::create($this->logFields($data) + ['user_id' => $request->user()->id]);
@@ -61,7 +60,6 @@ class StudentWorkLogController extends Controller
     {
         $log = StudentWorkLog::where('user_id', $request->user()->id)->findOrFail($id);
         $data = $this->validateData($request);
-        $this->assertTotals($data);
 
         DB::transaction(function () use ($log, $data, $request) {
             $log->update($this->logFields($data));
@@ -118,18 +116,6 @@ class StudentWorkLogController extends Controller
             'lat.required'       => 'ต้องอนุญาตการเข้าถึงตำแหน่ง (GPS) เพื่อยืนยันการลงพื้นที่',
             'lng.required'       => 'ต้องอนุญาตการเข้าถึงตำแหน่ง (GPS) เพื่อยืนยันการลงพื้นที่',
         ]);
-    }
-
-    /** ตรวจ: ผู้รับบริการรวม (ผลรวม service_count) ต้องเท่ากับ สำเร็จ+ไม่สำเร็จ */
-    private function assertTotals(array $data): void
-    {
-        $total = collect($data['entries'] ?? [])->sum(fn ($e) => (int) ($e['service_count'] ?? 0));
-        $sf = (int) ($data['registered_success'] ?? 0) + (int) ($data['registered_fail'] ?? 0);
-        if ($total !== $sf) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'registered_success' => ["ผลรวมลงทะเบียนสำเร็จ + ไม่สำเร็จ ({$sf}) ต้องเท่ากับจำนวนผู้รับบริการรวม ({$total}) พอดี"],
-            ]);
-        }
     }
 
     /** ฟิลด์หลักของ log (ใช้ร่วม store/update) */

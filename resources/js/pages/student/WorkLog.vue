@@ -25,7 +25,7 @@ const errorMsg = ref('');
 const flashOk = ref('');
 
 const PERIODS = ['เช้า', 'บ่าย', 'เย็น', 'เพิ่มเติม'];
-const ACTIVITY_SUGGESTIONS = ['ให้คำแนะนำการลงทะเบียน', 'ช่วยกรอกข้อมูล', 'ตรวจสอบเอกสาร', 'คัดกรองกลุ่มตกหล่น'];
+const ACTIVITY_SUGGESTIONS = ['ให้คำแนะนำการลงทะเบียน', 'ช่วยกรอกข้อมูลลงทะเบียน', 'ตรวจสอบเอกสาร', 'คัดกรองกลุ่มตกหล่น', 'จัดอบรม/ให้ความรู้', 'ประชาสัมพันธ์'];
 
 // หมวดไฟล์แนบ
 const CATS = [
@@ -246,6 +246,13 @@ const hasLocation = computed(() => geo.lat != null && geo.lng != null);
 const serviceTotal = computed(() => form.entries.reduce((s, e) => s + (Number(e.service_count) || 0), 0));
 const resultTotal = computed(() => (Number(form.registered_success) || 0) + (Number(form.registered_fail) || 0));
 const totalsMatch = computed(() => serviceTotal.value === resultTotal.value);
+// มีกิจกรรมที่เกี่ยวกับการช่วยลงทะเบียนหรือไม่ (เช่น อบรมอย่างเดียว = ไม่เกี่ยว)
+const REG_KEYWORDS = ['ลงทะเบียน', 'กรอก'];
+const hasRegistrationActivity = computed(() =>
+  form.entries.some(e => REG_KEYWORDS.some(k => (e.activity_type || '').includes(k)))
+);
+// เตือน (ไม่บล็อก) เมื่อมีกิจกรรมช่วยลงทะเบียน แต่ตัวเลขไม่ตรงกัน
+const totalsWarn = computed(() => hasRegistrationActivity.value && !totalsMatch.value);
 
 async function save() {
   if (!hasLocation.value) {
@@ -253,11 +260,9 @@ async function save() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
   }
-  // ผลรวมสำเร็จ+ไม่สำเร็จ ต้องเท่ากับจำนวนผู้รับบริการรวม
-  if (!totalsMatch.value) {
-    errorMsg.value = `ผลรวมลงทะเบียนสำเร็จ + ไม่สำเร็จ (${resultTotal.value}) ต้องเท่ากับจำนวนผู้รับบริการรวม (${serviceTotal.value}) พอดี`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    return;
+  // เตือน (ไม่บังคับ) เฉพาะกรณีมีกิจกรรมช่วยลงทะเบียน แต่ตัวเลขไม่ตรง — บันทึกต่อได้
+  if (totalsWarn.value) {
+    if (!confirm(`ผู้รับบริการรวม (${serviceTotal.value}) ไม่เท่ากับ ลงทะเบียนสำเร็จ+ไม่สำเร็จ (${resultTotal.value})\nหากกิจกรรมเป็นการช่วยลงทะเบียน ตัวเลขควรเท่ากัน\n\nต้องการบันทึกต่อหรือไม่?`)) return;
   }
   // เตือน (ไม่บังคับ) ให้ระบุปัญหารายคนตามจำนวนที่ไม่สำเร็จ
   const failN = Number(form.registered_fail) || 0;
@@ -440,10 +445,12 @@ async function remove(id) {
             <input v-model.number="form.registered_fail" type="number" min="0" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
           </label>
         </div>
-        <div :class="['mt-2 text-xs px-3 py-2 rounded-lg', totalsMatch ? 'card-tint-green' : 'card-tint-orange']">
+        <div :class="['mt-2 text-xs px-3 py-2 rounded-lg', totalsMatch ? 'card-tint-green' : (totalsWarn ? 'card-tint-orange' : 'card-tint-blue')]">
           <i :class="totalsMatch ? 'fi-rr-check-circle' : 'fi-rr-info'"></i>
-          ผู้รับบริการรวม (จากกิจกรรม) = <b>{{ serviceTotal }}</b> · สำเร็จ+ไม่สำเร็จ = <b>{{ resultTotal }}</b>
-          <span v-if="!totalsMatch"> — ต้องเท่ากันพอดี</span>
+          ผู้รับบริการรวม (จากกิจกรรม) = <b>{{ serviceTotal }}</b> · ลงทะเบียนสำเร็จ+ไม่สำเร็จ = <b>{{ resultTotal }}</b>
+          <span v-if="totalsMatch"> — ตรงกัน ✓</span>
+          <span v-else-if="totalsWarn"> — มีกิจกรรมช่วยลงทะเบียน ปกติควรเท่ากัน (ตรวจสอบอีกครั้ง · ยังบันทึกได้)</span>
+          <span v-else> — ไม่จำเป็นต้องเท่ากัน เช่น กิจกรรมอบรม (ผู้รับบริการ = ผู้เข้าอบรม)</span>
         </div>
       </div>
 
