@@ -317,25 +317,40 @@ async function remove(id) {
         <div class="mt-2">ยังไม่มีบันทึก — กด "เพิ่มบันทึกวันนี้" เพื่อเริ่ม</div>
       </div>
 
-      <div v-else class="grid gap-3">
-        <div v-for="l in logs" :key="l.id" class="card p-4 flex flex-wrap items-center gap-4">
-          <div class="min-w-[7rem]">
-            <div class="text-xs text-slate-400">วันที่</div>
-            <div class="font-semibold">{{ l.work_date?.slice(0, 10) }}</div>
-            <div v-if="l.lat" class="text-[10px] text-green-600 mt-0.5"><i class="fi-rr-marker"></i> มีพิกัด</div>
-            <div v-else class="text-[10px] text-amber-500 mt-0.5"><i class="fi-rr-exclamation"></i> ไม่มีพิกัด</div>
+      <div v-else class="grid gap-3 sm:grid-cols-2">
+        <div v-for="l in logs" :key="l.id" class="card p-4">
+          <!-- หัวการ์ด: วันที่ + ป้ายพิกัด + ปุ่ม -->
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="text-[11px] text-slate-400">วันที่ปฏิบัติงาน</div>
+              <div class="font-semibold text-base leading-tight">{{ l.work_date?.slice(0, 10) }}</div>
+              <span v-if="l.lat" class="inline-flex items-center gap-1 mt-1.5 text-[10px] text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full"><i class="fi-rr-marker"></i> มีพิกัด</span>
+              <span v-else class="inline-flex items-center gap-1 mt-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full"><i class="fi-rr-exclamation"></i> ไม่มีพิกัด</span>
+            </div>
+            <div class="flex gap-1 shrink-0">
+              <button @click="openView(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="ดู / ออกรายงาน"><i class="fi-rr-eye"></i></button>
+              <button @click="openEdit(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="แก้ไข"><i class="fi-rr-pencil"></i></button>
+              <button @click="remove(l.id)" class="btn-icon hover:bg-red-50 text-red-500" title="ลบ"><i class="fi-rr-trash"></i></button>
+            </div>
           </div>
-          <div class="flex gap-4 text-sm flex-1 flex-wrap">
-            <div><span class="text-slate-400">ผู้รับบริการ</span> <b>{{ formatNumber(l.service_total || 0) }}</b></div>
-            <div class="text-green-600"><span class="text-slate-400">สำเร็จ</span> <b>{{ formatNumber(l.registered_success) }}</b></div>
-            <div class="text-red-500"><span class="text-slate-400">ไม่สำเร็จ</span> <b>{{ formatNumber(l.registered_fail) }}</b></div>
-            <div><span class="text-slate-400">ไฟล์</span> <b>{{ l.files_count }}</b></div>
-            <div><span class="text-slate-400">กรณีปัญหา</span> <b>{{ l.cases_count }}</b></div>
-          </div>
-          <div class="flex gap-2">
-            <button @click="openView(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="ดู / ออกรายงาน"><i class="fi-rr-eye"></i></button>
-            <button @click="openEdit(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="แก้ไข"><i class="fi-rr-pencil"></i></button>
-            <button @click="remove(l.id)" class="btn-icon hover:bg-red-50 text-red-500" title="ลบ"><i class="fi-rr-trash"></i></button>
+          <!-- แถบสถิติ: ไทล์ 2×2 (มือถือ) / 4 คอลัมน์ (เดสก์ท็อป) -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+              <div class="text-[10px] text-slate-400">ผู้รับบริการ</div>
+              <div class="font-semibold">{{ formatNumber(l.service_total || 0) }}</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+              <div class="text-[10px] text-slate-400">ลงทะเบียน <span class="text-slate-300 dark:text-slate-600">สำเร็จ/ไม่</span></div>
+              <div class="font-semibold"><span class="text-green-600">{{ formatNumber(l.registered_success) }}</span> <span class="text-slate-300 dark:text-slate-600">/</span> <span class="text-red-500">{{ formatNumber(l.registered_fail) }}</span></div>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+              <div class="text-[10px] text-slate-400">ไฟล์แนบ</div>
+              <div class="font-semibold">{{ formatNumber(l.files_count) }}</div>
+            </div>
+            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
+              <div class="text-[10px] text-slate-400">กรณีปัญหา</div>
+              <div class="font-semibold">{{ formatNumber(l.cases_count) }}</div>
+            </div>
           </div>
         </div>
       </div>
