@@ -41,9 +41,13 @@ class TargetController extends Controller
           // ตัวกรองบัตรสวัสดิการเดิม: welfare=1 (เคยได้รับ), welfare=0 (ไม่เคยได้รับ)
           ->when($request->filled('welfare'), fn ($q) => $q->where('has_old_welfare', (string) $request->welfare === '1'));
 
-        // Auto-scope: tracker role เห็นเฉพาะหมู่บ้าน/ตำบล/อำเภอ ใน user_scopes (เว้นแต่ super_admin/admin)
+        // Auto-scope: tracker role เห็นเฉพาะหมู่บ้าน/ตำบล/อำเภอ ใน user_scopes
+        // (เว้นแต่ super_admin/admin = ดูทั้งจังหวัด, executive = ผู้บริหารดูได้ทุกรายชื่อ read-only)
         $user = $request->user();
-        if ($user && !$user->hasRole('super_admin') && !$user->hasRole('admin')) {
+        if ($user
+            && !$user->hasRole('super_admin')
+            && !$user->hasRole('admin')
+            && !$user->hasRole('executive')) {
             $scopes = \App\Models\UserScope::where('user_id', $user->id)->get();
             if ($scopes->isEmpty()) {
                 // 🔒 SECURITY: tracker ที่ไม่มี scope = บล็อกทุกอย่าง
