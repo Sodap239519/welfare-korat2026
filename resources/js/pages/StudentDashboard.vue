@@ -77,15 +77,10 @@ const gFilters = reactive({ date: '', amphur_id: '', bank: '' });
 const photoZoom = ref(null);
 
 async function loadPreviewPhotos() {
-  const { data } = await axios.get('/api/student-admin/photos?limit=9');
+  const { data } = await axios.get('/api/student-admin/photos?limit=11');
   photos.value = data.data;
 }
 function downloadZip(cat) { reportMenu.value = false; window.open(`/api/student-admin/files-zip?category=${cat}&` + qs(), '_blank'); }
-// ภาพแนวนอนกว้าง → กิน 2 คอลัมน์ (ความสูงเท่ากันทุกใบ)
-function onPhotoLoad(p, e) {
-  const r = e.target.naturalWidth / e.target.naturalHeight;
-  p.span = r >= 1.5 ? 2 : 1;
-}
 async function loadAllPhotos() {
   galleryLoading.value = true;
   try {
@@ -202,19 +197,19 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <button @click="openAllPhotos" class="text-sm text-blue-700">ดูภาพทั้งหมด <i class="fi-rr-angle-small-right"></i></button>
         </div>
         <div v-if="!photos.length" class="text-slate-400 text-sm py-8 text-center"><i class="fi-rr-picture text-2xl"></i><div class="mt-1">ยังไม่มีภาพการปฏิบัติงาน</div></div>
-        <!-- mosaic: ความสูงเท่ากันทุกใบ · ภาพแนวนอนกว้างกิน 2 คอลัมน์ · เติมเต็มช่องว่าง -->
-        <div v-else class="grid grid-cols-2 sm:grid-cols-4 grid-flow-row-dense auto-rows-[110px] sm:auto-rows-[140px] gap-2">
+        <!-- กริดสี่เหลี่ยมจัตุรัสเท่ากันทุกใบ — เรียงเต็มแถวพอดีทุกขนาดจอ (11 ภาพ + ปุ่ม = 12 ช่อง หาร 2/3/4/6 ลงตัว) -->
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
           <button v-for="p in photos" :key="p.id" @click="photoZoom = p"
-                  :class="['relative rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800', p.span === 2 ? 'col-span-2' : '']">
-            <img :src="p.url" @load="onPhotoLoad(p, $event)" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+                  class="relative aspect-square rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
+            <img :src="p.url" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
               <div class="text-[10px] text-white truncate">{{ p.student }}</div>
               <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
             </div>
           </button>
-          <!-- ปุ่ม "ดูเพิ่มเติม" บนภาพ — เติมช่องว่างท้ายกริด -->
-          <button @click="openAllPhotos" class="relative rounded-xl overflow-hidden group bg-slate-800">
-            <img :src="photos[0].url" class="w-full h-full object-cover opacity-35 group-hover:opacity-25 transition" alt="">
+          <!-- ปุ่ม "ดูเพิ่มเติม" — สี่เหลี่ยมจัตุรัสขนาดเท่าใบอื่น -->
+          <button @click="openAllPhotos" class="relative aspect-square rounded-xl overflow-hidden group bg-slate-800">
+            <img :src="photos[0].url" loading="lazy" class="w-full h-full object-cover opacity-35 group-hover:opacity-25 transition" alt="">
             <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
               <i class="fi-rr-apps text-2xl"></i>
               <span class="text-xs font-medium mt-1">ดูเพิ่มเติม</span>
