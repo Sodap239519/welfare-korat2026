@@ -7,6 +7,15 @@ import { useAuthStore } from '@/stores/auth';
 
 const auth = useAuthStore();
 
+// วันที่แบบไทย "7 มิถุนายน 2569" — parse จาก string ตรงๆ (กัน timezone เลื่อนวัน)
+const TH_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+function thaiDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return String(iso).slice(0, 10);
+  return `${d} ${TH_MONTHS[m - 1]} ${y + 543}`;
+}
+
 const logs = ref([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -27,7 +36,7 @@ const CATS = [
 
 const blankForm = () => ({
   work_date: new Date().toISOString().slice(0, 10),
-  time_start: '', time_end: '',
+  time_start: '', time_end: '', work_unit: '',
   registered_success: 0, registered_fail: 0,
   supervisor_name: '', supervisor_position: '', supervisor_date: '',
   entries: [{ period: 'เช้า', activity_type: '', detail: '', service_count: null }],
@@ -170,17 +179,17 @@ table.data th{background:#f1f5f9;text-align:left}
 .sign .box{text-align:center;font-size:13px;line-height:1.9}
 </style></head><body>
 <h1>รายงานการปฏิบัติงานรายวัน</h1>
-<div class="sub">โครงการบัตรสวัสดิการแห่งรัฐ 2569 · จังหวัดนครราชสีมา</div>
+<div class="sub">การเข้าร่วมปฏิบัติงานหนุนเสริมการลงทะเบียนบัตรสวัสดิการแห่งรัฐ ปี 2569 จังหวัดนครราชสีมา</div>
 <table class="meta">
-<tr><td class="k">นักศึกษา</td><td><b>${esc(name)}</b></td><td class="k">วันที่</td><td><b>${esc(date)}</b></td></tr>
-<tr><td class="k">ช่วงเวลา</td><td>${esc(time)}</td><td class="k">พิกัด GPS</td><td>${d.lat ? esc(d.lat + ', ' + d.lng) : 'ไม่มีพิกัด'}</td></tr>
+<tr><td class="k">นักศึกษา</td><td><b>${esc(name)}</b></td><td class="k">วันที่</td><td><b>${esc(thaiDate(d.work_date))}</b></td></tr>
+<tr><td class="k">ช่วงเวลา</td><td>${esc(time)}</td><td class="k">หน่วยบริการ</td><td>${esc(d.work_unit || '—')}</td></tr>
 </table>
 <h2>กิจกรรมที่ดำเนินการ</h2>
 <table class="data"><thead><tr><th class="c">#</th><th class="c">ช่วงเวลา</th><th>ประเภทกิจกรรม</th><th>รายละเอียด</th><th class="r">ผู้รับบริการ</th></tr></thead><tbody>${entryRows}</tbody></table>
-<div class="sum"><span>ผู้รับบริการรวม <b>${fmt(serviceTotal)}</b></span><span style="color:#16a34a">สำเร็จ <b>${fmt(d.registered_success)}</b></span><span style="color:#dc2626">ไม่สำเร็จ <b>${fmt(d.registered_fail)}</b></span></div>
+<div class="sum"><span>ผู้รับบริการรวม <b>${fmt(serviceTotal)}</b></span><span style="color:#16a34a">ลงทะเบียนสำเร็จ <b>${fmt(d.registered_success)}</b></span><span style="color:#dc2626">ลงทะเบียนไม่สำเร็จ <b>${fmt(d.registered_fail)}</b></span></div>
 ${caseRows ? `<h2>กรณีปัญหารายบุคคล</h2><table class="data"><thead><tr><th class="c">#</th><th>ชื่อ-สกุล</th><th>โทร</th><th>หมู่บ้าน/ตำบล</th><th>ปัญหา</th></tr></thead><tbody>${caseRows}</tbody></table>` : ''}
 ${photos ? `<h2>ภาพการปฏิบัติงาน</h2><div class="photos">${photos}</div>` : ''}
-<div class="sign"><div class="box"><div>ลงชื่อ ...........................................</div><div>( ${esc(d.supervisor_name || '                              ')} )</div><div>${esc(d.supervisor_position || 'ผู้ควบคุมงาน')}</div>${d.supervisor_date ? `<div>วันที่ ${esc((d.supervisor_date || '').slice(0, 10))}</div>` : ''}</div></div>
+<div class="sign"><div class="box"><div>ลงชื่อ ...........................................</div><div>( ${esc(d.supervisor_name || '                              ')} )</div><div>${esc(d.supervisor_position || 'ผู้ควบคุมงาน')}</div>${d.supervisor_date ? `<div>วันที่ ${esc(thaiDate(d.supervisor_date))}</div>` : ''}</div></div>
 <script>
 window.addEventListener('load',function(){
  var imgs=[].slice.call(document.images),pend=imgs.filter(function(im){return !im.complete});
@@ -212,6 +221,7 @@ async function openEdit(id) {
     work_date: d.work_date?.slice(0, 10) ?? '',
     time_start: d.time_start ? d.time_start.slice(0, 5) : '',
     time_end: d.time_end ? d.time_end.slice(0, 5) : '',
+    work_unit: d.work_unit ?? '',
     registered_success: d.registered_success,
     registered_fail: d.registered_fail,
     supervisor_name: d.supervisor_name ?? '',
@@ -262,6 +272,7 @@ async function save() {
     ...form,
     time_start: form.time_start || null,
     time_end: form.time_end || null,
+    work_unit: form.work_unit || null,
     supervisor_date: form.supervisor_date || null,
     lat: geo.lat, lng: geo.lng, location_accuracy: geo.accuracy, location_at: geo.at, location_status: geo.status,
     entries: form.entries.filter(e => e.activity_type?.trim()),
@@ -318,39 +329,28 @@ async function remove(id) {
       </div>
 
       <div v-else class="grid gap-3 sm:grid-cols-2">
-        <div v-for="l in logs" :key="l.id" class="card p-4">
+        <div v-for="l in logs" :key="l.id" class="card p-3.5">
           <!-- หัวการ์ด: วันที่ + ป้ายพิกัด + ปุ่ม -->
-          <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-              <div class="text-[11px] text-slate-400">วันที่ปฏิบัติงาน</div>
-              <div class="font-semibold text-base leading-tight">{{ l.work_date?.slice(0, 10) }}</div>
-              <span v-if="l.lat" class="inline-flex items-center gap-1 mt-1.5 text-[10px] text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full"><i class="fi-rr-marker"></i> มีพิกัด</span>
-              <span v-else class="inline-flex items-center gap-1 mt-1.5 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full"><i class="fi-rr-exclamation"></i> ไม่มีพิกัด</span>
+              <div class="font-semibold leading-tight">{{ thaiDate(l.work_date) }}</div>
+              <span v-if="l.lat" class="inline-flex items-center gap-1 mt-1 text-[10px] text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-full"><i class="fi-rr-marker"></i> มีพิกัด</span>
+              <span v-else class="inline-flex items-center gap-1 mt-1 text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full"><i class="fi-rr-exclamation"></i> ไม่มีพิกัด</span>
             </div>
-            <div class="flex gap-1 shrink-0">
+            <div class="flex gap-0.5 shrink-0 -mr-1">
               <button @click="openView(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="ดู / ออกรายงาน"><i class="fi-rr-eye"></i></button>
               <button @click="openEdit(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="แก้ไข"><i class="fi-rr-pencil"></i></button>
               <button @click="remove(l.id)" class="btn-icon hover:bg-red-50 text-red-500" title="ลบ"><i class="fi-rr-trash"></i></button>
             </div>
           </div>
-          <!-- แถบสถิติ: ไทล์ 2×2 (มือถือ) / 4 คอลัมน์ (เดสก์ท็อป) -->
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
-              <div class="text-[10px] text-slate-400">ผู้รับบริการ</div>
-              <div class="font-semibold">{{ formatNumber(l.service_total || 0) }}</div>
-            </div>
-            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
-              <div class="text-[10px] text-slate-400">ลงทะเบียน <span class="text-slate-300 dark:text-slate-600">สำเร็จ/ไม่</span></div>
-              <div class="font-semibold"><span class="text-green-600">{{ formatNumber(l.registered_success) }}</span> <span class="text-slate-300 dark:text-slate-600">/</span> <span class="text-red-500">{{ formatNumber(l.registered_fail) }}</span></div>
-            </div>
-            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
-              <div class="text-[10px] text-slate-400">ไฟล์แนบ</div>
-              <div class="font-semibold">{{ formatNumber(l.files_count) }}</div>
-            </div>
-            <div class="rounded-lg bg-slate-50 dark:bg-slate-800/40 px-3 py-2">
-              <div class="text-[10px] text-slate-400">กรณีปัญหา</div>
-              <div class="font-semibold">{{ formatNumber(l.cases_count) }}</div>
-            </div>
+          <!-- สถิติแบบกะทัดรัด: ป้าย ........ ค่า -->
+          <div v-if="l.work_unit" class="mt-2 text-xs text-slate-500 truncate"><i class="fi-rr-marker text-slate-400"></i> {{ l.work_unit }}</div>
+          <div class="mt-2 grid grid-cols-2 gap-x-5 gap-y-1 text-xs">
+            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ผู้รับบริการ</span><b>{{ formatNumber(l.service_total || 0) }}</b></div>
+            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ไฟล์แนบ</span><b>{{ formatNumber(l.files_count) }}</b></div>
+            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ลงทะเบียนสำเร็จ</span><b class="text-green-600">{{ formatNumber(l.registered_success) }}</b></div>
+            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ลงทะเบียนไม่สำเร็จ</span><b class="text-red-500">{{ formatNumber(l.registered_fail) }}</b></div>
+            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">กรณีปัญหา</span><b>{{ formatNumber(l.cases_count) }}</b></div>
           </div>
         </div>
       </div>
@@ -389,19 +389,32 @@ async function remove(id) {
       </div>
 
       <!-- หัว -->
-      <div class="card p-4 grid sm:grid-cols-3 gap-3">
+      <div class="card p-4 space-y-3">
+        <div class="grid sm:grid-cols-3 gap-3">
+          <label class="block">
+            <span class="text-xs text-slate-500">วันที่ปฏิบัติงาน *</span>
+            <input v-model="form.work_date" type="date" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          </label>
+          <label class="block">
+            <span class="text-xs text-slate-500">เวลาเริ่ม</span>
+            <input v-model="form.time_start" type="time" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          </label>
+          <label class="block">
+            <span class="text-xs text-slate-500">เวลาสิ้นสุด</span>
+            <input v-model="form.time_end" type="time" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          </label>
+        </div>
         <label class="block">
-          <span class="text-xs text-slate-500">วันที่ปฏิบัติงาน *</span>
-          <input v-model="form.work_date" type="date" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <span class="text-xs text-slate-500">หน่วยบริการที่ไปปฏิบัติงาน</span>
+          <input v-model="form.work_unit" list="unit-suggestions" placeholder="เช่น ที่ว่าการอำเภอเมืองนครราชสีมา / ธนาคารออมสิน สาขานครราชสีมา" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+          <span class="text-[11px] text-slate-400">หากเป็นธนาคาร โปรดระบุชื่อสาขาด้วย</span>
         </label>
-        <label class="block">
-          <span class="text-xs text-slate-500">เวลาเริ่ม</span>
-          <input v-model="form.time_start" type="time" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        </label>
-        <label class="block">
-          <span class="text-xs text-slate-500">เวลาสิ้นสุด</span>
-          <input v-model="form.time_end" type="time" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-        </label>
+        <datalist id="unit-suggestions">
+          <option value="ที่ว่าการอำเภอ" />
+          <option value="ธนาคารออมสิน สาขา" />
+          <option value="ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (ธ.ก.ส.) สาขา" />
+          <option value="ธนาคารกรุงไทย สาขา" />
+        </datalist>
       </div>
 
       <!-- กิจกรรม -->
@@ -539,7 +552,7 @@ async function remove(id) {
       <div class="bg-white dark:bg-slate-900 w-full sm:max-w-3xl sm:rounded-2xl shadow-xl sm:my-6">
         <div class="flex items-center justify-between gap-2 p-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
           <div class="min-w-0">
-            <h2 class="font-semibold truncate"><i class="fi-rr-document text-blue-600"></i> รายงานปฏิบัติงาน · {{ viewing.work_date?.slice(0, 10) }}</h2>
+            <h2 class="font-semibold truncate"><i class="fi-rr-document text-blue-600"></i> รายงานปฏิบัติงาน · {{ thaiDate(viewing.work_date) }}</h2>
             <div class="text-xs text-slate-500 truncate">{{ auth.user?.name }}</div>
           </div>
           <div class="flex gap-2 shrink-0">
@@ -549,12 +562,11 @@ async function remove(id) {
         </div>
 
         <div class="p-4 space-y-4 text-sm">
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div><span class="text-slate-400">ช่วงเวลา</span> {{ viewTime }}</div>
-            <div>
-              <span class="text-slate-400">พิกัด</span>
-              <a v-if="viewing.lat" :href="`https://www.google.com/maps?q=${viewing.lat},${viewing.lng}`" target="_blank" rel="noopener" class="text-blue-700 underline">ดูแผนที่</a>
-              <span v-else class="text-amber-500">ไม่มีพิกัด</span>
+            <div class="flex items-center gap-2">
+              <span><span class="text-slate-400">หน่วยบริการ</span> {{ viewing.work_unit || '—' }}</span>
+              <a v-if="viewing.lat" :href="`https://www.google.com/maps?q=${viewing.lat},${viewing.lng}`" target="_blank" rel="noopener" class="text-[11px] text-blue-700 underline shrink-0"><i class="fi-rr-marker"></i> แผนที่</a>
             </div>
           </div>
 
@@ -578,8 +590,8 @@ async function remove(id) {
             </div>
             <div class="flex flex-wrap gap-4 mt-2 text-xs">
               <span>ผู้รับบริการรวม <b>{{ formatNumber(viewServiceTotal) }}</b></span>
-              <span class="text-green-600">สำเร็จ <b>{{ formatNumber(viewing.registered_success) }}</b></span>
-              <span class="text-red-500">ไม่สำเร็จ <b>{{ formatNumber(viewing.registered_fail) }}</b></span>
+              <span class="text-green-600">ลงทะเบียนสำเร็จ <b>{{ formatNumber(viewing.registered_success) }}</b></span>
+              <span class="text-red-500">ลงทะเบียนไม่สำเร็จ <b>{{ formatNumber(viewing.registered_fail) }}</b></span>
             </div>
           </div>
 

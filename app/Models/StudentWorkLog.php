@@ -14,7 +14,7 @@ class StudentWorkLog extends Model
     use LogsActivity;
 
     protected $fillable = [
-        'user_id', 'work_date', 'time_start', 'time_end',
+        'user_id', 'work_date', 'time_start', 'time_end', 'work_unit',
         'registered_success', 'registered_fail',
         'supervisor_name', 'supervisor_position', 'supervisor_date',
         'lat', 'lng', 'location_accuracy', 'location_at', 'location_status',
