@@ -16,15 +16,22 @@ class ExecutiveReadOnly
     {
         $user = $request->user();
 
-        if ($user
-            && $user->hasRole('executive')
-            && !$user->hasAnyRole(['super_admin', 'admin'])   // ถ้ามี role อื่นด้วย ไม่บล็อก
-            && !in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
-            && !$request->is('api/auth/logout')               // ออกจากระบบได้
-        ) {
-            return response()->json([
-                'message' => 'บัญชีผู้บริหารดูข้อมูลได้อย่างเดียว — ไม่สามารถแก้ไขข้อมูลในระบบ',
-            ], 403);
+        if ($user) {
+            // อ่านชื่อ role จาก relation ตรง ๆ (ไม่เรียก Role::findByName ที่จะ throw
+            // RoleDoesNotExist ถ้า permission cache เก่า/ยังไม่รู้จัก role — กันทุก write 500)
+            $roles = $user->getRoleNames();
+
+            $isExecutiveOnly = $roles->contains('executive')
+                && $roles->intersect(['super_admin', 'admin'])->isEmpty();   // ถ้ามี role อื่นด้วย ไม่บล็อก
+
+            if ($isExecutiveOnly
+                && !in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)
+                && !$request->is('api/auth/logout')           // ออกจากระบบได้
+            ) {
+                return response()->json([
+                    'message' => 'บัญชีผู้บริหารดูข้อมูลได้อย่างเดียว — ไม่สามารถแก้ไขข้อมูลในระบบ',
+                ], 403);
+            }
         }
 
         return $next($request);
