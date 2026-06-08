@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Sanctum SPA cookie-based auth for first-party frontend
         $middleware->statefulApi();
 
+        // ผู้บริหาร (executive) = อ่านอย่างเดียว — บล็อกทุก write request ใน API
+        $middleware->api(append: [
+            \App\Http\Middleware\ExecutiveReadOnly::class,
+        ]);
+
         // Trust ALL proxies + headers — รองรับการรันผ่าน Cloudflare Tunnel / ngrok
         // โดยจะอ่าน X-Forwarded-Proto = "https" ทำให้ asset() สร้าง URL เป็น https
         $middleware->trustProxies(at: '*', headers:

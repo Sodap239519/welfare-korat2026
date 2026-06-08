@@ -3,11 +3,13 @@ import { useAuthStore } from '@/stores/auth';
 
 // เจ้าหน้าที่ (ไม่รวมนักศึกษา) — ใช้จำกัดหน้าปฏิบัติงานเดิมไม่ให้นักศึกษาเห็น
 const STAFF = ['super_admin', 'admin', 'tracker', 'bank_staff'];
+// ผู้ดูข้อมูล — STAFF + ผู้บริหาร (executive) เห็นทุกหน้ารายงาน/ข้อมูล แบบ read-only
+const VIEW = [...STAFF, 'executive'];
 
 /** หน้าแรกหลัง login ตาม role — นักศึกษาเข้าโมดูลตัวเอง, ที่เหลือเข้า dashboard */
 export function homeFor(auth) {
   if (auth.roles.includes('student')) return { name: 'student-worklog' };
-  if (auth.roles.includes('executive')) return { name: 'student-report' };
+  // executive + เจ้าหน้าที่ → Dashboard ภาพรวม (executive ดูได้ทุกหน้าแบบ read-only)
   return { name: 'dashboard' };
 }
 
@@ -18,17 +20,17 @@ const routes = [
   { path: '/student-tracking', name: 'student-tracking', component: () => import('@/pages/StudentTracking.vue'), meta: { public: true } },
   { path: '/login',   name: 'login',         component: () => import('@/pages/Login.vue'),       meta: { guest: true } },
 
-  { path: '/dashboard',     name: 'dashboard',     component: () => import('@/pages/Dashboard.vue'),     meta: { auth: true, roles: STAFF } },
-  { path: '/missed-targets', name: 'missed-targets', component: () => import('@/pages/MissedTargets.vue'), meta: { auth: true, roles: STAFF } },
+  { path: '/dashboard',     name: 'dashboard',     component: () => import('@/pages/Dashboard.vue'),     meta: { auth: true, roles: VIEW } },
+  { path: '/missed-targets', name: 'missed-targets', component: () => import('@/pages/MissedTargets.vue'), meta: { auth: true, roles: VIEW } },
   { path: '/overview',      redirect: '/dashboard' },   // รวมเป็นหน้าเดียวแล้ว
-  { path: '/targets',       name: 'targets',       component: () => import('@/pages/Targets.vue'),       meta: { auth: true, roles: STAFF } },
-  { path: '/targets/:id',   name: 'target-detail', component: () => import('@/pages/TargetDetail.vue'),  meta: { auth: true, roles: STAFF } },
-  { path: '/batches',       name: 'batches',       component: () => import('@/pages/Batches.vue'),       meta: { auth: true, roles: STAFF } },
-  { path: '/batches/:id',   name: 'batch-detail',  component: () => import('@/pages/BatchDetail.vue'),   meta: { auth: true, roles: STAFF } },
-  { path: '/map',           name: 'map',           component: () => import('@/pages/Map.vue'),           meta: { auth: true, roles: STAFF } },
-  { path: '/trackers',      name: 'trackers',      component: () => import('@/pages/Trackers.vue'),      meta: { auth: true, roles: STAFF } },
+  { path: '/targets',       name: 'targets',       component: () => import('@/pages/Targets.vue'),       meta: { auth: true, roles: VIEW } },
+  { path: '/targets/:id',   name: 'target-detail', component: () => import('@/pages/TargetDetail.vue'),  meta: { auth: true, roles: VIEW } },
+  { path: '/batches',       name: 'batches',       component: () => import('@/pages/Batches.vue'),       meta: { auth: true, roles: VIEW } },
+  { path: '/batches/:id',   name: 'batch-detail',  component: () => import('@/pages/BatchDetail.vue'),   meta: { auth: true, roles: VIEW } },
+  { path: '/map',           name: 'map',           component: () => import('@/pages/Map.vue'),           meta: { auth: true, roles: VIEW } },
+  { path: '/trackers',      name: 'trackers',      component: () => import('@/pages/Trackers.vue'),      meta: { auth: true, roles: VIEW } },
   { path: '/import',        name: 'import',        component: () => import('@/pages/Import.vue'),        meta: { auth: true, roles: ['super_admin'] } },
-  { path: '/reports',       name: 'reports',       component: () => import('@/pages/Reports.vue'),       meta: { auth: true, roles: STAFF } },
+  { path: '/reports',       name: 'reports',       component: () => import('@/pages/Reports.vue'),       meta: { auth: true, roles: VIEW } },
 
   // ── โมดูลนักศึกษา ──
   { path: '/student/work-log',   name: 'student-worklog',    component: () => import('@/pages/student/WorkLog.vue'),        meta: { auth: true, roles: ['student'] } },

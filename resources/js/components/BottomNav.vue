@@ -14,7 +14,9 @@ const STUDENT = [
   { name: 'student-assessment', icon: 'fi-rr-clipboard-list', label: 'ประเมิน' },
 ];
 const EXEC = [
-  { name: 'student-report', icon: 'fi-rr-graduation-cap', label: 'รายงาน' },
+  { name: 'dashboard',      icon: 'fi-rr-apps',          label: 'ภาพรวม' },
+  { name: 'reports',        icon: 'fi-rr-chart-pie',     label: 'รายงาน' },
+  { name: 'student-report', icon: 'fi-rr-graduation-cap', label: 'นักศึกษา' },
   { name: 'project-info',   icon: 'fi-rr-document',       label: 'โครงการ' },
 ];
 const STAFF = [

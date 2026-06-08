@@ -12,12 +12,14 @@ const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
 
+// ผู้บริหาร (executive) = ดูอย่างเดียว ซ่อนปุ่มแก้ไขทั้งหมด
+const isViewer = computed(() => auth.roles.includes('executive'));
 // Walk-in feature เห็นเฉพาะ bank_staff (หรือ admin/super_admin ที่ทำแทนได้)
-const canWalkIn = computed(() => auth.roles.includes('bank_staff')
-  || auth.roles.includes('admin') || auth.roles.includes('super_admin'));
+const canWalkIn = computed(() => !isViewer.value && (auth.roles.includes('bank_staff')
+  || auth.roles.includes('admin') || auth.roles.includes('super_admin')));
 // Tracker tools (batch + bulk status) เห็นเฉพาะ tracker/admin/super_admin (bank_staff ไม่เห็น)
-const canTrackerTools = computed(() => !auth.roles.includes('bank_staff')
-  || auth.roles.includes('admin') || auth.roles.includes('super_admin'));
+const canTrackerTools = computed(() => !isViewer.value && (!auth.roles.includes('bank_staff')
+  || auth.roles.includes('admin') || auth.roles.includes('super_admin')));
 const bootstrapping = ref(true);
 
 const statuses = ref([]);
@@ -477,7 +479,7 @@ async function submitAdd() {
                   class="shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
             <i class="fi-rr-trash"></i> <span class="hidden sm:inline">ลบทั้งหมด</span>
           </button>
-          <button @click="openAddModal" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
+          <button v-if="!isViewer" @click="openAddModal" class="btn-green shrink-0 px-3 py-2.5 text-sm flex items-center gap-1.5">
             <i class="fi-rr-add"></i> <span class="hidden sm:inline">เพิ่มรายชื่อ</span>
           </button>
         </div>

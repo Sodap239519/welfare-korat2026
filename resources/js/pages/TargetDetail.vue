@@ -2,13 +2,16 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import Loader from '@/components/Loader.vue';
 import Modal from '@/components/Modal.vue';
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import axios from 'axios';
 import { useRoute, useRouter } from 'vue-router';
 import { formatNumber, shortDate, statusColorClass, statusShort } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
+const isViewer = computed(() => auth.roles.includes('executive'));   // ผู้บริหาร = ดูอย่างเดียว
 const id = Number(route.params.id);
 
 const target = ref(null);
@@ -185,7 +188,7 @@ function initials(name) {
               </div>
             </div>
           </div>
-          <button @click="openEdit" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-sm flex items-center gap-1.5">
+          <button v-if="!isViewer" @click="openEdit" class="px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-sm flex items-center gap-1.5">
             <i class="fi-rr-edit"></i> แก้ไขข้อมูล
           </button>
         </div>
@@ -328,8 +331,9 @@ function initials(name) {
 
           <!-- ╔══════════════════════════════════════════════╗ -->
           <!-- ║  อัปเดตสถานะ (mobile 4 · desktop left big block) ║ -->
+          <!-- ║  ผู้บริหาร (executive) = ดูอย่างเดียว ซ่อนฟอร์มนี้  ║ -->
           <!-- ╚══════════════════════════════════════════════╝ -->
-          <div class="card p-5 order-4 lg:col-start-1 lg:row-start-1 lg:col-span-2 lg:row-span-3">
+          <div v-if="!isViewer" class="card p-5 order-4 lg:col-start-1 lg:row-start-1 lg:col-span-2 lg:row-span-3">
             <div class="font-semibold mb-3">อัปเดตสถานะ</div>
 
             <div v-if="flashOk" class="card-tint-green p-3 text-sm mb-3"><i class="fi-rr-check-circle"></i> {{ flashOk }}</div>

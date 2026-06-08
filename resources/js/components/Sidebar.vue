@@ -16,14 +16,16 @@ async function doLogout() {
 }
 // เจ้าหน้าที่ (ไม่รวมนักศึกษา) — หน้าปฏิบัติงานเดิม
 const STAFF = ['super_admin', 'admin', 'tracker', 'bank_staff'];
+// ผู้ดูข้อมูล — STAFF + ผู้บริหาร (executive) เห็นทุกหน้าแบบ read-only
+const VIEW = [...STAFF, 'executive'];
 const allItems = [
-  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม',  roles: STAFF },
-  { name: 'missed-targets', icon: 'fi-rr-search-heart',     label: 'กลุ่มเป้าหมายผู้ตกหล่น', roles: STAFF },
-  { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย',     roles: STAFF },
-  { name: 'batches',        icon: 'fi-rr-box-alt',          label: 'ห่อเอกสารธนาคาร',   roles: STAFF },
-  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: STAFF },
-  { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม',     roles: STAFF },
-  { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: STAFF },
+  { name: 'dashboard',      icon: 'fi-rr-apps',             label: 'Dashboard · ภาพรวม',  roles: VIEW },
+  { name: 'missed-targets', icon: 'fi-rr-search-heart',     label: 'กลุ่มเป้าหมายผู้ตกหล่น', roles: VIEW },
+  { name: 'targets',        icon: 'fi-rr-users-alt',        label: 'รายชื่อเป้าหมาย',     roles: VIEW },
+  { name: 'batches',        icon: 'fi-rr-box-alt',          label: 'ห่อเอกสารธนาคาร',   roles: VIEW },
+  { name: 'map',            icon: 'fi-rr-marker',           label: 'แผนที่หมู่บ้าน',     roles: VIEW },
+  { name: 'trackers',       icon: 'fi-rr-user-headset',     label: 'ผู้กำกับติดตาม',     roles: VIEW },
+  { name: 'reports',        icon: 'fi-rr-chart-pie',        label: 'รายงาน',              roles: VIEW },
   // ── โมดูลนักศึกษา ──
   { name: 'student-worklog',    icon: 'fi-rr-edit',          label: 'บันทึกการปฏิบัติงาน', roles: ['student'] },
   { name: 'student-assessment', icon: 'fi-rr-clipboard-list', label: 'ประเมินตนเอง',       roles: ['student'] },
