@@ -3,6 +3,9 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
+
+const auth = useAuthStore();
 
 const logs = ref([]);
 const loading = ref(false);
@@ -108,6 +111,90 @@ async function load() {
   } finally { loading.value = false; }
 }
 onMounted(load);
+
+// ── มุมมองอ่านอย่างเดียว + ออกรายงานรายวัน (ไว้แนบเอกสารเบิกจ่าย) ──
+const viewing = ref(null);
+const viewLoading = ref(false);
+async function openView(id) {
+  viewLoading.value = true;
+  try {
+    const { data } = await axios.get(`/api/student/work-logs/${id}`);
+    viewing.value = data.data;
+  } finally { viewLoading.value = false; }
+}
+const closeView = () => { viewing.value = null; };
+const viewTime = computed(() => {
+  const d = viewing.value; if (!d) return '-';
+  const s = (d.time_start || '').slice(0, 5), e = (d.time_end || '').slice(0, 5);
+  return (s || e) ? `${s || '—'} - ${e || '—'}` : '-';
+});
+const viewServiceTotal = computed(() => (viewing.value?.entries || []).reduce((a, e) => a + (+e.service_count || 0), 0));
+const viewImages = computed(() => (viewing.value?.files || []).filter(f => f.is_image));
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function printReport() {
+  const d = viewing.value; if (!d) return;
+  const fmt = (n) => Number(n || 0).toLocaleString('th-TH');
+  const name = auth.user?.name || '—';
+  const date = (d.work_date || '').slice(0, 10);
+  const s = (d.time_start || '').slice(0, 5), e = (d.time_end || '').slice(0, 5);
+  const time = (s || e) ? `${s || '—'} - ${e || '—'}` : '-';
+  const serviceTotal = (d.entries || []).reduce((a, x) => a + (+x.service_count || 0), 0);
+  const entryRows = (d.entries || []).map((x, i) =>
+    `<tr><td class="c">${i + 1}</td><td class="c">${esc(x.period)}</td><td>${esc(x.activity_type)}</td><td>${esc(x.detail)}</td><td class="r">${fmt(x.service_count)}</td></tr>`
+  ).join('') || '<tr><td colspan="5" class="c muted">— ไม่มีกิจกรรม —</td></tr>';
+  const caseRows = (d.cases || []).map((c, i) =>
+    `<tr><td class="c">${i + 1}</td><td>${esc(c.full_name)}</td><td>${esc(c.phone)}</td><td>${esc(c.village_tambon)}</td><td>${esc(c.problem)}</td></tr>`
+  ).join('');
+  const photos = (d.files || []).filter(f => f.is_image).map(f => `<img src="/api/files/work/${f.id}">`).join('');
+  const html =
+`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานปฏิบัติงาน ${esc(date)}</title>
+<style>
+@page{size:A4;margin:14mm}
+*{font-family:'Sarabun','TH Sarabun New',Tahoma,sans-serif;box-sizing:border-box}
+body{color:#1e293b;font-size:14px;margin:0}
+h1{font-size:20px;text-align:center;margin:0 0 2px}
+.sub{text-align:center;color:#64748b;font-size:13px;margin-bottom:14px}
+.meta{width:100%;border-collapse:collapse;margin-bottom:6px}
+.meta td{padding:3px 6px;font-size:13px}.meta .k{color:#64748b;width:84px}
+h2{font-size:15px;margin:16px 0 6px;border-left:4px solid #2563eb;padding-left:8px}
+table.data{width:100%;border-collapse:collapse;font-size:13px}
+table.data th,table.data td{border:1px solid #cbd5e1;padding:5px 7px;vertical-align:top}
+table.data th{background:#f1f5f9;text-align:left}
+.c{text-align:center}.r{text-align:right}.muted{color:#94a3b8}
+.sum{display:flex;gap:18px;margin:8px 2px;font-size:13px}
+.photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.photos img{height:130px;width:auto;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover}
+.sign{margin-top:36px;display:flex;justify-content:flex-end}
+.sign .box{text-align:center;font-size:13px;line-height:1.9}
+</style></head><body>
+<h1>รายงานการปฏิบัติงานรายวัน</h1>
+<div class="sub">โครงการบัตรสวัสดิการแห่งรัฐ 2569 · จังหวัดนครราชสีมา</div>
+<table class="meta">
+<tr><td class="k">นักศึกษา</td><td><b>${esc(name)}</b></td><td class="k">วันที่</td><td><b>${esc(date)}</b></td></tr>
+<tr><td class="k">ช่วงเวลา</td><td>${esc(time)}</td><td class="k">พิกัด GPS</td><td>${d.lat ? esc(d.lat + ', ' + d.lng) : 'ไม่มีพิกัด'}</td></tr>
+</table>
+<h2>กิจกรรมที่ดำเนินการ</h2>
+<table class="data"><thead><tr><th class="c">#</th><th class="c">ช่วงเวลา</th><th>ประเภทกิจกรรม</th><th>รายละเอียด</th><th class="r">ผู้รับบริการ</th></tr></thead><tbody>${entryRows}</tbody></table>
+<div class="sum"><span>ผู้รับบริการรวม <b>${fmt(serviceTotal)}</b></span><span style="color:#16a34a">สำเร็จ <b>${fmt(d.registered_success)}</b></span><span style="color:#dc2626">ไม่สำเร็จ <b>${fmt(d.registered_fail)}</b></span></div>
+${caseRows ? `<h2>กรณีปัญหารายบุคคล</h2><table class="data"><thead><tr><th class="c">#</th><th>ชื่อ-สกุล</th><th>โทร</th><th>หมู่บ้าน/ตำบล</th><th>ปัญหา</th></tr></thead><tbody>${caseRows}</tbody></table>` : ''}
+${photos ? `<h2>ภาพการปฏิบัติงาน</h2><div class="photos">${photos}</div>` : ''}
+<div class="sign"><div class="box"><div>ลงชื่อ ...........................................</div><div>( ${esc(d.supervisor_name || '                              ')} )</div><div>${esc(d.supervisor_position || 'ผู้ควบคุมงาน')}</div>${d.supervisor_date ? `<div>วันที่ ${esc((d.supervisor_date || '').slice(0, 10))}</div>` : ''}</div></div>
+<script>
+window.addEventListener('load',function(){
+ var imgs=[].slice.call(document.images),pend=imgs.filter(function(im){return !im.complete});
+ function go(){setTimeout(function(){window.print()},200)}
+ if(!pend.length){go();return}
+ var n=0;pend.forEach(function(im){function c(){if(++n>=pend.length)go()}im.addEventListener('load',c);im.addEventListener('error',c)});
+ setTimeout(go,2500);
+});
+<\/script>
+</body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป — กรุณาอนุญาต popup เพื่อพิมพ์/บันทึก PDF'); return; }
+  w.document.write(html); w.document.close(); w.focus();
+}
 
 function openCreate() {
   resetForm();
@@ -246,6 +333,7 @@ async function remove(id) {
             <div><span class="text-slate-400">กรณีปัญหา</span> <b>{{ l.cases_count }}</b></div>
           </div>
           <div class="flex gap-2">
+            <button @click="openView(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="ดู / ออกรายงาน"><i class="fi-rr-eye"></i></button>
             <button @click="openEdit(l.id)" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="แก้ไข"><i class="fi-rr-pencil"></i></button>
             <button @click="remove(l.id)" class="btn-icon hover:bg-red-50 text-red-500" title="ลบ"><i class="fi-rr-trash"></i></button>
           </div>
@@ -428,6 +516,81 @@ async function remove(id) {
           <i v-if="saving" class="fi-rr-spinner animate-spin"></i> {{ editingId ? 'บันทึกการแก้ไข' : 'บันทึก' }}
         </button>
         <button @click="showForm = false" class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm">ยกเลิก</button>
+      </div>
+    </div>
+
+    <!-- มุมมองอ่านอย่างเดียว + ออกรายงานรายวัน -->
+    <div v-if="viewing" class="fixed inset-0 z-50 bg-black/50 flex items-start sm:items-center justify-center sm:p-4 overflow-y-auto" @click.self="closeView">
+      <div class="bg-white dark:bg-slate-900 w-full sm:max-w-3xl sm:rounded-2xl shadow-xl sm:my-6">
+        <div class="flex items-center justify-between gap-2 p-4 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+          <div class="min-w-0">
+            <h2 class="font-semibold truncate"><i class="fi-rr-document text-blue-600"></i> รายงานปฏิบัติงาน · {{ viewing.work_date?.slice(0, 10) }}</h2>
+            <div class="text-xs text-slate-500 truncate">{{ auth.user?.name }}</div>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <button @click="printReport" class="btn-primary text-sm"><i class="fi-rr-print"></i> พิมพ์ / บันทึก PDF</button>
+            <button @click="closeView" class="btn-icon hover:bg-slate-100 dark:hover:bg-slate-800" title="ปิด"><i class="fi-rr-cross-small"></i></button>
+          </div>
+        </div>
+
+        <div class="p-4 space-y-4 text-sm">
+          <div class="grid grid-cols-2 gap-2">
+            <div><span class="text-slate-400">ช่วงเวลา</span> {{ viewTime }}</div>
+            <div>
+              <span class="text-slate-400">พิกัด</span>
+              <a v-if="viewing.lat" :href="`https://www.google.com/maps?q=${viewing.lat},${viewing.lng}`" target="_blank" rel="noopener" class="text-blue-700 underline">ดูแผนที่</a>
+              <span v-else class="text-amber-500">ไม่มีพิกัด</span>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-medium mb-1"><i class="fi-rr-list text-blue-600"></i> กิจกรรมที่ดำเนินการ</h3>
+            <div class="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-800">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500">
+                  <tr><th class="text-left p-2">ช่วงเวลา</th><th class="text-left p-2">ประเภท</th><th class="text-left p-2">รายละเอียด</th><th class="text-right p-2">ผู้รับบริการ</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50 dark:divide-slate-800/60">
+                  <tr v-for="(e, i) in viewing.entries" :key="i" class="align-top">
+                    <td class="p-2 whitespace-nowrap">{{ e.period }}</td>
+                    <td class="p-2">{{ e.activity_type }}</td>
+                    <td class="p-2">{{ e.detail }}</td>
+                    <td class="p-2 text-right">{{ formatNumber(e.service_count || 0) }}</td>
+                  </tr>
+                  <tr v-if="!viewing.entries?.length"><td colspan="4" class="p-4 text-center text-slate-400">— ไม่มีกิจกรรม —</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="flex flex-wrap gap-4 mt-2 text-xs">
+              <span>ผู้รับบริการรวม <b>{{ formatNumber(viewServiceTotal) }}</b></span>
+              <span class="text-green-600">สำเร็จ <b>{{ formatNumber(viewing.registered_success) }}</b></span>
+              <span class="text-red-500">ไม่สำเร็จ <b>{{ formatNumber(viewing.registered_fail) }}</b></span>
+            </div>
+          </div>
+
+          <div v-if="viewing.cases?.length">
+            <h3 class="font-medium mb-1"><i class="fi-rr-user text-blue-600"></i> กรณีปัญหารายบุคคล</h3>
+            <div v-for="(c, i) in viewing.cases" :key="i" class="border border-slate-100 dark:border-slate-800 rounded-lg p-2 mb-1">
+              <div class="font-medium">{{ c.full_name }} <span v-if="c.phone" class="text-slate-400 text-xs font-normal">· {{ c.phone }}</span></div>
+              <div v-if="c.village_tambon" class="text-xs text-slate-500">{{ c.village_tambon }}</div>
+              <div class="text-xs mt-0.5">{{ c.problem }}</div>
+            </div>
+          </div>
+
+          <div v-if="viewImages.length">
+            <h3 class="font-medium mb-1"><i class="fi-rr-picture text-blue-600"></i> ภาพการปฏิบัติงาน</h3>
+            <div class="flex flex-wrap gap-2">
+              <a v-for="f in viewImages" :key="f.id" :href="fileUrl(f)" target="_blank" rel="noopener">
+                <img :src="fileUrl(f)" loading="lazy" class="h-24 w-auto rounded-lg border border-slate-200 dark:border-slate-700 object-cover" :alt="f.original_name">
+              </a>
+            </div>
+          </div>
+
+          <div v-if="viewing.supervisor_name" class="text-xs text-slate-500 pt-1">
+            ผู้ควบคุมงาน: <b class="text-slate-700 dark:text-slate-200">{{ viewing.supervisor_name }}</b>
+            <span v-if="viewing.supervisor_position"> · {{ viewing.supervisor_position }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </AppLayout>
