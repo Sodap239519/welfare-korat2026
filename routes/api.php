@@ -113,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('import/run',      [ImportController::class, 'run']);
     Route::get('import/logs',      [ImportController::class, 'logs']);
     Route::get('import/logs/{id}', [ImportController::class, 'showLog'])->whereNumber('id');
+    Route::middleware('role:super_admin')->delete('import/logs', [ImportController::class, 'clearLogs']);
 
     // กลุ่มเป้าหมายผู้ตกหล่น — อ่านได้ทุก role · อัปโหลด เฉพาะ super_admin
     Route::get('missed-targets',          [MissedTargetController::class, 'index']);

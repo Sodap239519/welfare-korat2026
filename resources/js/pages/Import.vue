@@ -3,6 +3,11 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import { formatNumber, shortDate } from '@/composables/useApi';
+import { useAuthStore } from '@/stores/auth';
+
+const auth = useAuthStore();
+const isSuper = computed(() => auth.roles.includes('super_admin'));
+const clearing = ref(false);
 
 const fileInput = ref(null);
 const selectedFile = ref(null);
@@ -20,6 +25,20 @@ async function loadLogs() {
   logs.value = data.data;
 }
 onMounted(loadLogs);
+
+async function clearLogs() {
+  if (!confirm('ล้างประวัติการนำเข้าทั้งหมด?\n(ลบเฉพาะรายการประวัติ — ไม่กระทบรายชื่อเป้าหมายที่นำเข้าไปแล้ว)')) return;
+  clearing.value = true;
+  try {
+    const { data } = await axios.delete('/api/import/logs');
+    logs.value = [];
+    alert(data.message || 'ล้างประวัติแล้ว');
+  } catch (e) {
+    alert(e.response?.data?.message || 'ล้างประวัติไม่สำเร็จ');
+  } finally {
+    clearing.value = false;
+  }
+}
 
 function pickFile(e) {
   const f = e.target.files?.[0];
@@ -258,7 +277,13 @@ const showingFixes = computed(() => (preview.value?.autofix || []).filter(r => r
       <div class="card">
         <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div class="font-semibold">ประวัติการนำเข้า</div>
-          <button @click="loadLogs" class="text-xs text-blue-700 hover:underline">รีเฟรช</button>
+          <div class="flex items-center gap-3">
+            <button @click="loadLogs" class="text-xs text-blue-700 hover:underline">รีเฟรช</button>
+            <button v-if="isSuper && logs.length" @click="clearLogs" :disabled="clearing"
+              class="text-xs text-red-600 hover:underline disabled:opacity-50">
+              {{ clearing ? 'กำลังล้าง…' : 'ล้างประวัติ' }}
+            </button>
+          </div>
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">

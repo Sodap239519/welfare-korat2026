@@ -103,6 +103,20 @@ class ImportController extends Controller
         return response()->json(['data' => $logs]);
     }
 
+    /**
+     * DELETE /api/import/logs
+     * ล้างประวัติการนำเข้าทั้งหมด (เฉพาะ super_admin) — ไม่แตะข้อมูลเป้าหมาย
+     */
+    public function clearLogs(): JsonResponse
+    {
+        $deleted = ImportLog::query()->delete();
+
+        return response()->json([
+            'message' => "ล้างประวัติการนำเข้าแล้ว {$deleted} รายการ",
+            'deleted' => $deleted,
+        ]);
+    }
+
     /** GET /api/import/logs/{id} */
     public function showLog(int $id): JsonResponse
     {
