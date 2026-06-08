@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/layouts/AppLayout.vue';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import axios from 'axios';
 import { formatNumber } from '@/composables/useApi';
 
@@ -12,7 +12,7 @@ const editingId = ref(null);
 const errorMsg = ref('');
 const flashOk = ref('');
 
-const PERIODS = ['เช้า', 'บ่าย', 'เพิ่มเติม'];
+const PERIODS = ['เช้า', 'บ่าย', 'เย็น', 'เพิ่มเติม'];
 const ACTIVITY_SUGGESTIONS = ['ให้คำแนะนำการลงทะเบียน', 'ช่วยกรอกข้อมูล', 'ตรวจสอบเอกสาร', 'คัดกรองกลุ่มตกหล่น'];
 
 // หมวดไฟล์แนบ
@@ -31,6 +31,13 @@ const blankForm = () => ({
   cases: [],
 });
 const form = reactive(blankForm());
+
+// เลือก "เพิ่มเติม" → ตั้งช่วงเวลาเป็น "เย็น" อัตโนมัติ (ยังแก้ไขเป็นช่วงอื่นได้)
+watch(() => form.entries.map(e => e.period), (periods) => {
+  periods.forEach((p, i) => {
+    if (p === 'เพิ่มเติม' && form.entries[i]) form.entries[i].period = 'เย็น';
+  });
+});
 
 // ── GPS ──
 const geo = reactive({ lat: null, lng: null, accuracy: null, at: null, status: '', error: '' });
@@ -134,7 +141,7 @@ async function openEdit(id) {
   flashOk.value = '';
 }
 
-const addEntry = () => form.entries.push({ period: 'บ่าย', activity_type: '', detail: '', service_count: null });
+const addEntry = () => form.entries.push({ period: 'เย็น', activity_type: '', detail: '', service_count: null });
 const removeEntry = (i) => form.entries.splice(i, 1);
 const addCase = () => form.cases.push({ full_name: '', phone: '', village_tambon: '', problem: '' });
 const removeCase = (i) => form.cases.splice(i, 1);
