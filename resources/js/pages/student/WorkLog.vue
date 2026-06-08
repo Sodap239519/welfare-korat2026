@@ -36,7 +36,7 @@ const CATS = [
 
 const blankForm = () => ({
   work_date: new Date().toISOString().slice(0, 10),
-  time_start: '', time_end: '', work_unit: '',
+  time_start: '', time_end: '',
   registered_success: 0, registered_fail: 0,
   supervisor_name: '', supervisor_position: '', supervisor_date: '',
   entries: [{ period: 'เช้า', activity_type: '', detail: '', service_count: null }],
@@ -182,7 +182,7 @@ table.data th{background:#f1f5f9;text-align:left}
 <div class="sub">การเข้าร่วมปฏิบัติงานหนุนเสริมการลงทะเบียนบัตรสวัสดิการแห่งรัฐ ปี 2569 จังหวัดนครราชสีมา</div>
 <table class="meta">
 <tr><td class="k">นักศึกษา</td><td><b>${esc(name)}</b></td><td class="k">วันที่</td><td><b>${esc(thaiDate(d.work_date))}</b></td></tr>
-<tr><td class="k">ช่วงเวลา</td><td>${esc(time)}</td><td class="k">หน่วยบริการ</td><td>${esc(d.work_unit || '—')}</td></tr>
+<tr><td class="k">ช่วงเวลา</td><td>${esc(time)}</td><td class="k">หน่วยบริการ</td><td>${esc(auth.user?.work_unit_label || '—')}</td></tr>
 </table>
 <h2>กิจกรรมที่ดำเนินการ</h2>
 <table class="data"><thead><tr><th class="c">#</th><th class="c">ช่วงเวลา</th><th>ประเภทกิจกรรม</th><th>รายละเอียด</th><th class="r">ผู้รับบริการ</th></tr></thead><tbody>${entryRows}</tbody></table>
@@ -221,7 +221,6 @@ async function openEdit(id) {
     work_date: d.work_date?.slice(0, 10) ?? '',
     time_start: d.time_start ? d.time_start.slice(0, 5) : '',
     time_end: d.time_end ? d.time_end.slice(0, 5) : '',
-    work_unit: d.work_unit ?? '',
     registered_success: d.registered_success,
     registered_fail: d.registered_fail,
     supervisor_name: d.supervisor_name ?? '',
@@ -272,7 +271,6 @@ async function save() {
     ...form,
     time_start: form.time_start || null,
     time_end: form.time_end || null,
-    work_unit: form.work_unit || null,
     supervisor_date: form.supervisor_date || null,
     lat: geo.lat, lng: geo.lng, location_accuracy: geo.accuracy, location_at: geo.at, location_status: geo.status,
     entries: form.entries.filter(e => e.activity_type?.trim()),
@@ -343,8 +341,7 @@ async function remove(id) {
               <button @click="remove(l.id)" class="btn-icon hover:bg-red-50 text-red-500" title="ลบ"><i class="fi-rr-trash"></i></button>
             </div>
           </div>
-          <!-- สถิติแบบกะทัดรัด: ป้าย ........ ค่า -->
-          <div v-if="l.work_unit" class="mt-2 text-xs text-slate-500 truncate"><i class="fi-rr-marker text-slate-400"></i> {{ l.work_unit }}</div>
+          <!-- สถิติแบบแถวเดียว คั่นด้วย / -->
           <div class="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
             <span>ผู้รับบริการ <b class="text-slate-700 dark:text-slate-200">{{ formatNumber(l.service_total || 0) }}</b> คน</span>
             <span class="text-slate-300 dark:text-slate-600">/</span>
@@ -392,6 +389,9 @@ async function remove(id) {
 
       <!-- หัว -->
       <div class="card p-4 space-y-3">
+        <div v-if="auth.user?.work_unit_label" class="text-xs text-slate-500 flex items-center gap-1.5">
+          <i class="fi-rr-building text-blue-600"></i> หน่วยบริการที่ปฏิบัติงาน: <b class="text-slate-700 dark:text-slate-200">{{ auth.user.work_unit_label }}</b>
+        </div>
         <div class="grid sm:grid-cols-3 gap-3">
           <label class="block">
             <span class="text-xs text-slate-500">วันที่ปฏิบัติงาน *</span>
@@ -406,17 +406,6 @@ async function remove(id) {
             <input v-model="form.time_end" type="time" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
           </label>
         </div>
-        <label class="block">
-          <span class="text-xs text-slate-500">หน่วยบริการที่ไปปฏิบัติงาน</span>
-          <input v-model="form.work_unit" list="unit-suggestions" placeholder="เช่น ที่ว่าการอำเภอเมืองนครราชสีมา / ธนาคารออมสิน สาขานครราชสีมา" class="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
-          <span class="text-[11px] text-slate-400">หากเป็นธนาคาร โปรดระบุชื่อสาขาด้วย</span>
-        </label>
-        <datalist id="unit-suggestions">
-          <option value="ที่ว่าการอำเภอ" />
-          <option value="ธนาคารออมสิน สาขา" />
-          <option value="ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (ธ.ก.ส.) สาขา" />
-          <option value="ธนาคารกรุงไทย สาขา" />
-        </datalist>
       </div>
 
       <!-- กิจกรรม -->
@@ -567,7 +556,7 @@ async function remove(id) {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div><span class="text-slate-400">ช่วงเวลา</span> {{ viewTime }}</div>
             <div class="flex items-center gap-2">
-              <span><span class="text-slate-400">หน่วยบริการ</span> {{ viewing.work_unit || '—' }}</span>
+              <span><span class="text-slate-400">หน่วยบริการ</span> {{ auth.user?.work_unit_label || '—' }}</span>
               <a v-if="viewing.lat" :href="`https://www.google.com/maps?q=${viewing.lat},${viewing.lng}`" target="_blank" rel="noopener" class="text-[11px] text-blue-700 underline shrink-0"><i class="fi-rr-marker"></i> แผนที่</a>
             </div>
           </div>

@@ -254,7 +254,7 @@ class AuthController extends Controller
 
     private function presentUser(User $user): array
     {
-        $user->loadMissing('roles:id,name');
+        $user->loadMissing(['roles:id,name', 'amphur:id,name', 'bankChannel:id,name']);
         return [
             'id'             => $user->id,
             'name'           => $user->name,
@@ -271,6 +271,7 @@ class AuthController extends Controller
             'major'           => $user->major,
             'line_id'         => $user->line_id,
             'work_unit_type'  => $user->work_unit_type,
+            'work_unit_label' => $user->work_unit_label,
             'active'          => (bool) $user->active,
             'last_login_at'   => $user->last_login_at,
             'roles'           => $user->roles->pluck('name')->all(),

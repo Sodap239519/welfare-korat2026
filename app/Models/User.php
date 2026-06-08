@@ -69,4 +69,25 @@ class User extends Authenticatable
     {
         return $this->belongsTo(\App\Models\Amphur::class, 'amphur_id');
     }
+
+    /**
+     * ป้ายชื่อ "หน่วยบริการที่ปฏิบัติงาน" ของนักศึกษา (จากข้อมูลตอนสมัคร)
+     * - amphur → "ที่ว่าการอำเภอ{ชื่ออำเภอ}"
+     * - bank   → "{ชื่อธนาคาร} สาขา{ชื่อสาขา}"
+     */
+    public function getWorkUnitLabelAttribute(): ?string
+    {
+        if ($this->work_unit_type === 'amphur') {
+            $name = $this->amphur?->name;
+            return $name ? "ที่ว่าการอำเภอ{$name}" : null;
+        }
+        if ($this->work_unit_type === 'bank') {
+            $bank = $this->bankChannel?->name;
+            if (!$bank) {
+                return null;
+            }
+            return $this->bank_branch ? "{$bank} สาขา{$this->bank_branch}" : $bank;
+        }
+        return null;
+    }
 }
