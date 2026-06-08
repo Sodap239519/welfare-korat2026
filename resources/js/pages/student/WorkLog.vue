@@ -328,7 +328,7 @@ async function remove(id) {
         <div class="mt-2">ยังไม่มีบันทึก — กด "เพิ่มบันทึกวันนี้" เพื่อเริ่ม</div>
       </div>
 
-      <div v-else class="grid gap-3 sm:grid-cols-2">
+      <div v-else class="grid gap-3">
         <div v-for="l in logs" :key="l.id" class="card p-3.5">
           <!-- หัวการ์ด: วันที่ + ป้ายพิกัด + ปุ่ม -->
           <div class="flex items-start justify-between gap-2">
@@ -345,12 +345,14 @@ async function remove(id) {
           </div>
           <!-- สถิติแบบกะทัดรัด: ป้าย ........ ค่า -->
           <div v-if="l.work_unit" class="mt-2 text-xs text-slate-500 truncate"><i class="fi-rr-marker text-slate-400"></i> {{ l.work_unit }}</div>
-          <div class="mt-2 grid grid-cols-2 gap-x-5 gap-y-1 text-xs">
-            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ผู้รับบริการ</span><b>{{ formatNumber(l.service_total || 0) }}</b></div>
-            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ไฟล์แนบ</span><b>{{ formatNumber(l.files_count) }}</b></div>
-            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ลงทะเบียนสำเร็จ</span><b class="text-green-600">{{ formatNumber(l.registered_success) }}</b></div>
-            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">ลงทะเบียนไม่สำเร็จ</span><b class="text-red-500">{{ formatNumber(l.registered_fail) }}</b></div>
-            <div class="flex items-center justify-between gap-2"><span class="text-slate-400">กรณีปัญหา</span><b>{{ formatNumber(l.cases_count) }}</b></div>
+          <div class="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <span>ผู้รับบริการ <b class="text-slate-700 dark:text-slate-200">{{ formatNumber(l.service_total || 0) }}</b> คน</span>
+            <span class="text-slate-300 dark:text-slate-600">/</span>
+            <span>ลงทะเบียน สำเร็จ <b class="text-green-600">{{ formatNumber(l.registered_success) }}</b> คน ไม่สำเร็จ <b class="text-red-500">{{ formatNumber(l.registered_fail) }}</b> คน</span>
+            <span class="text-slate-300 dark:text-slate-600">/</span>
+            <span>กรณีปัญหาที่พบ <b class="text-slate-700 dark:text-slate-200">{{ formatNumber(l.cases_count) }}</b> คน</span>
+            <span class="text-slate-300 dark:text-slate-600">/</span>
+            <span>ไฟล์แนบ <b class="text-slate-700 dark:text-slate-200">{{ formatNumber(l.files_count) }}</b> ไฟล์</span>
           </div>
         </div>
       </div>
