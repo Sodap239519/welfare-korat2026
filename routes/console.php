@@ -44,3 +44,9 @@ Schedule::command('report:three-day')
     ->withoutOverlapping()
     ->onSuccess(fn () => info('[Schedule] three-day report sent'))
     ->onFailure(fn () => info('[Schedule] three-day report FAILED'));
+
+// ล้าง activity_log เก่ากว่า 90 วัน (ตาม config) — กันตารางโตเรื่อยๆ · ตี 3 ทุกวัน
+Schedule::command('activitylog:clean')
+    ->dailyAt('03:00')
+    ->timezone('Asia/Bangkok')
+    ->withoutOverlapping();

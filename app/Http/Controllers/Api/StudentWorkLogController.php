@@ -162,18 +162,19 @@ class StudentWorkLogController extends Controller
         // จำกัด ≤10 ไฟล์/หมวด
         $existing = $log->files()->where('category', $category)->count();
         $saved = [];
+        $dir = "student-files/{$request->user()->id}/{$log->id}";
         foreach ($request->file('files') as $file) {
             if ($existing >= 10) break;
-            $path = $file->store("student-files/{$request->user()->id}/{$log->id}", 'local');
+            [$path, $size, $mime, $name] = $this->storeUploaded($file, $dir);
             $saved[] = StudentWorkFile::create([
                 'work_log_id'   => $log->id,
                 'user_id'       => $request->user()->id,
                 'category'      => $category,
-                'original_name' => $file->getClientOriginalName(),
+                'original_name' => $name,
                 'path'          => $path,
                 'disk'          => 'local',
-                'mime'          => $file->getMimeType(),
-                'size'          => $file->getSize(),
+                'mime'          => $mime,
+                'size'          => $size,
                 'lat'           => $request->input('lat'),
                 'lng'           => $request->input('lng'),
             ]);
@@ -181,6 +182,43 @@ class StudentWorkLogController extends Controller
         }
 
         return response()->json(['message' => 'อัปโหลดไฟล์เรียบร้อย', 'data' => $saved], 201);
+    }
+
+    /** เก็บไฟล์ — รูปที่ GD อ่านได้จะถูกบีบอัด (≤1600px, jpeg 82%) ประหยัดดิสก์; ไฟล์อื่นเก็บตามเดิม */
+    private function storeUploaded($file, string $dir): array
+    {
+        $mime = $file->getMimeType();
+        $orig = $file->getClientOriginalName();
+
+        if (str_starts_with((string) $mime, 'image/') && function_exists('imagecreatefromstring')) {
+            $src = @imagecreatefromstring(@file_get_contents($file->getRealPath()));
+            if ($src) {
+                // แก้การหมุนภาพจากกล้องมือถือ (EXIF orientation)
+                if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
+                    try {
+                        $o = @exif_read_data($file->getRealPath())['Orientation'] ?? 0;
+                        if ($o === 3) $src = imagerotate($src, 180, 0);
+                        elseif ($o === 6) $src = imagerotate($src, -90, 0);
+                        elseif ($o === 8) $src = imagerotate($src, 90, 0);
+                    } catch (\Throwable $e) { /* ignore */ }
+                }
+                $w = imagesx($src); $h = imagesy($src);
+                $max = 1600; $scale = min(1, $max / max($w, $h));
+                $nw = max(1, (int) ($w * $scale)); $nh = max(1, (int) ($h * $scale));
+                $dst = imagecreatetruecolor($nw, $nh);
+                imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+                ob_start(); imagejpeg($dst, null, 82); $data = ob_get_clean();
+                imagedestroy($src); imagedestroy($dst);
+
+                $path = $dir . '/' . \Illuminate\Support\Str::random(40) . '.jpg';
+                \Storage::disk('local')->put($path, $data);
+                return [$path, strlen($data), 'image/jpeg', pathinfo($orig, PATHINFO_FILENAME) . '.jpg'];
+            }
+        }
+
+        // ไฟล์อื่น (pdf/doc/HEIC ที่ GD อ่านไม่ได้) — เก็บตามเดิม
+        $path = $file->store($dir, 'local');
+        return [$path, $file->getSize(), $mime ?: 'application/octet-stream', $orig];
     }
 
     /** DELETE /api/student/work-files/{id} — ลบไฟล์ (เจ้าของเท่านั้น) */
