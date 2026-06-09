@@ -97,6 +97,7 @@ function clearPending() {
 }
 const existingByCat = (cat) => existing.value.filter(f => f.category === cat);
 const fileUrl = (f) => `/api/files/work/${f.id}`;
+const thumb = (u) => u + (u.includes('?') ? '&' : '?') + 'thumb=1';
 async function deleteExisting(f) {
   if (!confirm('ลบไฟล์นี้?')) return;
   await axios.delete(`/api/student/work-files/${f.id}`);
@@ -490,7 +491,7 @@ async function remove(id) {
           <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
             <div v-for="f in existingByCat(c.key)" :key="f.id" class="relative border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
               <a :href="fileUrl(f)" target="_blank" rel="noopener">
-                <img v-if="f.is_image" :src="fileUrl(f)" class="w-full h-24 object-cover" :alt="f.original_name">
+                <img v-if="f.is_image" :src="thumb(fileUrl(f))" loading="lazy" class="w-full h-24 object-cover" :alt="f.original_name">
                 <div v-else class="h-24 flex flex-col items-center justify-center p-1 text-center bg-slate-50 dark:bg-slate-800">
                   <i class="fi-rr-file-pdf text-red-500 text-2xl"></i>
                   <span class="text-[10px] mt-1 line-clamp-2 break-all">{{ f.original_name }}</span>

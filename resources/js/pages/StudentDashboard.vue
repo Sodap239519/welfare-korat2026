@@ -52,6 +52,7 @@ const reportMenu = ref(false);
 function pickReport(g) { reportMenu.value = false; window.open(`/api/student-admin/report?group_by=${g}&` + qs(), '_blank'); }
 function pickDetail() { reportMenu.value = false; exportReport(); }
 const fileUrl = (f) => `/api/files/work/${f.id}`;
+const thumb = (u) => u ? u + (u.includes('?') ? '&' : '?') + 'thumb=1' : u;
 
 // pagination ตารางนักศึกษา (25/หน้า)
 const PER_PAGE = 25;
@@ -208,7 +209,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <button v-for="p in photos" :key="p.id" @click="photoZoom = p"
                   :style="{ flexGrow: p.ar, flexBasis: (p.ar * 160) + 'px' }"
                   class="relative h-32 sm:h-40 md:h-44 rounded-xl overflow-hidden group bg-slate-100 dark:bg-slate-800">
-            <img :src="p.url" loading="lazy" @load="onImgLoad(p, $event)" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+            <img :src="thumb(p.url)" loading="lazy" @load="onImgLoad(p, $event)" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-2 py-1 text-left">
               <div class="text-[10px] text-white truncate">{{ p.student }}</div>
               <div class="text-[9px] text-white/80 truncate">{{ p.work_date?.slice(0, 10) }} · {{ p.unit }}</div>
@@ -217,7 +218,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <!-- ปุ่ม "ดูเพิ่มเติม" — สูงเท่าใบอื่น เติมเต็มแถวสุดท้าย -->
           <button @click="openAllPhotos" :style="{ flexGrow: 1.5, flexBasis: '220px' }"
                   class="relative h-32 sm:h-40 md:h-44 rounded-xl overflow-hidden group bg-slate-800">
-            <img :src="photos[0].url" loading="lazy" class="w-full h-full object-cover opacity-35 group-hover:opacity-25 transition" alt="">
+            <img :src="thumb(photos[0].url)" loading="lazy" class="w-full h-full object-cover opacity-35 group-hover:opacity-25 transition" alt="">
             <div class="absolute inset-0 flex flex-col items-center justify-center text-white">
               <i class="fi-rr-apps text-2xl"></i>
               <span class="text-xs font-medium mt-1">ดูเพิ่มเติม</span>
@@ -364,7 +365,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
                   <div class="grid grid-cols-4 sm:grid-cols-6 gap-2">
                     <a v-for="f in filesOf(expandedLog.files, cat)" :key="f.id" :href="fileUrl(f)" target="_blank" rel="noopener"
                        class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden block">
-                      <img v-if="f.is_image" :src="fileUrl(f)" class="w-full h-16 object-cover" :alt="f.original_name">
+                      <img v-if="f.is_image" :src="thumb(fileUrl(f))" loading="lazy" class="w-full h-16 object-cover" :alt="f.original_name">
                       <div v-else class="h-16 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-800 p-1">
                         <i class="fi-rr-file-pdf text-red-500"></i>
                         <span class="text-[8px] line-clamp-1 break-all">{{ f.original_name }}</span>
@@ -420,7 +421,7 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <div v-else-if="!galleryAll.length" class="text-center text-slate-400 py-8">ไม่พบภาพตามเงื่อนไข</div>
           <div v-else class="grid grid-cols-3 sm:grid-cols-4 gap-2">
             <button v-for="p in galleryAll" :key="p.id" @click="photoZoom = p" class="relative aspect-square rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 group">
-              <img :src="p.url" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
+              <img :src="thumb(p.url)" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition" :alt="p.name">
               <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 text-left">
                 <div class="text-[9px] text-white truncate">{{ p.student }}</div>
               </div>
