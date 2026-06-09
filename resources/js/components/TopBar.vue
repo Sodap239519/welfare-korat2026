@@ -122,8 +122,13 @@ async function doLogout() {
 
 onMounted(async () => {
   document.addEventListener('click', onOutside);
-  await notif.loadUnreadCount();
-  notif.startPolling();
+  // poll แจ้งเตือนเฉพาะเจ้าหน้าที่/แอดมิน — นักศึกษา/ผู้บริหารไม่ได้รับแจ้งเตือน
+  // → ตัดภาระ DB จำนวนมากตอนนักศึกษาเข้าใช้พร้อมกันเยอะ
+  const staffRoles = ['super_admin', 'admin', 'tracker', 'bank_staff'];
+  if (auth.roles.some(r => staffRoles.includes(r))) {
+    await notif.loadUnreadCount();
+    notif.startPolling();
+  }
 });
 onBeforeUnmount(() => {
   document.removeEventListener('click', onOutside);

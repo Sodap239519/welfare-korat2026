@@ -57,7 +57,7 @@ export const useNotificationStore = defineStore('notifications', () => {
   }
   function startPolling() {
     if (poll) return;
-    poll = setInterval(tick, 20_000);
+    poll = setInterval(tick, 60_000);
     visHandler = () => { if (document.visibilityState === 'visible') tick(); };
     document.addEventListener('visibilitychange', visHandler);
   }
