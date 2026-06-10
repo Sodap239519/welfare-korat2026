@@ -287,14 +287,30 @@ async function save() {
     if (id) await axios.patch(`/api/student/work-logs/${id}`, payload);
     else { const { data } = await axios.post('/api/student/work-logs', payload); id = data.data.id; }
 
-    // อัปโหลดไฟล์ที่ค้างแต่ละหมวด
+    // อัปโหลดไฟล์ที่ค้างแต่ละหมวด — แยก error ออกจากการบันทึก log (log บันทึกสำเร็จแล้ว)
+    const fileErrors = [];
     for (const cat of Object.keys(pending)) {
       if (!pending[cat].length) continue;
-      const fd = new FormData();
-      fd.append('category', cat);
-      if (geo.lat != null) { fd.append('lat', geo.lat); fd.append('lng', geo.lng); }
-      pending[cat].forEach(p => fd.append('files[]', p.file));
-      await axios.post(`/api/student/work-logs/${id}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      try {
+        const fd = new FormData();
+        fd.append('category', cat);
+        if (geo.lat != null) { fd.append('lat', geo.lat); fd.append('lng', geo.lng); }
+        pending[cat].forEach(p => fd.append('files[]', p.file));
+        await axios.post(`/api/student/work-logs/${id}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        pending[cat].forEach(p => p.url && URL.revokeObjectURL(p.url));
+        pending[cat] = [];
+      } catch (fe) {
+        const st = fe.response?.status;
+        const label = CATS.find(c => c.key === cat)?.label || cat;
+        fileErrors.push(`${label}${st ? ` (HTTP ${st})` : ''}`);
+      }
+    }
+
+    if (fileErrors.length) {
+      // log บันทึกแล้ว แต่ไฟล์บางส่วนอัปโหลดไม่ผ่าน (มักเป็น PDF ที่โดนไฟร์วอลล์เซิร์ฟเวอร์ (WAF) บล็อก)
+      errorMsg.value = `บันทึกข้อมูลเรียบร้อยแล้ว ✓ แต่อัปโหลดไฟล์ไม่สำเร็จ: ${fileErrors.join(', ')} — หากเป็น PDF อาจถูกไฟร์วอลล์ของเซิร์ฟเวอร์บล็อก โปรดแจ้งผู้ดูแลระบบ (ชั่วคราวแนบเป็นรูปภาพแทนได้)`;
+      await load();
+      return;
     }
 
     showForm.value = false;
@@ -302,7 +318,9 @@ async function save() {
     resetForm();
     await load();
   } catch (e) {
-    errorMsg.value = e.response?.data?.message || 'บันทึกไม่สำเร็จ — ตรวจสอบข้อมูล';
+    const status = e.response?.status;
+    errorMsg.value = e.response?.data?.message
+      || (status ? `บันทึกไม่สำเร็จ (HTTP ${status}) — ตรวจสอบข้อมูล/ไฟล์แนบ` : 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ — ตรวจสอบอินเทอร์เน็ต/SSL');
   } finally {
     saving.value = false;
   }
