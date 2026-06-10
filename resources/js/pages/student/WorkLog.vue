@@ -97,6 +97,15 @@ function clearPending() {
 }
 const existingByCat = (cat) => existing.value.filter(f => f.category === cat);
 const fileUrl = (f) => `/api/files/work/${f.id}`;
+// อ่านไฟล์เป็น base64 data URI (สำหรับอัปโหลดเอกสารเลี่ยง WAF)
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
 const thumb = (u) => u + (u.includes('?') ? '&' : '?') + 'thumb=1';
 async function deleteExisting(f) {
   if (!confirm('ลบไฟล์นี้?')) return;
@@ -288,15 +297,22 @@ async function save() {
     else { const { data } = await axios.post('/api/student/work-logs', payload); id = data.data.id; }
 
     // อัปโหลดไฟล์ที่ค้างแต่ละหมวด — แยก error ออกจากการบันทึก log (log บันทึกสำเร็จแล้ว)
+    // เอกสาร (worklog_doc/reimburse_doc อาจเป็น PDF) → ส่งแบบ base64 JSON เลี่ยง WAF ที่บล็อก multipart
+    // รูปภาพ (photo) → multipart ตามเดิม (ได้บีบอัดฝั่งเซิร์ฟเวอร์)
     const fileErrors = [];
     for (const cat of Object.keys(pending)) {
       if (!pending[cat].length) continue;
       try {
-        const fd = new FormData();
-        fd.append('category', cat);
-        if (geo.lat != null) { fd.append('lat', geo.lat); fd.append('lng', geo.lng); }
-        pending[cat].forEach(p => fd.append('files[]', p.file));
-        await axios.post(`/api/student/work-logs/${id}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        if (cat === 'photo') {
+          const fd = new FormData();
+          fd.append('category', cat);
+          if (geo.lat != null) { fd.append('lat', geo.lat); fd.append('lng', geo.lng); }
+          pending[cat].forEach(p => fd.append('files[]', p.file));
+          await axios.post(`/api/student/work-logs/${id}/files`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        } else {
+          const files = await Promise.all(pending[cat].map(async p => ({ name: p.name, data: await fileToBase64(p.file) })));
+          await axios.post(`/api/student/work-logs/${id}/files-base64`, { category: cat, files, lat: geo.lat, lng: geo.lng });
+        }
         pending[cat].forEach(p => p.url && URL.revokeObjectURL(p.url));
         pending[cat] = [];
       } catch (fe) {

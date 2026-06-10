@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->parameters(['work-logs' => 'id']);
         // ไฟล์แนบ (อัปโหลด/ลบ)
         Route::post('work-logs/{id}/files', [StudentWorkLogController::class, 'uploadFiles'])->whereNumber('id');
+        Route::post('work-logs/{id}/files-base64', [StudentWorkLogController::class, 'uploadFilesBase64'])->whereNumber('id');
         Route::delete('work-files/{id}',    [StudentWorkLogController::class, 'deleteFile'])->whereNumber('id');
         Route::apiResource('case-records', StudentCaseRecordController::class)
             ->except(['show'])->parameters(['case-records' => 'id']);

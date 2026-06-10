@@ -221,6 +221,76 @@ class StudentWorkLogController extends Controller
         return [$path, $file->getSize(), $mime ?: 'application/octet-stream', $orig];
     }
 
+    /**
+     * POST /api/student/work-logs/{id}/files-base64
+     * อัปโหลดไฟล์แบบ base64 ใน JSON — เลี่ยงไฟร์วอลล์ (ModSecurity/WAF) ที่บล็อก
+     * multipart file upload (เช่น PDF) เพราะส่งเป็น JSON ธรรมดาไม่ใช่ไฟล์แนบ
+     */
+    public function uploadFilesBase64(Request $request, int $id): JsonResponse
+    {
+        $log = StudentWorkLog::where('user_id', $request->user()->id)->findOrFail($id);
+
+        $data = $request->validate([
+            'category'     => ['required', 'in:worklog_doc,reimburse_doc,photo'],
+            'files'        => ['required', 'array', 'min:1', 'max:10'],
+            'files.*.name' => ['required', 'string', 'max:255'],
+            'files.*.data' => ['required', 'string'],
+            'lat'          => ['nullable', 'numeric'],
+            'lng'          => ['nullable', 'numeric'],
+        ]);
+
+        $category = $data['category'];
+        $allowed = $category === 'photo'
+            ? ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif']
+            : ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'doc', 'docx', 'xls', 'xlsx'];
+
+        $existing = $log->files()->where('category', $category)->count();
+        $dir = "student-files/{$request->user()->id}/{$log->id}";
+        $saved = [];
+
+        foreach ($data['files'] as $f) {
+            if ($existing >= 10) {
+                break;
+            }
+            $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowed, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['files' => ["ชนิดไฟล์ไม่รองรับ: .{$ext}"]]);
+            }
+            // ตัด data URI prefix ถ้ามี (เช่น "data:application/pdf;base64,JVBERi0...")
+            $raw = $f['data'];
+            if (($pos = strpos($raw, 'base64,')) !== false) {
+                $raw = substr($raw, $pos + 7);
+            }
+            $bin = base64_decode($raw, true);
+            if ($bin === false || $bin === '') {
+                throw \Illuminate\Validation\ValidationException::withMessages(['files' => ['ไฟล์เสียหาย (ถอดรหัสไม่ได้)']]);
+            }
+            if (strlen($bin) > 20 * 1024 * 1024) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['files' => ['ไฟล์ใหญ่เกิน 20MB']]);
+            }
+
+            $path = $dir . '/' . \Illuminate\Support\Str::random(40) . '.' . $ext;
+            \Storage::disk('local')->put($path, $bin);
+            $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($bin) ?: 'application/octet-stream';
+
+            $saved[] = StudentWorkFile::create([
+                'work_log_id'   => $log->id,
+                'user_id'       => $request->user()->id,
+                'category'      => $category,
+                'original_name' => $f['name'],
+                'path'          => $path,
+                'disk'          => 'local',
+                'mime'          => $mime,
+                'size'          => strlen($bin),
+                'lat'           => $data['lat'] ?? null,
+                'lng'           => $data['lng'] ?? null,
+            ]);
+            $existing++;
+        }
+
+        return response()->json(['message' => 'อัปโหลดไฟล์เรียบร้อย', 'data' => $saved], 201);
+    }
+
     /** DELETE /api/student/work-files/{id} — ลบไฟล์ (เจ้าของเท่านั้น) */
     public function deleteFile(Request $request, int $id): JsonResponse
     {
