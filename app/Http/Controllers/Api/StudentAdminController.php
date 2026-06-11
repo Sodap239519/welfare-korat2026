@@ -165,6 +165,11 @@ class StudentAdminController extends Controller
             ->when($request->filled('from'), fn ($q) => $q->whereDate('work_date', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('work_date', '<=', $request->to))
             ->when($request->filled('amphur_id'), fn ($q) => $q->whereHas('user', fn ($u) => $u->where('amphur_id', (int) $request->amphur_id)))
+            ->when($request->filled('work_unit_type'), fn ($q) => $q->whereHas('user', fn ($u) => $u->where('work_unit_type', $request->work_unit_type)))
+            ->when($request->filled('q'), fn ($q) => $q->whereHas('user', function ($u) use ($request) {
+                $kw = '%' . $request->q . '%';
+                $u->where(fn ($w) => $w->where('name', 'like', $kw)->orWhere('student_id', 'like', $kw));
+            }))
             ->orderBy('work_date')
             ->get();
 
@@ -215,6 +220,11 @@ class StudentAdminController extends Controller
             ->when($request->filled('from'), fn ($q) => $q->whereDate('l.work_date', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('l.work_date', '<=', $request->to))
             ->when($request->filled('amphur_id'), fn ($q) => $q->where('u.amphur_id', (int) $request->amphur_id))
+            ->when($request->filled('work_unit_type'), fn ($q) => $q->where('u.work_unit_type', $request->work_unit_type))
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $kw = '%' . $request->q . '%';
+                $q->where(fn ($w) => $w->where('u.name', 'like', $kw)->orWhere('u.student_id', 'like', $kw));
+            })
             ->when($request->filled('bank'), fn ($q) => $q->where('u.work_unit_type', 'bank')->where('u.bank_sub_channel', $request->bank))
             ->select('f.path', 'f.disk', 'f.original_name', 'l.work_date', 'u.name as student', 'a.name as amphur', 'u.work_unit_type', 'u.bank_sub_channel')
             ->orderBy('l.work_date')->limit(2000)->get();
@@ -261,6 +271,11 @@ class StudentAdminController extends Controller
             ->when($request->filled('from'), fn ($q) => $q->whereDate('l.work_date', '>=', $request->from))
             ->when($request->filled('to'), fn ($q) => $q->whereDate('l.work_date', '<=', $request->to))
             ->when($request->filled('amphur_id'), fn ($q) => $q->where('u.amphur_id', (int) $request->amphur_id))
+            ->when($request->filled('work_unit_type'), fn ($q) => $q->where('u.work_unit_type', $request->work_unit_type))
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $kw = '%' . $request->q . '%';
+                $q->where(fn ($w) => $w->where('u.name', 'like', $kw)->orWhere('u.student_id', 'like', $kw));
+            })
             ->select('l.id', 'l.user_id', 'l.registered_success', 'l.registered_fail', 'l.lat', 'l.lng', 'l.work_date',
                 'u.name as student', 'u.faculty', 'u.work_unit_type', 'u.bank_sub_channel', 'u.bank_branch', 'a.name as amphur')
             ->get();
