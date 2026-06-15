@@ -168,6 +168,18 @@ const activityOptions = computed(() => ({
 }));
 const activitySeries = computed(() => d.value?.by_activity.data ?? []);
 const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n > 0));
+// จำนวนนักศึกษาที่ใช้งานรายวัน (คน)
+const usageOptions = computed(() => ({
+  chart: { toolbar: { show: false } },
+  plotOptions: { bar: { borderRadius: 4, columnWidth: '55%', dataLabels: { position: 'top' } } },
+  xaxis: { categories: d.value?.usage_trend?.labels ?? [] },
+  yaxis: { min: 0, forceNiceScale: true, labels: { formatter: (v) => Math.round(v) } },
+  colors: ['#16a34a'],
+  dataLabels: { enabled: true, formatter: (v) => Math.round(v), offsetY: -18, style: { colors: ['#334155'] } },
+  tooltip: { y: { formatter: (v) => `${Math.round(v)} คน` } },
+}));
+const usageSeries = computed(() => [{ name: 'นักศึกษาใช้งาน', data: d.value?.usage_trend?.data ?? [] }]);
+const hasUsage = computed(() => (d.value?.usage_trend?.data ?? []).some(n => n > 0));
 </script>
 
 <template>
@@ -181,6 +193,13 @@ const hasActivity = computed(() => (d.value?.by_activity.data ?? []).some(n => n
           <div class="text-2xl font-bold tabular-nums mt-1">{{ formatNumber(k.value) }}</div>
           <div class="text-xs opacity-70">{{ k.label }}</div>
         </div>
+      </div>
+
+      <!-- จำนวนนักศึกษาที่ใช้งานรายวัน -->
+      <div class="card p-4">
+        <h3 class="font-medium text-sm mb-2"><i class="fi-rr-graduation-cap text-blue-600"></i> จำนวนนักศึกษาที่ใช้งานรายวัน (คน)</h3>
+        <apexchart v-if="hasUsage" type="bar" height="260" :options="usageOptions" :series="usageSeries" />
+        <div v-else class="text-center text-slate-400 py-16 text-sm">ยังไม่มีข้อมูลการใช้งาน</div>
       </div>
 
       <!-- charts -->

@@ -65,6 +65,12 @@ class StudentDashboardController extends Controller
             ->selectRaw('l.work_date as d, SUM(e.service_count) as n')
             ->orderBy('d')->get();
 
+        // จำนวนนักศึกษาที่ใช้งาน (บันทึกงาน) ในแต่ละวัน — distinct user ต่อวัน
+        $usageTrend = $logsBase()
+            ->groupBy('work_date')
+            ->selectRaw('work_date as d, COUNT(DISTINCT user_id) as n')
+            ->orderBy('work_date')->get();
+
         $result = [
             'students'           => $students,
             'work_days'          => $workDays,
@@ -79,6 +85,10 @@ class StudentDashboardController extends Controller
             'trend' => [
                 'labels' => $trend->pluck('d')->map(fn ($d) => \Carbon\Carbon::parse($d)->format('d/m'))->all(),
                 'data'   => $trend->pluck('n')->map(fn ($x) => (int) $x)->all(),
+            ],
+            'usage_trend' => [
+                'labels' => $usageTrend->pluck('d')->map(fn ($d) => \Carbon\Carbon::parse($d)->format('d/m'))->all(),
+                'data'   => $usageTrend->pluck('n')->map(fn ($x) => (int) $x)->all(),
             ],
             'as_of' => now()->toIso8601String(),
         ];
