@@ -71,6 +71,24 @@ class StudentDashboardController extends Controller
             ->selectRaw('work_date as d, COUNT(DISTINCT user_id) as n')
             ->orderBy('work_date')->get();
 
+        // สรุปรายวัน (สำหรับออกรายงาน PDF) — แต่ละวัน: นักศึกษา / บันทึก / ผู้รับบริการ / สำเร็จ / ไม่สำเร็จ
+        $dailyLogs = $logsBase()
+            ->groupBy('work_date')
+            ->selectRaw('work_date as d, COUNT(DISTINCT user_id) as students, COUNT(*) as logs, SUM(registered_success) as success, SUM(registered_fail) as fail')
+            ->orderBy('work_date')->get();
+        $dailyService = $entriesBase()
+            ->groupBy('l.work_date')
+            ->selectRaw('l.work_date as d, SUM(e.service_count) as service')
+            ->get()->keyBy('d');
+        $daily = $dailyLogs->map(fn ($r) => [
+            'date'     => $r->d,
+            'students' => (int) $r->students,
+            'logs'     => (int) $r->logs,
+            'service'  => (int) ($dailyService[$r->d]->service ?? 0),
+            'success'  => (int) $r->success,
+            'fail'     => (int) $r->fail,
+        ])->values();
+
         $result = [
             'students'           => $students,
             'work_days'          => $workDays,
@@ -90,6 +108,7 @@ class StudentDashboardController extends Controller
                 'labels' => $usageTrend->pluck('d')->map(fn ($d) => \Carbon\Carbon::parse($d)->format('d/m'))->all(),
                 'data'   => $usageTrend->pluck('n')->map(fn ($x) => (int) $x)->all(),
             ],
+            'daily' => $daily,
             'as_of' => now()->toIso8601String(),
         ];
 

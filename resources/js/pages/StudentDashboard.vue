@@ -51,6 +51,62 @@ function exportReport() {
 const reportMenu = ref(false);
 function pickReport(g) { reportMenu.value = false; window.open(`/api/student-admin/report?group_by=${g}&` + qs(), '_blank'); }
 function pickDetail() { reportMenu.value = false; exportReport(); }
+
+// ออกรายงานสรุปการใช้งานรายวัน เป็น PDF (พิมพ์/บันทึก PDF จากเบราว์เซอร์)
+const TH_MONTHS_R = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+function thaiDateR(iso) {
+  const [y, m, dd] = String(iso || '').slice(0, 10).split('-').map(Number);
+  return (y && m && dd) ? `${dd} ${TH_MONTHS_R[m - 1]} ${y + 543}` : String(iso || '');
+}
+function printDailyReport() {
+  reportMenu.value = false;
+  const data = d.value;
+  const daily = data?.daily || [];
+  if (!daily.length) { alert('ยังไม่มีข้อมูลการใช้งานรายวัน'); return; }
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (n) => Number(n || 0).toLocaleString('th-TH');
+  const tot = daily.reduce((a, r) => ({ logs: a.logs + r.logs, service: a.service + r.service, success: a.success + r.success, fail: a.fail + r.fail }), { logs: 0, service: 0, success: 0, fail: 0 });
+  const rows = daily.map((r, i) =>
+    `<tr><td class="c">${i + 1}</td><td>${esc(thaiDateR(r.date))}</td><td class="r">${fmt(r.students)}</td><td class="r">${fmt(r.logs)}</td><td class="r">${fmt(r.service)}</td><td class="r">${fmt(r.success)}</td><td class="r">${fmt(r.fail)}</td></tr>`
+  ).join('');
+  const printedAt = thaiDateR(new Date().toISOString());
+  const html =
+`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายงานการใช้งานรายวัน — งานนักศึกษา</title>
+<style>
+@page{size:A4;margin:14mm}
+*{font-family:'Sarabun','TH Sarabun New',Tahoma,sans-serif;box-sizing:border-box}
+body{color:#1e293b;font-size:13px;margin:0}
+h1{font-size:19px;text-align:center;margin:0 0 2px}
+.sub{text-align:center;color:#64748b;font-size:12px;margin-bottom:10px}
+.summary{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:12px;margin-bottom:12px;color:#334155}
+.summary b{color:#0f172a}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid #cbd5e1;padding:5px 7px;vertical-align:top}
+th{background:#f1f5f9;text-align:center}
+.c{text-align:center}.r{text-align:right}
+tfoot td{background:#f8fafc;font-weight:bold}
+.printed{text-align:right;color:#94a3b8;font-size:11px;margin-top:10px}
+</style></head><body onload="window.print()">
+<h1>รายงานสรุปการใช้งานรายวัน (นักศึกษา)</h1>
+<div class="sub">การเข้าร่วมปฏิบัติงานหนุนเสริมการลงทะเบียนบัตรสวัสดิการแห่งรัฐ ปี 2569 จังหวัดนครราชสีมา</div>
+<div class="summary">
+  <span>นักศึกษาทั้งหมด (active) <b>${fmt(data.students)}</b> คน</span>
+  <span>วัน-ครั้งปฏิบัติงานรวม <b>${fmt(data.work_days)}</b></span>
+  <span>ผู้รับบริการรวม <b>${fmt(data.service_total)}</b></span>
+  <span style="color:#16a34a">ลงทะเบียนสำเร็จ <b>${fmt(data.registered_success)}</b></span>
+  <span style="color:#dc2626">ไม่สำเร็จ <b>${fmt(data.registered_fail)}</b></span>
+</div>
+<table>
+<thead><tr><th>#</th><th>วันที่</th><th>นักศึกษา (คน)</th><th>บันทึก</th><th>ผู้รับบริการ</th><th>ลงทะเบียนสำเร็จ</th><th>ไม่สำเร็จ</th></tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr><td class="c" colspan="3">รวม</td><td class="r">${fmt(tot.logs)}</td><td class="r">${fmt(tot.service)}</td><td class="r">${fmt(tot.success)}</td><td class="r">${fmt(tot.fail)}</td></tr></tfoot>
+</table>
+<div class="printed">ออกรายงานเมื่อ ${esc(printedAt)}</div>
+</body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('เบราว์เซอร์บล็อกป๊อปอัป — กรุณาอนุญาต popup เพื่อพิมพ์/บันทึก PDF'); return; }
+  w.document.write(html); w.document.close(); w.focus();
+}
 const fileUrl = (f) => `/api/files/work/${f.id}`;
 const thumb = (u) => u ? u + (u.includes('?') ? '&' : '?') + 'thumb=1' : u;
 
@@ -256,6 +312,9 @@ const hasUsage = computed(() => (d.value?.usage_trend?.data ?? []).some(n => n >
             </button>
             <div v-if="reportMenu" class="fixed inset-0 z-10" @click="reportMenu = false"></div>
             <div v-if="reportMenu" class="absolute right-0 mt-1 w-60 z-20 card p-1">
+              <div class="px-3 py-1 text-[11px] text-slate-400">รายงานรายวัน (PDF)</div>
+              <button @click="printDailyReport()" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-print text-red-600"></i> สรุปการใช้งานรายวัน</button>
+              <hr class="my-1 border-slate-100 dark:border-slate-800">
               <div class="px-3 py-1 text-[11px] text-slate-400">รายงานสรุป (Excel)</div>
               <button @click="pickReport('student')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-user text-blue-600"></i> รายคน</button>
               <button @click="pickReport('amphur')" class="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"><i class="fi-rr-marker text-blue-600"></i> รายอำเภอ</button>
